@@ -4,7 +4,20 @@ A static single-page app for ACTAS paramedics: enter a fortnight's overtime shif
 
 ## Status
 
-**Planning complete, nothing built yet.** Next action is Phase 0 (scaffold + deploy pipeline). Not yet a git repository.
+**Design system built and synced. The app itself does not exist yet.**
+
+`src/ui/` is the Station Ledger component library — 22 components covering the
+nine screens, Vite + TypeScript library build, React the only runtime dep. It is
+pushed to the Claude Design project `ACTAS OT Calculator`
+(`d6df1004-e7c3-46f0-835a-8719984bd989`) so the design agent composes with the
+real components. Render check clean at 22/22; 11 components have graded preview
+cards, 11 are on the deliberate floor card.
+
+Phase 0 has **not** been started: no app entry, no router, no `src/engine/`, no
+GitHub Actions, no deploy. `vite.config.ts` is the *library* config — when the
+app build lands it needs its own config carrying `base: '/OTcalculator/'`.
+
+Remaining design work is in `NEXT_SESSION.md`.
 
 ## Read these first
 
@@ -12,6 +25,9 @@ A static single-page app for ACTAS paramedics: enter a fortnight's overtime shif
 | --- | --- |
 | `IMPLEMENTATION_PLAN.md` | The calculation spec (§3 is authoritative), tech design, 11 phases, risks |
 | `DESIGN_BRIEF.md` | Design language, tokens, 9 screen wireframes, copy deck, a11y |
+| `NEXT_SESSION.md` | What's left on the design system, and how to pick it up |
+| `.design-sync/NOTES.md` | **Read before any design-sync run.** Playwright pin, icon-glyph traps, the `data-theme` cascade, hand-maintained `dtsPropsFor` |
+| `.design-sync/conventions.md` | The component-usage contract the Claude Design agent reads |
 
 §3 of the plan is the product. Everything else is plumbing around it.
 
