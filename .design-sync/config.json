@@ -8,5 +8,14 @@
   "tsconfig": "./tsconfig.json",
   "cssEntry": "./dist/actas-ot-ui.css",
   "tokensGlob": "src/ui/tokens.css",
-  "readmeHeader": ".design-sync/conventions.md"
+  "readmeHeader": ".design-sync/conventions.md",
+  "overrides": {
+    "CalculatorLayout": {
+      "cardMode": "column"
+    }
+  },
+  "dtsPropsFor": {
+    "FigureTable": "  /** Column headers. Omit the leading blank \u2014 it is added for the label column. */\n  columns?: string[];\n  /** One row per figure. Numbers render as money; strings render verbatim. */\n  rows: Array<{\n    label: string;\n    /** Caption under the label \u2014 the \"why\" for a figure that needs one. */\n    note?: string;\n    /** One value per column. */\n    values: (number | string)[];\n    /** 'out' is money leaving; 'net' is reserved for the take-home result. */\n    tone?: 'default' | 'out' | 'net' | 'muted';\n    /** 'always-negative' forces the minus on money-out rows held as positives. */\n    sign?: 'auto' | 'always-negative' | 'none';\n    /** Rule above and heavier weight \u2014 the Net or Taxed on line. */\n    total?: boolean;\n    /** The working behind this row; the label becomes an inspect control. */\n    derivation?: Array<{ label: string; note?: string; values: (number | string)[]; tone?: 'default' | 'out' | 'net' | 'muted'; sign?: 'auto' | 'always-negative' | 'none'; total?: boolean }>;\n  }>;\n  /** Accessible name, e.g. \"Fortnight with and without overtime\". */\n  caption: string;",
+    "InspectableFigure": "  value: number;\n  /** Names the figure for screen readers: \"PAYG tax\". */\n  label: string;\n  /** The working, shown when expanded. */\n  derivation: Array<{ label: string; note?: string; values: (number | string)[]; tone?: 'default' | 'out' | 'net' | 'muted'; sign?: 'auto' | 'always-negative' | 'none'; total?: boolean }>;\n  tone?: 'default' | 'out' | 'net' | 'muted';\n  size?: 'inline' | 'display';\n  sign?: 'auto' | 'always-negative' | 'none';\n  currency?: boolean;"
+  }
 }

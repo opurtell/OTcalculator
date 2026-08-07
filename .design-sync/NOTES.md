@@ -50,6 +50,28 @@ Repo-specific gotchas for future syncs. Read before running anything.
   in both themes passes; re-check with the script in the commit if the palette
   moves.
 
+## Findings from the interaction-components pass (2026-08-07)
+
+- **`display` on a panel outranks the `hidden` attribute.** `InspectableFigure`
+  rendered permanently expanded because `.sl-inspect__panel { display: block }`
+  beat the UA's `[hidden] { display: none }`. Any element styled with an
+  explicit `display` that also relies on `hidden` needs its own
+  `[hidden] { display: none }` rule. `Disclosure` is safe only because its
+  content block never sets `display`.
+- **`✎` is the same trap as `⚠`** — it renders as colour emoji. `TextField`'s
+  override marker is now inline SVG. Treat every icon glyph as suspect.
+- **The shift list's table treatment is a container query, not a media query.**
+  Keyed to the viewport it also fired inside `CalculatorLayout`'s 420px inputs
+  column, where four columns don't fit and the rate breakdown wrapped
+  mid-phrase. `.sl-shift-list` carries `container-type: inline-size` and the
+  columns engage at 560px of list width.
+- **`cfg.dtsPropsFor` is required for `FigureTable` and `InspectableFigure`.**
+  The extractor emitted `rows: FigureRow[]` without ever defining `FigureRow`,
+  so the design agent saw a dangling type and could not know a row takes
+  `label`/`values`/`tone`/`total`/`derivation`. Both props bodies are now
+  hand-written in the config. **If those component props change, update
+  `dtsPropsFor` too** — it is a hand-maintained copy and nothing cross-checks it.
+
 ## Known render warns
 
 Both are unauthored components showing the deliberate floor card, not failures.
@@ -60,10 +82,16 @@ Re-syncs should expect exactly these two and treat any other warn as new.
 
 ## Re-sync risks
 
-- **Authored previews cover 7 of 18 components**: StationLedger, ResultPanel,
-  ShiftRow, ShiftList, FigureTable, Button, AssumptionNote. The other 11 ship
-  fully functional on the floor card and can be authored incrementally on any
-  later re-sync — grades and authored files carry forward.
+- **Authored previews cover 11 of 22 components**: StationLedger, ResultPanel,
+  ShiftRow, ShiftList, FigureTable, Button, AssumptionNote, UndoRow,
+  InspectableFigure, DerivedPayPanel, CalculatorLayout. The other 11 ship fully
+  functional on the floor card and can be authored incrementally on any later
+  re-sync — grades and authored files carry forward.
+- **`UndoRow` previews pass a 10-minute `durationMs`.** At the real 5000ms
+  default the row removes itself before the screenshot and the card captures
+  blank. Keep the override in the preview, never in production callers.
+- **`cardMode: "column"` on `CalculatorLayout`** — its stories are wider than a
+  grid cell and the product card crops them otherwise.
 - **The figures in the previews are unverified.** They come from
   `IMPLEMENTATION_PLAN.md` §4.5, which is computed from the EBA tables and has
   **not** been checked against a real payslip (that is Phase 10). If the golden

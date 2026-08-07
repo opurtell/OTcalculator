@@ -489,29 +489,6 @@
 
 /* -------------------------------------------------------------- ShiftRow */
 
-.sl-shift {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--space-1) var(--space-4);
-  width: 100%;
-  background: var(--surface);
-  border: none;
-  padding: var(--space-4);
-  font-family: inherit;
-  font-size: var(--text-body);
-  color: var(--ink);
-  text-align: left;
-  cursor: pointer;
-}
-
-.sl-shift + .sl-shift {
-  border-top: 1px solid var(--line);
-}
-
-.sl-shift:hover {
-  background: var(--teal-wash);
-}
-
 .sl-shift__when {
   display: flex;
   gap: var(--space-3);
@@ -613,4 +590,319 @@
   color: var(--muted);
   line-height: 1.45;
   margin: 0;
+}
+
+/* -------------------------------------------------------------- ShiftRow
+   The row is a positioned wrapper so the delete action can sit behind it and
+   be revealed by the swipe, rather than pushing layout around. */
+
+.sl-shift-wrap {
+  position: relative;
+  overflow: hidden;
+  background: var(--red);
+}
+
+.sl-shift-wrap + .sl-shift-wrap {
+  border-top: 1px solid var(--line);
+}
+
+.sl-shift-wrap__delete {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 64px;
+  border: none;
+  background: var(--red);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: var(--text-caption);
+  cursor: pointer;
+}
+
+.sl-shift {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  background: var(--surface);
+  transition: transform 160ms ease;
+  touch-action: pan-y;
+}
+
+.sl-shift__main {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-1) var(--space-4);
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  padding: var(--space-4);
+  font-family: inherit;
+  font-size: var(--text-body);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.sl-shift:hover {
+  background: var(--teal-wash);
+}
+
+.sl-shift__menu {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding-right: var(--space-2);
+}
+
+.sl-shift__menu-trigger {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  padding: var(--space-2);
+  cursor: pointer;
+  border-radius: var(--radius-control);
+}
+
+.sl-shift__menu-list {
+  position: absolute;
+  top: 100%;
+  right: var(--space-2);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  padding: var(--space-1);
+}
+
+.sl-shift__menu-list button {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: var(--text-body);
+  color: var(--ink);
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.sl-shift__menu-list button:hover {
+  background: var(--teal-wash);
+}
+
+/* ---------------------------------------------------------------- UndoRow */
+
+.sl-undo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  padding: var(--space-3) var(--space-4);
+  overflow: hidden;
+}
+
+.sl-undo__message {
+  font-size: var(--text-body);
+  color: var(--ink);
+}
+
+.sl-undo__action {
+  flex: none;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: var(--text-body);
+  font-weight: 500;
+  color: var(--teal);
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+}
+
+.sl-undo__bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  background: var(--teal);
+  transform-origin: left;
+  animation: sl-undo-countdown linear forwards;
+}
+
+@keyframes sl-undo-countdown {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sl-undo__bar { display: none; }
+}
+
+/* ------------------------------------------------------ InspectableFigure */
+
+.sl-inspect {
+  display: inline-block;
+}
+
+.sl-inspect__trigger,
+.sl-figures__inspect {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  /* The affordance: present without competing with the figure itself. */
+  text-decoration: underline dotted var(--muted);
+  text-underline-offset: 3px;
+}
+
+.sl-inspect__panel {
+  display: block;
+  margin-top: var(--space-2);
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--line);
+}
+
+/* `display: block` above outranks the hidden attribute's UA `display: none`,
+   so the panel must opt back out explicitly or it renders always-expanded. */
+.sl-inspect__panel[hidden] {
+  display: none;
+}
+
+/* Keeps the label off the figure in the narrow nested derivation tables. */
+.sl-inspect__panel .sl-figures th:first-child,
+.sl-figures__derivation .sl-figures th:first-child {
+  padding-right: var(--space-5);
+}
+
+.sl-figures__derivation > td {
+  padding: var(--space-2) 0 var(--space-3) var(--space-3);
+  border-left: 1px solid var(--line);
+}
+
+/* ----------------------------------------------------------- DerivedPayPanel */
+
+.sl-derived {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  padding: var(--space-4);
+}
+
+.sl-derived--editing {
+  gap: var(--space-4);
+}
+
+.sl-derived__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  font-size: var(--text-figure);
+}
+
+.sl-derived__note {
+  font-size: var(--text-caption);
+  color: var(--muted);
+  margin: var(--space-2) 0 0;
+}
+
+.sl-derived__override {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: var(--text-caption);
+  color: var(--teal);
+  text-align: left;
+  cursor: pointer;
+}
+
+.sl-derived__override:hover {
+  text-decoration: underline;
+}
+
+/* -------------------------------------------------------- CalculatorLayout */
+
+.sl-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.sl-layout__result {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+@media (min-width: 900px) {
+  /* Two columns: inputs left, sticky result right. Same content, no new
+     features — resist filling a 1440px screen (§5.9). */
+  .sl-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 420px) minmax(0, 300px);
+    justify-content: center;
+    align-items: start;
+    gap: var(--space-6);
+  }
+
+  .sl-layout__result {
+    order: 2;
+  }
+
+  .sl-layout__inputs {
+    order: 1;
+  }
+
+}
+
+/* The shift list's table treatment (§5.9) keys off the LIST's own width, not
+   the viewport. Keyed to the viewport it also fires inside the desktop
+   layout's 420px inputs column, where four columns don't fit and the rate
+   breakdown wraps mid-phrase. A container query gives the aligned columns
+   wherever there is genuinely room for them. */
+.sl-shift-list {
+  container-type: inline-size;
+}
+
+@container (min-width: 560px) {
+  .sl-shift__main {
+    grid-template-columns: max-content max-content 1fr auto;
+    align-items: baseline;
+    gap: var(--space-2) var(--space-4);
+  }
+
+  .sl-shift__when {
+    display: contents;
+  }
+
+  .sl-shift__breakdown {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .sl-shift__amount {
+    grid-column: 4;
+    grid-row: 1;
+  }
+
+  .sl-shift__status {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
 }

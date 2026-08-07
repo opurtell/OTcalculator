@@ -59,3 +59,29 @@ export const Derivation = () => (
     </Panel>
   </StationLedger>
 )
+
+/** Rows carrying their own working — the label becomes an inspect control. */
+export const InspectableRows = () => (
+  <StationLedger>
+    <Panel>
+      <FigureTable
+        caption="Fortnight with and without overtime"
+        columns={['no OT', 'with']}
+        rows={[
+          { label: 'Pre-tax', values: [4908.32, 6018.66] },
+          {
+            label: 'PAYG tax',
+            values: [1208.0, 1620.0],
+            tone: 'out',
+            sign: 'always-negative',
+            derivation: [
+              { label: 'Taxed on', values: [6018.66] },
+              { label: 'Scale 2, fortnightly', values: ['NAT 1004'] },
+            ],
+          },
+          { label: 'Net', values: [3700.32, 4398.66], total: true },
+        ]}
+      />
+    </Panel>
+  </StationLedger>
+)

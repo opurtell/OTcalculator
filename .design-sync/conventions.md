@@ -68,8 +68,30 @@ A few helper classes exist for glue: `sl-measure`, `sl-stack`, `sl-heading`,
 5. **Collapsed settings state what's active.** `Disclosure` takes a `summary`
    prop: `Deductions: $611 + 5% · Study debt on`, never a bare `Advanced`.
 6. **`Disclaimer` goes at the foot of every screen.** It takes no props.
-7. Avoid entirely: gradients, card shadows, illustrations, celebration states,
-   progress rings, up-arrows, emoji, marketing language.
+7. **Destructive actions never open a dialog.** Do the thing, then render
+   `UndoRow` — the delete is already done and reversible for five seconds.
+8. **Warnings never block.** Overlapping shifts, 16h+ shifts, out-of-range
+   dates all render as `AssumptionNote`, never as a disabled button. The user
+   knows their roster better than the app does.
+9. Avoid entirely: gradients, card shadows, illustrations, celebration states,
+   progress rings, up-arrows, emoji, marketing language. **Never type an icon
+   glyph** — `⚠` and `✎` render as colour emoji on most platforms. Draw them
+   as inline SVG with `currentColor`, as `AssumptionNote` and `TextField` do.
+
+### Building a screen
+
+Reach for `CalculatorLayout` — it takes the result panel as a `result` prop and
+the inputs as children, stacks below 900px with the result pinned on top, and
+becomes inputs-left / sticky-result-right above it. Nothing else needs writing
+to get the responsive behaviour right.
+
+`ShiftRow` gains a row menu when given `onDelete` / `onDuplicate`; swipe-to-
+delete comes with it as a touch layer, but the menu is the discoverable and
+keyboard-reachable route, so never rely on the gesture alone.
+
+For a figure that needs its working shown, either use `InspectableFigure`
+standalone or give a `FigureTable` row a `derivation` array — both render the
+same dotted-underline affordance.
 
 ### Where the truth lives
 

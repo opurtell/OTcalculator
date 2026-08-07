@@ -61,3 +61,23 @@ export const AcrossMidnight = () => (
     </Panel>
   </StationLedger>
 )
+
+/**
+ * With the row menu. Swipe-to-delete is a touch affordance on top of this —
+ * the menu is the discoverable, keyboard-reachable route to the same actions.
+ */
+export const WithRowMenu = () => (
+  <StationLedger>
+    <Panel flush>
+      <ShiftRow
+        date="Sat 15 Aug"
+        timeRange="09:00–19:00"
+        breakdown="10h · all at 2×"
+        kind="separate"
+        amount={965.51}
+        onDelete={() => {}}
+        onDuplicate={() => {}}
+      />
+    </Panel>
+  </StationLedger>
+)

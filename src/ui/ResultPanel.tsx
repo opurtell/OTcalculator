@@ -45,7 +45,7 @@ export function ResultPanel({
     >
       <p className="sl-result__label">{label}</p>
       <p className="sl-result__amount">
-        <Money value={amount} tone="net" size="display" />
+        <Money value={amount} tone="net" size="display" animate />
       </p>
       <p className="sl-result__unit">{unit}</p>
       {beforeTax !== undefined ? (
