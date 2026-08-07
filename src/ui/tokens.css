@@ -1,0 +1,171 @@
+/*
+ * Station Ledger — design tokens.
+ * Values from DESIGN_BRIEF.md §4. Inherited from the ACTAS Pay Tracker so the
+ * two apps read as one organisation.
+ *
+ * Dark mode is a requirement, not a stretch goal: a 3am shift offer is a real
+ * use case. Light is defined on bare :root so it is always the fallback; dark
+ * is layered by system preference and by explicit [data-theme] in both
+ * directions, so a toggle wins over the media query either way.
+ */
+
+:root {
+  /* Colour — light */
+  --paper: #f5f7f5;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --ink: #172731;
+  --muted: #60727c;
+  --line: #d5dfe1;
+  --teal: #176b6b;
+  /* Label colour for anything filled with --teal. Split from --ink because
+     --teal is light enough in dark mode that white on it fails 4.5:1. */
+  --on-teal: #ffffff;
+  --green: #25704d;
+  --amber: #9a6413;
+  --red: #a04b3e;
+
+  /* Tinted washes for the amber assumption block and the result panel.
+     Kept as tokens so dark mode can retune them independently. */
+  --amber-wash: #fdf6ea;
+  --teal-wash: #eef4f4;
+
+  /* Type.
+     The sans is the system stack by design — §4.2 permits it, and it costs no
+     bytes on a device that already has it. The mono is shipped (fonts.css)
+     because digit alignment is load-bearing here and a fallback would break
+     the columns. */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo,
+    Consolas, 'Liberation Mono', monospace;
+
+  --text-result: 40px;
+  --text-result-lg: 52px;
+  --text-result-support: 15px;
+  --text-result-support-lg: 16px;
+  --text-heading: 17px;
+  --text-heading-lg: 19px;
+  --text-body: 15px;
+  --text-figure: 15px;
+  --text-figure-lg: 16px;
+  --text-caption: 13px;
+
+  /* Spacing — 4 · 8 · 12 · 16 · 24 · 32 · 48 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* Shape */
+  --radius-control: 4px;
+  --radius-panel: 8px;
+  --radius-result: 12px;
+
+  /* Elevation — essentially none. The result panel is the only exception. */
+  --shadow-result: 0 1px 2px rgba(0, 0, 0, 0.04);
+
+  /* Layout */
+  --measure: 720px;
+
+  /* Focus — 2px teal, offset 2px (§8) */
+  --focus-ring: 2px solid var(--teal);
+  --focus-offset: 2px;
+
+  --duration-figure: 200ms;
+}
+
+/*
+ * Theme resolution.
+ *
+ * `data-theme` is stamped by <StationLedger> on its own wrapper div, NOT on
+ * :root — so the explicit blocks below must match ANY element, not `:root[…]`.
+ * Custom properties inherit, so setting them on the wrapper cascades to
+ * everything inside it, and an element's own declaration beats a value it
+ * would otherwise inherit. That is what lets a light island sit inside a dark
+ * page, and it is why both explicit blocks are unscoped.
+ *
+ * The palettes are spelled out three times rather than twice because CSS has
+ * no mixins: light on :root as the always-present fallback, dark under the
+ * system preference, then each again as an explicit override that wins over
+ * the media query in both directions.
+ */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --paper: #0d151b;
+    --surface: #141f27;
+    --surface-raised: #1a2831;
+    --ink: #e8eef1;
+    --muted: #94a6b0;
+    --line: #2a3a45;
+    --teal: #3d9b9b;
+    --on-teal: #0d151b;
+    --green: #4fa87b;
+    --amber: #d19a3f;
+    --red: #c97a6c;
+
+    --amber-wash: #241d10;
+    --teal-wash: #16252b;
+
+    --shadow-result: 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+}
+
+[data-theme='dark'] {
+  --paper: #0d151b;
+  --surface: #141f27;
+  --surface-raised: #1a2831;
+  --ink: #e8eef1;
+  --muted: #94a6b0;
+  --line: #2a3a45;
+  --teal: #3d9b9b;
+  --on-teal: #0d151b;
+  --green: #4fa87b;
+  --amber: #d19a3f;
+  --red: #c97a6c;
+
+  --amber-wash: #241d10;
+  --teal-wash: #16252b;
+
+  --shadow-result: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Needed as its own block: when the OS is dark, :root has already been
+   repainted above, so a light island has to restate the light palette. */
+[data-theme='light'] {
+  --paper: #f5f7f5;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --ink: #172731;
+  --muted: #60727c;
+  --line: #d5dfe1;
+  --teal: #176b6b;
+  --on-teal: #ffffff;
+  --green: #25704d;
+  --amber: #9a6413;
+  --red: #a04b3e;
+
+  --amber-wash: #fdf6ea;
+  --teal-wash: #eef4f4;
+
+  --shadow-result: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+@media (min-width: 900px) {
+  :root {
+    --text-result: var(--text-result-lg);
+    --text-result-support: var(--text-result-support-lg);
+    --text-heading: var(--text-heading-lg);
+    --text-figure: var(--text-figure-lg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-figure: 0ms;
+  }
+}

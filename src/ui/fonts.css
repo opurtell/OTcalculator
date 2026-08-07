@@ -1,0 +1,27 @@
+/*
+ * IBM Plex Mono — the money face. Self-hosted, latin subset, no CDN: the app
+ * has to work in an ambulance station basement with no signal.
+ *
+ * Two weights only, matching the type scale: 400 for table figures, 600 for
+ * the headline result. The interface sans is the system stack (§4.2 permits
+ * it) — this is the one family whose exact shapes carry the design, because
+ * every column of money in the app aligns on its tabular digits.
+ *
+ * Licensed under the SIL Open Font License 1.1, vendored from @fontsource.
+ */
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./fonts/ibm-plex-mono-latin-600-normal.woff2') format('woff2');
+}

@@ -1,0 +1,616 @@
+/*
+ * Component styles. One block per component, in the order they appear in
+ * index.ts. Hairline borders in --line are the primary organising device;
+ * nothing but the result panel gets a shadow (§4.3).
+ */
+
+/* ---------------------------------------------------------------- Button */
+
+.sl-btn {
+  font-family: inherit;
+  font-size: var(--text-body);
+  font-weight: 500;
+  line-height: 1;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-control);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.sl-btn--primary {
+  background: var(--teal);
+  color: var(--on-teal);
+  border-color: var(--teal);
+}
+
+.sl-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.sl-btn--secondary {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+.sl-btn--secondary:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+.sl-btn--ghost {
+  background: transparent;
+  color: var(--teal);
+  border-color: transparent;
+  padding-inline: var(--space-2);
+}
+
+.sl-btn--ghost:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.sl-btn--block {
+  display: block;
+  width: 100%;
+}
+
+.sl-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ------------------------------------------------------- SegmentedControl */
+
+.sl-seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: var(--space-2);
+}
+
+.sl-seg--compact {
+  grid-auto-columns: minmax(44px, max-content);
+  justify-content: start;
+}
+
+.sl-seg__option {
+  font-family: inherit;
+  font-size: var(--text-body);
+  padding: var(--space-3) var(--space-2);
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  text-align: center;
+}
+
+/* Selection is carried by fill AND weight, never colour alone (§4.1). */
+.sl-seg__option[aria-checked='true'] {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: var(--on-teal);
+  font-weight: 600;
+}
+
+.sl-seg__option-note {
+  display: block;
+  font-size: var(--text-caption);
+  font-weight: 400;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+/* ------------------------------------------------------------------ Tabs */
+
+.sl-tabs {
+  display: flex;
+  gap: var(--space-5);
+  border-bottom: 1px solid var(--line);
+}
+
+.sl-tabs__tab {
+  font-family: inherit;
+  font-size: var(--text-body);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  padding: var(--space-3) 0;
+  margin-bottom: -1px;
+  cursor: pointer;
+}
+
+.sl-tabs__tab[aria-selected='true'] {
+  color: var(--ink);
+  font-weight: 600;
+  border-bottom-color: var(--teal);
+}
+
+/* ------------------------------------------------- TextField / SelectField */
+
+.sl-field {
+  display: block;
+}
+
+.sl-field__shell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 0 var(--space-3);
+}
+
+.sl-field__shell:focus-within {
+  border-color: var(--teal);
+}
+
+.sl-field__input,
+.sl-field__select {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: var(--text-body);
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  padding: var(--space-3) 0;
+}
+
+.sl-field__input:focus,
+.sl-field__select:focus {
+  outline: none;
+}
+
+/* Money and hour entry uses the mono face so what you type matches what the
+   app prints back at you. */
+.sl-field__input--figure {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-field__affix {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-body);
+  flex: none;
+}
+
+.sl-field__select {
+  appearance: none;
+  cursor: pointer;
+}
+
+.sl-field__chevron {
+  flex: none;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.sl-field__overridden {
+  color: var(--amber);
+  flex: none;
+}
+
+/* ---------------------------------------------------------------- Toggle */
+
+.sl-toggle {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  background: none;
+  border: none;
+  padding: var(--space-3) 0;
+  font-family: inherit;
+  font-size: var(--text-body);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.sl-toggle__track {
+  flex: none;
+  width: 40px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  position: relative;
+  transition: background-color 120ms ease;
+}
+
+.sl-toggle[aria-checked='true'] .sl-toggle__track {
+  background: var(--teal);
+  border-color: var(--teal);
+}
+
+.sl-toggle__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface);
+  transition: transform 120ms ease;
+}
+
+.sl-toggle[aria-checked='true'] .sl-toggle__thumb {
+  transform: translateX(16px);
+}
+
+.sl-toggle__description {
+  display: block;
+  font-size: var(--text-caption);
+  color: var(--muted);
+  margin-top: var(--space-1);
+}
+
+/* ----------------------------------------------------------------- Panel */
+
+.sl-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  padding: var(--space-4);
+}
+
+.sl-panel--raised {
+  background: var(--surface-raised);
+}
+
+.sl-panel--flush {
+  padding: 0;
+}
+
+/* ------------------------------------------------------------ EmptyState */
+
+.sl-empty {
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-panel);
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  color: var(--muted);
+}
+
+.sl-empty__title {
+  color: var(--ink);
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-body);
+  font-weight: 500;
+}
+
+.sl-empty__body {
+  margin: 0;
+  font-size: var(--text-body);
+}
+
+/* ------------------------------------------------------------ Disclosure */
+
+.sl-disclosure {
+  border-top: 1px solid var(--line);
+}
+
+.sl-disclosure__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  background: none;
+  border: none;
+  padding: var(--space-3) 0;
+  font-family: inherit;
+  font-size: var(--text-body);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The collapsed summary states what is active — never a bare "Advanced ▸"
+   (§7). This span is where that promise is kept. */
+.sl-disclosure__summary {
+  display: block;
+  font-size: var(--text-caption);
+  color: var(--muted);
+  margin-top: var(--space-1);
+}
+
+.sl-disclosure__marker {
+  flex: none;
+  color: var(--muted);
+  transition: transform 120ms ease;
+}
+
+.sl-disclosure__trigger[aria-expanded='true'] .sl-disclosure__marker {
+  transform: rotate(90deg);
+}
+
+.sl-disclosure__content {
+  padding-bottom: var(--space-4);
+}
+
+/* -------------------------------------------------------- AssumptionNote */
+
+.sl-note {
+  display: flex;
+  gap: var(--space-3);
+  border-left: 2px solid var(--amber);
+  background: var(--amber-wash);
+  padding: var(--space-3) var(--space-4);
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  font-size: var(--text-body);
+  color: var(--ink);
+}
+
+.sl-note__icon {
+  flex: none;
+  color: var(--amber);
+  margin-top: 3px;
+}
+
+.sl-note__body > :first-child {
+  margin-top: 0;
+}
+
+.sl-note__body > :last-child {
+  margin-bottom: 0;
+}
+
+/* ----------------------------------------------------------------- Money */
+
+.sl-money {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  white-space: nowrap;
+}
+
+/* --red is money leaving, never error or alarm. --green is the net result
+   only, so it keeps meaning something (§4.1). */
+.sl-money--out {
+  color: var(--red);
+}
+
+.sl-money--net {
+  color: var(--green);
+}
+
+.sl-money--muted {
+  color: var(--muted);
+}
+
+.sl-money--display {
+  font-size: var(--text-result);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+/* ----------------------------------------------------------- FigureTable */
+
+.sl-figures {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-figure);
+}
+
+.sl-figures th,
+.sl-figures td {
+  padding: var(--space-2) 0;
+  text-align: right;
+}
+
+.sl-figures th:first-child,
+.sl-figures td:first-child {
+  text-align: left;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.sl-figures thead th {
+  font-size: var(--text-caption);
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.sl-figures td + td,
+.sl-figures th + th {
+  padding-left: var(--space-4);
+}
+
+/* The rule spans the label column too — a total whose line starts halfway
+   across the table reads as a stray border rather than a sum. */
+.sl-figures__row--total th,
+.sl-figures__row--total td {
+  border-top: 1px solid var(--line);
+  font-weight: 600;
+  padding-top: var(--space-3);
+}
+
+.sl-figures__note {
+  display: block;
+  font-size: var(--text-caption);
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* ----------------------------------------------------------- ResultPanel */
+
+.sl-result {
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-result);
+  box-shadow: var(--shadow-result);
+  padding: var(--space-5);
+}
+
+.sl-result--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.sl-result__label {
+  font-size: var(--text-result-support);
+  color: var(--muted);
+  margin: 0;
+}
+
+.sl-result__amount {
+  margin: var(--space-3) 0 var(--space-1);
+  transition: opacity var(--duration-figure) ease;
+}
+
+.sl-result__unit {
+  font-size: var(--text-result-support);
+  color: var(--muted);
+}
+
+.sl-result__support {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-result-support);
+  color: var(--muted);
+}
+
+.sl-result__support-line {
+  display: block;
+}
+
+.sl-result__divider {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: var(--space-4) calc(var(--space-5) * -1) var(--space-4);
+}
+
+/* -------------------------------------------------------------- ShiftRow */
+
+.sl-shift {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-1) var(--space-4);
+  width: 100%;
+  background: var(--surface);
+  border: none;
+  padding: var(--space-4);
+  font-family: inherit;
+  font-size: var(--text-body);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.sl-shift + .sl-shift {
+  border-top: 1px solid var(--line);
+}
+
+.sl-shift:hover {
+  background: var(--teal-wash);
+}
+
+.sl-shift__when {
+  display: flex;
+  gap: var(--space-3);
+  font-weight: 500;
+}
+
+.sl-shift__time {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.sl-shift__amount {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+  font-weight: 500;
+}
+
+/* Where the app teaches the EBA rules without a tutorial (§5.4). */
+.sl-shift__breakdown {
+  font-size: var(--text-caption);
+  color: var(--muted);
+}
+
+.sl-shift__status {
+  grid-column: 1;
+  font-size: var(--text-caption);
+  color: var(--muted);
+}
+
+.sl-shift__status--minimum {
+  color: var(--amber);
+}
+
+.sl-shift-list {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  overflow: hidden;
+}
+
+.sl-shift-list__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.sl-shift-list__count {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: var(--text-figure);
+}
+
+/* ----------------------------------------------------------------- Sheet */
+
+.sl-sheet {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+  padding: var(--space-5);
+}
+
+.sl-sheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.sl-sheet__close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  padding: var(--space-1);
+  cursor: pointer;
+}
+
+.sl-sheet__footer {
+  margin-top: var(--space-5);
+}
+
+@media (min-width: 900px) {
+  .sl-sheet {
+    border-radius: var(--radius-panel);
+  }
+}
+
+/* ------------------------------------------------------------ Disclaimer */
+
+.sl-disclaimer {
+  font-size: var(--text-caption);
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
