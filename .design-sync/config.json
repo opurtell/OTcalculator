@@ -12,6 +12,9 @@
   "overrides": {
     "CalculatorLayout": {
       "cardMode": "column"
+    },
+    "Sheet": {
+      "cardMode": "column"
     }
   },
   "dtsPropsFor": {

@@ -29,7 +29,7 @@ design tokens, all defined in `styles.css`:
 
 | Group | Tokens |
 | --- | --- |
-| Surface | `--paper` `--surface` `--surface-raised` |
+| Surface | `--paper` `--surface` `--surface-raised` — note `--surface-raised` equals `--surface` in light mode and only separates in dark, so `Panel variant="raised"` is deliberately a no-op on a light background |
 | Text | `--ink` `--muted` |
 | Line | `--line` |
 | Accent | `--teal` `--green` `--amber` `--red` |

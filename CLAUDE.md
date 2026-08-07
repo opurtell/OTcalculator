@@ -10,8 +10,8 @@ A static single-page app for ACTAS paramedics: enter a fortnight's overtime shif
 nine screens, Vite + TypeScript library build, React the only runtime dep. It is
 pushed to the Claude Design project `ACTAS OT Calculator`
 (`d6df1004-e7c3-46f0-835a-8719984bd989`) so the design agent composes with the
-real components. Render check clean at 22/22; 11 components have graded preview
-cards, 11 are on the deliberate floor card.
+real components. Render check clean at 22/22 with zero warns; all 22 components
+have authored preview cards graded good — no floor-card tier remains.
 
 Phase 0 has **not** been started: no app entry, no router, no `src/engine/`, no
 GitHub Actions, no deploy. `vite.config.ts` is the *library* config — when the

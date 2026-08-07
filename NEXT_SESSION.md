@@ -1,8 +1,7 @@
-# Handoff — floor-card previews and the nine screens
+# Handoff — the nine screens
 
-Two pieces of work remain on the design system. They are independent; do them
-in either order. **Task A is Claude Code. Task B happens in the browser** —
-Claude Code cannot drive the Claude Design agent.
+**Task A is done** (2026-08-07). One piece of work remains, and **it happens in
+the browser** — Claude Code cannot drive the Claude Design agent.
 
 ## Where things stand
 
@@ -10,7 +9,8 @@ Claude Code cannot drive the Claude Design agent.
 TypeScript, no runtime deps beyond React. It is synced to the Claude Design
 project **ACTAS OT Calculator** (`d6df1004-e7c3-46f0-835a-8719984bd989`,
 https://claude.ai/design/p/d6df1004-e7c3-46f0-835a-8719984bd989). Render check
-is clean at 22/22; 11 components have authored preview cards graded good.
+is clean at 22/22 with **zero warn lines**, and **all 22 components have
+authored preview cards graded good** — there is no floor-card tier left.
 
 There is no app yet — this is the design system only. Phase 0 of
 `IMPLEMENTATION_PLAN.md` has not been started.
@@ -23,67 +23,23 @@ brief the design agent itself reads.
 
 ---
 
-## Task A — author previews for the 11 floor-card components
+## Task A — author previews for the 11 floor-card components — **DONE**
 
-These ship fully functional in the bundle but have no rich preview card. They
-are the deliberate baseline, not failures.
+Completed 2026-08-07. `Disclaimer`, `Disclosure`, `EmptyState`, `Money`,
+`Panel`, `SegmentedControl`, `SelectField`, `Sheet`, `Tabs`, `TextField` and
+`Toggle` all now have authored previews in `.design-sync/previews/`, graded good
+and uploaded. Every component carries a `Dark` cell, because dark mode broke
+silently here once while passing all mechanical checks.
 
-**Start by typing `/design-sync`** — the skill is reserved for explicit user
-invocation and cannot be called by the model. It will detect the pinned
-`projectId` in `.design-sync/config.json`, so this is a re-sync: the anchor
-lets it skip the 11 already-graded components entirely.
+Two findings worth carrying forward (both recorded in `.design-sync/NOTES.md`):
 
-Write one `.design-sync/previews/<Name>.tsx` per component. Each named export
-is one graded card cell. Budget 2–6 exports each. Import from `'actas-ot-ui'`
-and **wrap every cell in `<StationLedger>`** or it renders unstyled.
+- `Panel variant="raised"` is **invisible in light mode by design** —
+  `--surface` and `--surface-raised` are both `#ffffff` and only separate in
+  dark. Its preview renders dark so the variant is actually visible.
+- `Sheet` needed `cardMode: "column"`, same as `CalculatorLayout`.
 
-| Component | Cells worth having |
-| --- | --- |
-| `TextField` | hours (`suffix="h"`, `numeric`), money (`prefix="$"`), percent, with `hint`, `overridden` |
-| `SelectField` | classification picker (the AP1–AP4 list), date picker, with `hint` |
-| `SegmentedControl` | pay step 1–4 (`size="compact"`), the continuous/separate choice with its 4-hour-minimum `hint` and two-line `note` |
-| `Toggle` | tax-free threshold on, study loan off, one with a `description` |
-| `Tabs` | Quick / Fortnight, each selection state |
-| `Panel` | default, `raised`, `flush` holding rows |
-| `Money` | default, `tone="out"`, `tone="net"`, `size="display"`, `sign="always-negative"` |
-| `Disclosure` | collapsed **with a real summary** (`Deductions: $611 + 5% · Study debt on`), expanded, one nesting a `FigureTable` |
-| `Disclaimer` | one cell; it takes no props |
-| `EmptyState` | the no-shifts state, one other |
-| `Sheet` | the full Add OT shift composition — date, start/end, the continuous/separate control, the live preview panel, the footer button. This is §5.5 and it is the most valuable card in this batch |
-
-Use the real figures from `IMPLEMENTATION_PLAN.md` §4.5 throughout — AP1 Step 2,
-$4,908.32 base, the Saturday 10h and Wednesday 2h shifts, $698.34 net delta.
-Never `foo`/`test`: humans browse these cards and the design agent imitates
-them.
-
-### Traps that already bit this repo
-
-- **Never type an icon glyph.** `⚠` and `✎` render as colour emoji and the
-  brief bans emoji. `package-validate.mjs` also treats a leading `⚠` in a cell
-  as its own error sentinel, so a component rendering one reports phantom page
-  errors whose "messages" are its own text. Draw icons as inline SVG with
-  `currentColor`.
-- **Anything styled with an explicit `display` that relies on the `hidden`
-  attribute needs its own `[hidden] { display: none }` rule**, or it renders
-  permanently expanded.
-- **A preview whose component self-destructs on a timer captures blank.**
-  `UndoRow` previews pass a 10-minute `durationMs` for this reason.
-- Check both themes. Dark mode broke once while passing every mechanical check
-  — only the review screenshots caught it.
-
-### The gate
-
-Follow the skill's loop: build → validate → capture → **read each
-`ds-bundle/_screenshots/review/<group>__<Name>.png`** → write verdicts to
-`.design-sync/.cache/review/<Name>.grade.json`. Never grade a sheet you have
-not looked at. Iterate until every cell is `good`, then upload.
-
-Expect exactly two `[RENDER_THIN]` warns to disappear as `EmptyState` and
-`Sheet` get authored. Any other warn is new — investigate it.
-
-Afterwards, commit the durable set (`.design-sync/config.json`, `NOTES.md`,
-`conventions.md`, `previews/`). `upload-manifest.txt` and `upload-batch.json`
-are gitignored scratch.
+Re-running `/design-sync` from here is a no-op unless `src/ui/` changes: the
+anchor carries all 22 grades forward.
 
 ---
 

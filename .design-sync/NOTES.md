@@ -15,6 +15,20 @@ Repo-specific gotchas for future syncs. Read before running anything.
 - Build order in `package.json` is `vite build && tsc`, deliberately. Reversed,
   Vite's `emptyOutDir` wipes the declarations tsc just emitted and the
   converter finds no `.d.ts` tree.
+- **The dist entry is `./dist/actas-ot-ui.js`** (Vite library mode names it from
+  the package, so it is not `index.es.js` as the skill's example assumes). The
+  whole re-sync, from the repo root, is:
+
+  ```sh
+  node .ds-sync/resync.mjs --config .design-sync/config.json \
+    --node-modules ./node_modules --entry ./dist/actas-ot-ui.js \
+    --out ./ds-bundle --remote .design-sync/.cache/remote-sync.json
+  ```
+
+  `--node-modules ./node_modules` is correct here — single package, no monorepo.
+- **Don't `cd` into `ds-bundle/` before calling `DesignSync`.** The shell's
+  working directory persists between tool calls and `finalize_plan` resolves
+  `localDir: "./ds-bundle"` against it, so it fails with `ds-bundle/ds-bundle`.
 
 ## Findings from the first sync (2026-08-07)
 
@@ -72,26 +86,54 @@ Repo-specific gotchas for future syncs. Read before running anything.
   hand-written in the config. **If those component props change, update
   `dtsPropsFor` too** — it is a hand-maintained copy and nothing cross-checks it.
 
+## Findings from the floor-card pass (2026-08-07)
+
+All 11 remaining components were authored, so **every one of the 22 now has a
+graded preview** and the floor card is no longer used anywhere in this repo.
+
+- **`Panel variant="raised"` is invisible in light mode, by design.** `--surface`
+  and `--surface-raised` are both `#ffffff` there; they only separate in dark
+  (`#141f27` vs `#1a2831`). A light-mode `Raised` cell is therefore pixel-identical
+  to `Default` and reads as a broken card. The preview renders it dark, stacking
+  default above raised so the one-step lift is actually visible. Any future
+  variant preview should first check whether its tokens differ in the theme it
+  is being shown in.
+- **`Sheet` needs `cardMode: "column"`** — same reason as `CalculatorLayout`. Its
+  exports are a full add-shift composition, wider than a grid cell, and
+  `[GRID_OVERFLOW]` flags them as `wide` without it.
+- **`Sheet`'s close button renders a literal `✕` (U+2715) and that one is safe.**
+  Unlike `⚠` and `✎` it has no emoji presentation, so it draws as a plain glyph
+  and does not trip the validator's in-cell error sentinel. It is the one typed
+  glyph in the library — leave it, but do not read it as licence to type others.
+- Classification labels are `AP1`/`AP2`/`ICP1`/`ICP2` where the `2` levels mean
+  *additional responsibilities* (AP2: Teaching and Development Officer, Station
+  Officer, Duty Officer; ICP2: CSO, DO) — **not** a different qualification. The
+  descriptions live in the sibling project's plan docs. An earlier draft of the
+  `SelectField` preview had AP2 and ICP1 sharing a name; that was wrong.
+- `Disclosure` hides its `summary` once open — expected, the summary describes
+  the collapsed state. Do not treat a summary-less expanded cell as a defect.
+
 ## Known render warns
 
-Both are unauthored components showing the deliberate floor card, not failures.
-Re-syncs should expect exactly these two and treat any other warn as new.
-
-- `[RENDER_THIN] EmptyState` — no authored preview yet.
-- `[RENDER_THIN] Sheet` — no authored preview yet.
+**None.** The build is clean at 22/22 with zero warn lines. Both prior
+`[RENDER_THIN]` warns (`EmptyState`, `Sheet`) are gone now that those components
+have authored previews. **Any warn on a future re-sync is new** — investigate it
+rather than matching it against this list.
 
 ## Re-sync risks
 
-- **Authored previews cover 11 of 22 components**: StationLedger, ResultPanel,
-  ShiftRow, ShiftList, FigureTable, Button, AssumptionNote, UndoRow,
-  InspectableFigure, DerivedPayPanel, CalculatorLayout. The other 11 ship fully
-  functional on the floor card and can be authored incrementally on any later
-  re-sync — grades and authored files carry forward.
+- **Authored previews now cover all 22 components** — there is no floor-card
+  tier left in this repo. A re-sync that reports floor cards means preview
+  `.tsx` files failed to compile (check the build log for
+  `! preview build failed`), not that authoring is outstanding.
+- **Every component has a `Dark` cell.** Dark mode broke silently once here
+  while passing all mechanical checks, so the theme is exercised per-component
+  rather than trusted globally. Keep that cell when editing a preview.
 - **`UndoRow` previews pass a 10-minute `durationMs`.** At the real 5000ms
   default the row removes itself before the screenshot and the card captures
   blank. Keep the override in the preview, never in production callers.
-- **`cardMode: "column"` on `CalculatorLayout`** — its stories are wider than a
-  grid cell and the product card crops them otherwise.
+- **`cardMode: "column"` on `CalculatorLayout` and `Sheet`** — their stories are
+  wider than a grid cell and the product card crops them otherwise.
 - **The figures in the previews are unverified.** They come from
   `IMPLEMENTATION_PLAN.md` §4.5, which is computed from the EBA tables and has
   **not** been checked against a real payslip (that is Phase 10). If the golden
