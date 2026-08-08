@@ -24,7 +24,9 @@ import type { Attendance } from '../engine/attendance'
 import { ordinaryFortnightlyGross, ROSTER_ADJUSTMENT_RATE } from '../engine/tax'
 import { otHourlyRate } from '../engine/overtime'
 import type { FortnightResult, FortnightSettings } from '../engine/fortnight'
+import { RATES_EFFECTIVE_FROM } from '../data'
 import { describeAttendance } from './shifts'
+import { formatIsoDateAu } from './inputs'
 import { formatShortDate } from './dates'
 import { formatMoney } from '../ui/format'
 import type { FigureRow } from '../ui/FigureTable'
@@ -191,7 +193,12 @@ export function ordinaryPayRows(settings: FortnightSettings): FigureRow[] {
   return [
     {
       label: 'Base salary',
-      note: `${band.classification} Step ${band.step} · per year`,
+      // The copy deck's rate-currency rule: never show a table-derived figure
+      // with nothing said about which rates produced it. This is the working,
+      // so it is the one place the date belongs beside the salary itself.
+      note: `${band.classification} Step ${band.step} · per year · rates effective ${formatIsoDateAu(
+        RATES_EFFECTIVE_FROM,
+      )}`,
       values: [band.annualBase],
     },
     {
@@ -272,7 +279,10 @@ export function paygRows(
   ]
 
   rows.push({
-    label: 'PAYG withheld',
+    // "PAYG tax" everywhere, including inside the working — the copy deck
+    // rejects "withholding" as jargon, and this is the same figure the
+    // comparison table names, so it must read the same way.
+    label: 'PAYG tax',
     note: scaleName,
     values: [withOt.payg],
     total: true,

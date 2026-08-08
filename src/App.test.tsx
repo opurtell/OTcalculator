@@ -148,6 +148,32 @@ describe('App', () => {
     expect(html).toContain('AP1 Step 1')
   })
 
+  it('says so when part of the stored record had to be defaulted', () => {
+    // §4.4 repairs fields individually rather than discarding the record, so
+    // the user can be looking at a band they never set. Silently swapping a
+    // pay band is the one outcome the read must never produce quietly.
+    const store = storeWith(AP1_STEP_2)
+    const record = JSON.parse(store.value ?? '{}')
+    delete record.deductions
+    store.value = JSON.stringify(record)
+
+    const html = renderToStaticMarkup(<App store={store} />)
+    expect(html).toContain('set back to the defaults')
+    // Still a working calculator on the band that did survive.
+    expect(html).toContain('AP1 Step 2')
+  })
+
+  it('explains itself when the record cannot be read at all', () => {
+    const store = fakeStore()
+    store.setItem(PREFERENCES_KEY, '{not json')
+
+    const html = renderToStaticMarkup(<App store={store} />)
+    expect(html).toContain('Set your pay band')
+    // Apostrophes come out HTML-encoded, so the assertion straddles one.
+    expect(html).toContain('be read, so we')
+    expect(html).toContain('started fresh')
+  })
+
   it('reads defensively when the stored record turns corrupt after boot', () => {
     // Boot reads once; a later change to the store must not crash a fresh
     // mount. A second mount over the now-corrupt record falls back to setup

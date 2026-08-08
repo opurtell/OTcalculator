@@ -155,6 +155,22 @@ describe('the result once shifts are in', () => {
     expect(html).toContain('how this was worked out')
   })
 
+  it('announces the headline without re-reading the working', () => {
+    // The live region stops at the rule: the label, the figure and the two
+    // support lines. Below it sit the comparison, the captions and the §5.7
+    // derivation, which are there to be read rather than re-announced on
+    // every keystroke (§8).
+    expect(html.match(/aria-live/g)).toHaveLength(1)
+    expect(html).toContain('<div class="sl-result__headline" aria-live="polite">')
+
+    const announced = html.slice(
+      html.indexOf('sl-result__headline'),
+      html.indexOf('sl-result__divider'),
+    )
+    expect(announced).toContain('$698.33')
+    expect(announced).not.toContain('Without OT')
+  })
+
   it('exposes the full derivation with its clause references', () => {
     expect(html).toContain('How this was worked out')
     expect(html).toContain('EBA N34.1')

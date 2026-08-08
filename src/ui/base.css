@@ -43,9 +43,24 @@
   padding-inline: var(--space-4);
 }
 
+/* The vertical rhythm class. It carries the gap, because every one of the
+   twenty-odd places that use it wants space between its children and none of
+   the components carry margins of their own — a stack with no gap renders
+   panels welded together, which is exactly what the app did before this
+   line. `--stack-gap` retunes it per instance: the page column wants more air
+   than a group of fields inside a panel. */
 .sl-stack {
   display: flex;
   flex-direction: column;
+  gap: var(--stack-gap, var(--space-4));
+}
+
+/* A stack owns the spacing between its children, so a paragraph sitting
+   directly in one gives up its default margins rather than adding a second
+   helping to the gap. Paragraphs nested inside a child — a caption under a
+   heading — keep theirs. */
+.sl-stack > p {
+  margin: 0;
 }
 
 .sl-heading {

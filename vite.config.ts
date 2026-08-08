@@ -1,6 +1,7 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { pwa } from './vite-pwa'
 
 // The app build. The component library has its own config in
 // vite.config.lib.ts — see the comment there before moving anything.
@@ -11,7 +12,9 @@ export default defineConfig({
   // name. IMPLEMENTATION_PLAN.md §4.6 calls this the single most common Pages
   // failure. Do not remove it.
   base: '/OTcalculator/',
-  plugins: [react()],
+  // The service worker is emitted on build only — see vite-pwa.ts. In dev it
+  // would cache the module graph and fight HMR.
+  plugins: [react(), pwa()],
   build: {
     outDir: 'dist',
     sourcemap: true,

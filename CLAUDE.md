@@ -4,11 +4,16 @@ A static single-page app for ACTAS paramedics: enter a fortnight's overtime shif
 
 ## Status
 
-**Phases 0–8 complete — the engine, persistence, both calculator pathways, and
-the results display are done and wired together. `App.tsx` connects the
-persistence layer to the calculator's choices seam; the §4.5 golden fixture now
-renders end to end through the real UI, with the with/without comparison,
-per-shift breakdown, and the §5.7 "how this was worked out" derivation.**
+**Phases 0–9 complete — the engine, persistence, both pathways, the results
+display and the polish pass are done and wired together. The app installs,
+works offline, prints, keyboards, and says something useful when it breaks.
+`App.tsx` connects the persistence layer to the calculator's choices seam; the
+§4.5 golden fixture renders end to end through the real UI, with the
+with/without comparison, per-shift breakdown, and the §5.7 derivation.**
+
+**Phase 9 has not been looked at in a browser.** Every claim below is from
+tests, static reasoning and the built output; the keyboard, print and offline
+paths were written but not driven. See "What Phase 9 still owes you".
 
 Phases against `IMPLEMENTATION_PLAN.md` §6:
 
@@ -23,12 +28,13 @@ Phases against `IMPLEMENTATION_PLAN.md` §6:
 | **6** Quick pathway | **Done.** One hours field, the §5.1 two-tier split, the low-estimate note. Adds `quickOvertime` and the behaviour-preserving `comparePay` extraction in `src/engine/` |
 | **7** Fortnight pathway | **Done.** Shift list, add/edit sheet with live preview, delete-with-undo, duplicate, and the five non-blocking warnings. A row is an attendance, not an entry |
 | **8** Results | **Done.** The with/without comparison table, an inspectable per-shift Overtime breakdown, and the §5.7 "how this was worked out" disclosure. Row logic lives in `src/app/breakdown.ts`; `HowItWasWorkedOut.tsx` wraps the §5.7 derivation |
-| 9–10 | Not started |
+| **9** Polish | **Done, unverified in a browser.** Keyboard operation of the tabs and segmented control, the tab panel, a narrowed live region, Escape and focus return on the sheet and row menu; 44px targets, 16px inputs, a capped sticky result, safe areas; PWA with a hand-rolled service worker; print stylesheet and a shareable text summary; an error boundary and the settings-repair notice; a copy sweep against the §6 deck |
+| 10 | Not started — payslip reconciliation, and it still gates sharing |
 
 `calculateFortnight(shifts, settings)` in `src/engine/fortnight.ts` is the entry
 point — shifts and settings in, take-home and the overtime delta out. It calls
 `calculateOvertime` underneath, which is usable alone if you only want gross OT.
-329 tests. All seven crossover worked examples pass. Three things to know:
+401 tests. All seven crossover worked examples pass. Three things to know:
 
 - **The §4.5 golden total is a cent adrift**, and it is the plan that is out.
   See `src/engine/__tests__/golden.test.ts` — §3.12 says full precision until
@@ -54,8 +60,9 @@ things it settles:
   `schemaVersion`, a `localStorage` that throws on *property access* (Safari
   private browsing does) all yield `DEFAULT_PREFERENCES`. Fields are repaired
   individually, so a lost deductions key does not discard the pay band the user
-  did enter. `readPreferences` reports `'repaired'` when that happened — worth
-  a quiet line on the settings screen rather than silently resetting a figure.
+  did enter. `readPreferences` reports `'repaired'` when that happened, and
+  Phase 9 wired it: `readNotice` in `Calculator.tsx` turns it into a line
+  inside the Pay band panel rather than silently resetting a figure.
 - **Shift entries are deliberately not persisted.** Last fortnight's overtime
   reappearing in this fortnight's total is the stale-data trap §4.4 refuses. A
   "keep this fortnight" opt-in is v1.1, not a default.
@@ -74,6 +81,18 @@ project `ACTAS OT Calculator` (`d6df1004-e7c3-46f0-835a-8719984bd989`) so the
 design agent composes with the real components. Render check clean at 22/22 with
 zero warns; all 22 components have authored preview cards graded good.
 
+**Phase 9 changed `src/ui/`, so the design-sync anchor is stale.** `Tabs`,
+`SegmentedControl`, `Sheet`, `ShiftRow` and `ResultPanel` all moved, and
+`.sl-stack` gained a gap that changes every preview's spacing — see
+`NEXT_SESSION.md`. Re-syncing is a browser task.
+
+**`.sl-stack` had no gap until Phase 9**, which meant every panel in the app
+sat welded to the next one. It is `gap: var(--stack-gap, var(--space-4))` now,
+with `.sl-app` setting a roomier `--stack-gap` for the page column. Nothing in
+the library carries margins of its own, so if a screen ever looks cramped, this
+is the first thing to check. It is also a reminder worth keeping: the app was
+built for four phases without anyone opening it in a browser.
+
 **There are two Vite configs and mixing them up wastes a session.**
 `vite.config.ts` is the *app* build (`base: '/OTcalculator/'`, output `dist/`).
 `vite.config.lib.ts` is the *library* build for the design sync (output
@@ -83,6 +102,35 @@ not the app.
 
 Remaining design work is in `NEXT_SESSION.md`; it needs a browser and cannot be
 done from Claude Code.
+
+## What Phase 9 still owes you
+
+Phase 9 was written without a working browser in the session — the Chrome
+extension was not connected and there is no Playwright in this repo. Tests,
+`tsc` and the build all pass, and the build assertions in the deploy workflow
+now cover the service worker and the icons. What no test in a node environment
+can see, and what someone should therefore actually try:
+
+- **Keyboard.** Tab through the app: arrow keys between Quick/Fortnight and
+  between pay steps, `Escape` closing the shift sheet and the row menu, focus
+  landing back where it started, a visible ring at every stop.
+- **Offline.** `npm run build && npm run preview`, load once, go offline in
+  DevTools, reload. Confirm the app returns and a rebuild is picked up on the
+  next load. The worker is `vite-pwa.ts` and is emitted on build only.
+- **Print.** One clean page, disclosures open, no buttons or tabs, disclaimer
+  present.
+- **Small screens.** 320px and 390px: no horizontal scroll, no zoom when a
+  field takes focus, the sticky result never hiding its own bottom.
+- **Dark mode at each step** — it has broken silently here before.
+
+`src/ui/__tests__/contrast.test.ts` does hold the line on §8's contrast
+requirement in both themes, and asserts the three copies of the palette in
+`tokens.css` still agree, which is the failure that bit last time.
+
+The service worker deliberately has no `skipWaiting`: a new version takes over
+on the next load rather than swapping assets under a session mid-calculation.
+Icons are drawn by `scripts/make-icons.mjs` (no image dependency — it encodes
+the PNGs itself) and committed to `public/`; rerun it only if the mark changes.
 
 ## Read these first
 

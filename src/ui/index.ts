@@ -17,7 +17,7 @@ export type { ButtonProps } from './Button'
 export { SegmentedControl } from './SegmentedControl'
 export type { SegmentedControlProps, SegmentedOption } from './SegmentedControl'
 
-export { Tabs } from './Tabs'
+export { Tabs, tabId, tabPanelId } from './Tabs'
 export type { TabsProps, TabItem } from './Tabs'
 
 export { TextField } from './TextField'

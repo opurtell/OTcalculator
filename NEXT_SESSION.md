@@ -44,6 +44,26 @@ Two findings worth carrying forward (both recorded in `.design-sync/NOTES.md`):
 Re-running `/design-sync` from here is a no-op unless `src/ui/` changes: the
 anchor carries all 22 grades forward.
 
+### Phase 9 changed `src/ui/`, so the anchor is now stale
+
+The accessibility and mobile passes touched five components and one base rule:
+
+- `Tabs` — roving `tabIndex`, arrow keys, and an optional `idBase` prop that
+  ties each tab to its panel.
+- `SegmentedControl` — the same roving pattern for the radio group.
+- `Sheet` — `Escape` to close, focus on open, `aria-labelledby`.
+- `ShiftRow` — the row menu closes on `Escape` and on a tap outside, and its
+  trigger is a 44px target.
+- `ResultPanel` — the `aria-live` region is now the headline only, with a new
+  `.sl-result__headline` wrapper around it.
+- **`.sl-stack` gained a gap.** This one moves every preview: the class was a
+  bare flex column and is now `gap: var(--stack-gap, var(--space-4))`. Anything
+  composed with it will be spaced differently — that is the fix, not a
+  regression, but the cards need re-capturing to show it.
+
+So the next `/design-sync` run is no longer a no-op. Re-capture and re-grade at
+least those five, and expect the spacing change to show up everywhere.
+
 ---
 
 ## Task B — the nine screens, in Claude Design

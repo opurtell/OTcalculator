@@ -97,11 +97,18 @@ export function FortnightPathway({
         + Add OT shift
       </Button>
 
-      {warnings.map((warning) => (
-        <AssumptionNote key={warning.id}>
-          <p>{warning.text}</p>
-        </AssumptionNote>
-      ))}
+      {/* Always rendered, and never hidden: a live region has to be in the DOM
+          — and displayed — before its content arrives, or the first warning
+          goes unannounced, which is the one that matters most because it
+          appeared in response to what was just entered. An empty flex item
+          costs one gap; that is the price of the guarantee. */}
+      <div role="status" className="sl-warnings">
+        {warnings.map((warning) => (
+          <AssumptionNote key={warning.id}>
+            <p>{warning.text}</p>
+          </AssumptionNote>
+        ))}
+      </div>
     </div>
   )
 }

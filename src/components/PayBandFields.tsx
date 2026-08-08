@@ -6,7 +6,12 @@ import {
 } from '../data'
 import type { Classification } from '../data'
 import { formatIsoDateAu } from '../app/inputs'
-import { DerivedPayPanel, SegmentedControl, SelectField } from '../ui/index'
+import {
+  AssumptionNote,
+  DerivedPayPanel,
+  SegmentedControl,
+  SelectField,
+} from '../ui/index'
 
 export interface PayBandFieldsProps {
   classification: Classification
@@ -23,6 +28,12 @@ export interface PayBandFieldsProps {
   fortnightlyInput: string
   onBaseAnnualInputChange: (value: string) => void
   onFortnightlyInputChange: (value: string) => void
+  /**
+   * Set when the stored settings couldn't be read back whole. Shown here
+   * rather than anywhere else because this is the screen where the user can
+   * see whether the surviving figures are the ones they meant.
+   */
+  notice?: string
 }
 
 /**
@@ -50,11 +61,17 @@ export function PayBandFields({
   fortnightlyInput,
   onBaseAnnualInputChange,
   onFortnightlyInputChange,
+  notice,
 }: PayBandFieldsProps) {
   const steps = stepsFor(classification)
 
   return (
     <>
+      {notice ? (
+        <AssumptionNote>
+          <p>{notice}</p>
+        </AssumptionNote>
+      ) : null}
       <SelectField
         label="Classification"
         value={classification}

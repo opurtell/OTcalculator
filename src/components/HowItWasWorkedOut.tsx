@@ -38,9 +38,9 @@ export function HowItWasWorkedOut({ settings, result }: HowItWasWorkedOutProps) 
           />
         </section>
         <section>
-          <h4 className="sl-workings__heading">PAYG withholding</h4>
+          <h4 className="sl-workings__heading">PAYG tax</h4>
           <FigureTable
-            caption="How PAYG withholding was worked out"
+            caption="How the PAYG tax was worked out"
             rows={paygRows(settings, result)}
           />
         </section>

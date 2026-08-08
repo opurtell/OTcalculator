@@ -19,3 +19,19 @@ createRoot(container).render(
     <App />
   </StrictMode>,
 )
+
+// Offline support (§4.7). Production only: in dev the worker would cache the
+// module graph and fight HMR, which is why vite-pwa.ts emits it on build.
+//
+// BASE_URL, not '/' — the worker's scope is the directory it is served from,
+// and a worker registered at the domain root could not control a page served
+// from /OTcalculator/. Same subpath trap as `base` in vite.config.ts.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register(`${import.meta.env.BASE_URL}sw.js`)
+      // A failed registration is not worth a broken page: the app works
+      // online without it, and the console line is enough to debug from.
+      .catch((error: unknown) => console.warn('Service worker not registered', error))
+  })
+}

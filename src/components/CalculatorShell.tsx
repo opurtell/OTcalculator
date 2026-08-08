@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import type { ReactNode } from 'react'
 import type { Pathway } from '../app/settings'
 import {
@@ -6,6 +7,8 @@ import {
   Disclosure,
   Panel,
   Tabs,
+  tabId,
+  tabPanelId,
 } from '../ui/index'
 import { ClearSettings } from './ClearSettings'
 
@@ -46,6 +49,11 @@ export function CalculatorShell({
   onClearSettings,
   children,
 }: CalculatorShellProps) {
+  // The tabs sit above the layout and the body they control sits inside it, so
+  // the two halves of the relationship are wired through a shared id base
+  // rather than through a ref that would have to cross the layout.
+  const idBase = useId()
+
   return (
     <main className="sl-stack sl-app">
       <h1 className="sl-heading">ACTAS OT Calculator</h1>
@@ -54,6 +62,7 @@ export function CalculatorShell({
         label="Calculation pathway"
         value={pathway}
         onChange={(value) => onPathwayChange(value as Pathway)}
+        idBase={idBase}
         items={[
           { value: 'quick', label: 'Quick' },
           { value: 'fortnight', label: 'Fortnight' },
@@ -62,7 +71,16 @@ export function CalculatorShell({
 
       <CalculatorLayout result={result}>
         <div className="sl-stack">
-          {children}
+          <div
+            role="tabpanel"
+            id={tabPanelId(idBase, pathway)}
+            aria-labelledby={tabId(idBase, pathway)}
+            // The panel itself is a tab stop: arrowing to a tab and pressing
+            // Tab should land in the body that tab just revealed.
+            tabIndex={0}
+          >
+            {children}
+          </div>
 
           <Panel flush>
             <Disclosure title="Pay band" summary={bandSummary}>

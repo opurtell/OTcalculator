@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Calculator } from './components/Calculator'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import type { CalculatorChoices } from './app/settings'
 import {
   browserStore,
@@ -55,22 +56,34 @@ export function App({ store = browserStore() }: AppProps = {}) {
     return () => window.removeEventListener('pagehide', flush)
   }, [writer])
 
+  const clearSettings = () => {
+    // Drop the pending write before clearing, or the debounced save would land
+    // after the clear and resurrect the settings.
+    writer.cancel()
+    clearPreferences(store)
+  }
+
   return (
     <StationLedger measure>
-      <Calculator
-        initialChoices={choicesFromPreferences(boot.read.preferences)}
-        startAtSetup={
-          boot.read.status === 'empty' || boot.read.status === 'unreadable'
-        }
-        canRemember={boot.canRemember}
-        onChoicesChange={(choices) => writer.save(preferencesFromChoices(choices))}
-        onClearSettings={() => {
-          // Drop the pending write before clearing, or the debounced save
-          // would land after the clear and resurrect the settings.
-          writer.cancel()
-          clearPreferences(store)
-        }}
-      />
+      {/* Outside the calculator, so a throw inside it still has something to
+          render the apology with — and offering clear-settings here matters
+          because a stored record is one of the few things that could make the
+          calculator throw on every load. */}
+      <ErrorBoundary onClearSettings={boot.canRemember ? clearSettings : undefined}>
+        <Calculator
+          initialChoices={choicesFromPreferences(boot.read.preferences)}
+          startAtSetup={
+            boot.read.status === 'empty' || boot.read.status === 'unreadable'
+          }
+          canRemember={boot.canRemember}
+          // What the read cost, if anything. §4.4 repairs fields individually
+          // rather than discarding the record, and the user is owed a quiet
+          // line when a figure they entered was one of the casualties.
+          readStatus={boot.read.status}
+          onChoicesChange={(choices) => writer.save(preferencesFromChoices(choices))}
+          onClearSettings={clearSettings}
+        />
+      </ErrorBoundary>
     </StationLedger>
   )
 }

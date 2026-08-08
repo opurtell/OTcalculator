@@ -23,6 +23,7 @@ import type { Classification } from '../data'
 import { calculateFortnight, comparePay } from '../engine/fortnight'
 import { quickOvertime } from '../engine/overtime'
 import type { IsoDate, OtShift } from '../engine/types'
+import type { ReadStatus } from '../storage/preferences'
 import { formatMoney } from '../ui/index'
 import { CalculatorShell } from './CalculatorShell'
 import {
@@ -52,6 +53,11 @@ export interface CalculatorProps {
   onClearSettings?: () => void
   /** The pay date, which selects the financial year (§3.8). Injected in tests. */
   payDate?: IsoDate
+  /**
+   * How the stored settings read on boot. `'repaired'` and `'unreadable'` are
+   * the two the user is owed a word about — see `readNotice`.
+   */
+  readStatus?: ReadStatus
 }
 
 /**
@@ -71,6 +77,7 @@ export function Calculator({
   onChoicesChange,
   onClearSettings,
   payDate,
+  readStatus,
 }: CalculatorProps) {
   const [fields, setFields] = useState(() => fieldsFrom(initialChoices))
   const [inSetup, setInSetup] = useState(startAtSetup)
@@ -88,6 +95,10 @@ export function Calculator({
   // A deletion happens immediately and is taken back from the undo row, rather
   // than being interrupted by a dialog asking whether it was meant (§7).
   const [pendingDelete, setPendingDelete] = useState<OtShift[] | null>(null)
+  // What to give focus back to when the sheet closes. `Sheet` takes focus on
+  // open and cannot know where it came from — the add button, a row, a row's
+  // menu — so the side that opened it remembers (§8).
+  const sheetOpenedFrom = useRef<HTMLElement | null>(null)
 
   const choices = choicesFrom(fields)
   const date = payDate ?? todayIso()
@@ -109,19 +120,35 @@ export function Calculator({
     setFields((current) => ({ ...current, ...patch }))
   }
 
+  /** Opens the sheet, remembering what to hand focus back to. */
+  function openDraft(next: ShiftDraft) {
+    sheetOpenedFrom.current =
+      typeof document === 'undefined' || !(document.activeElement instanceof HTMLElement)
+        ? null
+        : document.activeElement
+    setDraft(next)
+  }
+
+  /** Closes the sheet and returns focus. A stale node makes this a no-op. */
+  function closeDraft() {
+    setDraft(null)
+    sheetOpenedFrom.current?.focus()
+    sheetOpenedFrom.current = null
+  }
+
   function commitDraft() {
     if (draft === null) return
     const shift = toShift(draft)
     if (shift === null) return
 
     setShifts((current) => upsertShift(current, shift))
-    setDraft(null)
+    closeDraft()
   }
 
   function openDraftFor(shiftId: string, copy: boolean) {
     const shift = shifts.find((existing) => existing.id === shiftId)
     if (shift === undefined) return
-    setDraft(copy ? duplicateDraft(shift) : draftFrom(shift))
+    openDraft(copy ? duplicateDraft(shift) : draftFrom(shift))
   }
 
   /** Delete now, restore from the undo row (§7). */
@@ -190,6 +217,7 @@ export function Calculator({
         update({ baseAnnualInput: value }),
       onFortnightlyInputChange: (value: string) =>
         update({ fortnightlyInput: value }),
+      notice: readNotice(readStatus),
     }
   }
 
@@ -262,7 +290,7 @@ export function Calculator({
               draft={draft}
               onDraftChange={setDraft}
               onCommit={commitDraft}
-              onClose={() => setDraft(null)}
+              onClose={closeDraft}
               band={settings.band}
               holidays={settings.holidays}
             />
@@ -271,7 +299,7 @@ export function Calculator({
             attendances={result.attendances}
             shifts={shifts}
             warnings={warnings}
-            onAdd={() => setDraft(emptyDraft())}
+            onAdd={() => openDraft(emptyDraft())}
             onEdit={(shiftId) => openDraftFor(shiftId, false)}
             onDuplicate={(shiftId) => openDraftFor(shiftId, true)}
             onDelete={deleteShifts}
@@ -372,6 +400,28 @@ export function choicesFrom(fields: Fields): CalculatorChoices {
 function overrideFrom(value: string): number | null {
   const parsed = parseAmount(value)
   return parsed === null || parsed <= 0 ? null : parsed
+}
+
+/**
+ * What to say about a settings read that didn't go cleanly, or nothing.
+ *
+ * `readPreferences` repairs fields one at a time (§4.4), so a `'repaired'` read
+ * means the user is looking at a mix of what they saved and what the app had
+ * to default — worth a quiet line, because the figure on screen may not be the
+ * one they entered. Silence here would be the app quietly changing someone's
+ * pay band. `'unreadable'` already sends them to the setup screen; the note
+ * says why they are seeing it again.
+ *
+ * `'empty'` and `'ok'` say nothing: a first visit is not an incident.
+ */
+export function readNotice(status: ReadStatus | undefined): string | undefined {
+  if (status === 'repaired') {
+    return "Some saved settings couldn't be read and were set back to the defaults. Check the figures below are still yours."
+  }
+  if (status === 'unreadable') {
+    return "Your saved settings couldn't be read, so we've started fresh. Setting your pay band again is all it takes."
+  }
+  return undefined
 }
 
 /** `Shift deleted` / `2 shifts deleted`, past tense — it already happened. */

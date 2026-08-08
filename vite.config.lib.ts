@@ -10,6 +10,10 @@ import react from '@vitejs/plugin-react'
 // Run it with `npm run build:lib`.
 export default defineConfig({
   plugins: [react()],
+  // public/ holds the app's PWA icons and manifest. They are not part of the
+  // component library, and copying them into dist-lib would put them in the
+  // bundle the design-sync converter reads.
+  publicDir: false,
   build: {
     outDir: 'dist-lib',
     lib: {

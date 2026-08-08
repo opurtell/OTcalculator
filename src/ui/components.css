@@ -6,11 +6,18 @@
 
 /* ---------------------------------------------------------------- Button */
 
+/* 44px minimum on every button in the app. This is used one-handed, on a
+   phone, often standing up and sometimes with gloves on — the padding alone
+   gives 39px, which is close enough to look right and small enough to miss. */
 .sl-btn {
   font-family: inherit;
   font-size: var(--text-body);
   font-weight: 500;
   line-height: 1;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-control);
   border: 1px solid transparent;
@@ -50,7 +57,7 @@
 }
 
 .sl-btn--block {
-  display: block;
+  display: flex;
   width: 100%;
 }
 
@@ -157,6 +164,19 @@
   background: transparent;
   border: none;
   padding: var(--space-3) 0;
+  /* 15px of padding either side of 15px text is 45px of target. */
+  min-height: 44px;
+}
+
+/* Mobile Safari zooms the whole page when a field under 16px takes focus, and
+   does not zoom back out — which leaves the result panel off screen at the
+   exact moment the user is typing the number that changes it. The designed
+   15px stands everywhere the pointer is fine. */
+@media (max-width: 899px) {
+  .sl-field__input,
+  .sl-field__select {
+    font-size: 16px;
+  }
 }
 
 .sl-field__input:focus,
@@ -582,13 +602,21 @@
   margin-bottom: var(--space-5);
 }
 
+/* Small glyph, full-size target: the close control is 20px of ✕ inside 44px
+   of button, because missing it on a phone means committing a shift you were
+   trying to abandon. */
 .sl-sheet__close {
   background: none;
   border: none;
   color: var(--muted);
   font-size: 20px;
   line-height: 1;
-  padding: var(--space-1);
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: calc(var(--space-2) * -1);
   cursor: pointer;
 }
 
@@ -680,7 +708,11 @@
   color: var(--muted);
   font-size: 18px;
   line-height: 1;
-  padding: var(--space-2);
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   border-radius: var(--radius-control);
 }
@@ -863,10 +895,21 @@
   gap: var(--space-5);
 }
 
+/* Pinned to the top so the figure stays visible while the shift list scrolls
+   under it — watching it move is the core experience (§7).
+ *
+ * The cap is not decoration. Once the comparison table, the captions and an
+ * opened "how this was worked out" are stacked under the headline, the panel
+ * is taller than a phone; a sticky box taller than the viewport can never
+ * show its own bottom, so the derivation would be unreachable exactly when
+ * someone tries to read it. Capped, it scrolls within itself instead. */
 .sl-layout__result {
   position: sticky;
   top: 0;
   z-index: 10;
+  max-height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 @media (min-width: 900px) {

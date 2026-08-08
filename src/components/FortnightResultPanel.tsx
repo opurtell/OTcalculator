@@ -2,6 +2,7 @@ import type { FortnightResult, FortnightSettings } from '../engine/fortnight'
 import { FigureTable, Money, Panel, ResultPanel } from '../ui/index'
 import { breakdownRows, comparisonRows } from '../app/breakdown'
 import { HowItWasWorkedOut } from './HowItWasWorkedOut'
+import { ShareSummary } from './ShareSummary'
 
 export interface FortnightResultPanelProps {
   result: FortnightResult
@@ -49,6 +50,9 @@ export function FortnightResultPanel({
     settings === undefined ? null : (
       <HowItWasWorkedOut settings={settings} result={result} />
     )
+  const share = (
+    <ShareSummary result={result} bandSummary={bandSummary} captions={captions} />
+  )
 
   if (!hasOvertime) {
     return (
@@ -60,8 +64,12 @@ export function FortnightResultPanel({
           </div>
           {/* The one figure here that carries a `$`. Inside the table below,
               and everywhere else in the app, a column of figures is bare —
-              the label says what they are and the decimals line up. */}
-          <p className="sl-summary__figure">
+              the label says what they are and the decimals line up.
+
+              Live for the same reason the headline is: it moves as deductions
+              and the pay band are edited, and the whole point of having no
+              Calculate button is that the figure is always the current one. */}
+          <p className="sl-summary__figure" aria-live="polite">
             <Money value={result.withOt.net} tone="net" />
             <span className="sl-summary__unit">take-home</span>
           </p>
@@ -71,6 +79,7 @@ export function FortnightResultPanel({
           />
           <Captions lines={captions} />
           {workings}
+          {share}
         </div>
       </Panel>
     )
@@ -96,6 +105,7 @@ export function FortnightResultPanel({
       />
       <Captions lines={captions} />
       {workings}
+      {share}
     </ResultPanel>
   )
 }

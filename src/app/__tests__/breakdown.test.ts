@@ -166,10 +166,10 @@ describe('paygRows', () => {
     expect(rows[1].note).toContain('Scale 2')
   })
 
-  it('shows the taxed-on gross and the withheld amount', () => {
+  it('shows what tax was worked out on, and the tax itself', () => {
     expect(rows[0].label).toBe('Taxed on')
     expect(cents(rows[0].values[0] as number)).toBe(6018.66)
-    expect(rows[1].label).toBe('PAYG withheld')
+    expect(rows[1].label).toBe('PAYG tax')
     expect(cents(rows[1].values[0] as number)).toBe(1620.0)
   })
 })

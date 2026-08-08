@@ -15,24 +15,29 @@ analytics; every figure stays in your browser's `localStorage`.
 
 ## Status
 
-Phases 0 to 4 of `IMPLEMENTATION_PLAN.md` are complete — **the calculation
-engine is done and the §4.5 acceptance fixture passes end to end.**
+Phases 0 to 9 of `IMPLEMENTATION_PLAN.md` are complete — **the app works end to
+end and the §4.5 acceptance fixture renders through the real UI.**
 `src/engine/` computes overtime (rate categories, the midnight ratchet,
 attendance grouping, the C9.5 four-hour minimum) and then the money (PAYG,
 HELP, pre-tax deductions, and what the overtime added to take-home).
 `src/data/` holds the Annex A pay tables, ACT public holidays, NAT 1004
 coefficients, HELP thresholds and FBT caps. `src/storage/` remembers the
-settings across reloads. 217 tests.
+settings across reloads. `src/components/` is the app: both pathways, the shift
+list, the results and the working behind them. 401 tests.
 
-The screen is still the Phase 0 placeholder — nothing is wired up yet.
+Phase 9 added the polish layer — keyboard operation, touch targets, an
+installable offline build, a print stylesheet, a shareable text summary, an
+error boundary — but **none of it has been driven in a browser yet.** `CLAUDE.md`
+lists what to try.
 
 One caveat on the data: the tax and HELP figures are FY2025-26 only. The
 FY2026-27 NAT 1004 coefficients exist but are not in hand, so the app falls back
 to FY2025-26 and captions it, exactly as §3.8 specifies. Adding the real rows to
 `src/data/tax-scales.ts` is the whole fix.
 
-Phase 5 is next: the app shell — pathway switcher, pay band picker, deductions
-and tax panel — and then the two pathways.
+Phase 10 is next, and it is the one that matters: reconcile against real
+payslips with OT lines. **Until it passes, this is a well-tested hypothesis and
+should not be shared with colleagues.**
 
 ## Working on it
 
@@ -49,6 +54,14 @@ npm run preview    # serve dist/ exactly as Pages will
 component library in `src/ui/` to `dist-lib/` for the Claude Design sync. See
 `.design-sync/NOTES.md` before running it.
 
+`node scripts/make-icons.mjs` redraws the app icons in `public/` from the mark
+in `index.html`'s favicon. It encodes the PNGs itself rather than pulling in an
+image dependency, and only needs running if the mark changes.
+
+**The service worker only exists in a build.** `npm run dev` has none by
+design — it would cache the module graph and fight HMR — so anything about
+offline behaviour has to be checked through `npm run preview`.
+
 ## Layout
 
 | Path | What it is |
@@ -57,8 +70,12 @@ component library in `src/ui/` to `dist-lib/` for the Claude Design sync. See
 | `src/data/` | Every rate, table and threshold, each with a provenance comment. The engine takes these as parameters and holds no figures of its own |
 | `src/storage/` | Versioned `localStorage`. Reads never throw and never trust what they find; shift entries are deliberately not persisted |
 | `src/ui/` | Station Ledger, the 22-component design system |
-| `src/App.tsx` | The app shell |
+| `src/app/` | The pure app-layer logic between engine and screen: shift drafts, warnings, figure rows, the shareable summary |
+| `src/components/` | The screens themselves |
+| `src/App.tsx` | The app shell — the only place that reaches for `localStorage` |
+| `public/` | PWA manifest and the generated icons |
 | `vite.config.ts` | App build. Carries `base: '/OTcalculator/'` |
+| `vite-pwa.ts` | Emits `sw.js` with the build's own asset list baked in |
 | `vite.config.lib.ts` | Library build, output `dist-lib/` |
 
 ## Deployment
@@ -75,6 +92,11 @@ Two things about this that are easy to get wrong:
 2. **Repository Settings → Pages → Source must be "GitHub Actions"**, not
    "Deploy from a branch". This is a one-time setting in the GitHub UI and the
    workflow cannot set it for you — the first deploy fails without it.
+
+The workflow also asserts that `dist/sw.js`, the manifest and the icons exist
+and that the worker's precache list carries subpath URLs. Offline support fails
+the same silent way the base path does: the app still loads over the network,
+so nothing looks wrong until someone opens it with no signal.
 
 ## Documents
 

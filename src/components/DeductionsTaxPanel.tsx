@@ -56,7 +56,10 @@ export function DeductionsTaxPanel({
 
   const percentLabel = percentInput.replace(/[\s%]/g, '')
 
-  const rows: FigureRow[] = [{ label: 'Gross incl. OT', values: [gross] }]
+  // "Before tax", never "gross" — the copy deck rules the word out as jargon,
+  // and this table is the one place a user checks the app's arithmetic against
+  // their own head.
+  const rows: FigureRow[] = [{ label: 'Before tax, incl. OT', values: [gross] }]
   if (deductions.fixed > 0) {
     rows.push({
       label: 'Set amount',
@@ -67,7 +70,7 @@ export function DeductionsTaxPanel({
   }
   if (deductions.percent > 0) {
     rows.push({
-      label: `${percentLabel}% of gross`,
+      label: `${percentLabel}% of pay before tax`,
       values: [deductions.percent],
       tone: 'out',
       sign: 'always-negative',
@@ -99,12 +102,12 @@ export function DeductionsTaxPanel({
         numeric
       />
       <TextField
-        label="Percentage of gross"
+        label="Percentage of pay before tax"
         value={percentInput}
         onChange={onPercentInputChange}
         suffix="%"
         numeric
-        hint="Calculated on your full fortnight gross including overtime."
+        hint="Worked out on your whole fortnight before tax, overtime included."
       />
 
       <FigureTable caption="Pre-tax deductions" rows={rows} />
@@ -128,19 +131,19 @@ export function DeductionsTaxPanel({
         label="Tax-free threshold claimed"
         checked={claimsTaxFreeThreshold}
         onChange={onClaimsTaxFreeThresholdChange}
-        description="On for the job you're paid the most by. Off means more tax withheld each pay."
+        description="On for the job you're paid the most by. Off means more tax comes out each pay."
       />
       <Toggle
         label="Study or training loan"
         checked={hasStudyDebt}
         onChange={onHasStudyDebtChange}
-        description="HELP, VET, SFSS and the rest — withheld on top of PAYG tax."
+        description="HELP, VET, SFSS and the rest — comes out on top of PAYG tax."
       />
 
       {helpFlag ? (
         <AssumptionNote>
           <p>
-            Packaging lowers the study loan repayment withheld each pay, but not
+            Packaging lowers the study loan repayment taken each pay, but not
             what you owe at tax time. The annual assessment adds the packaged
             amount back in.
           </p>

@@ -55,6 +55,17 @@ jobs:
             || { echo "no CSS in dist/assets — check the stylesheet import in src/main.tsx"; exit 1; }
           grep -q 'stylesheet' dist/index.html \
             || { echo "dist/index.html does not link a stylesheet"; exit 1; }
+          # Offline support fails the same silent way: the app still loads over
+          # the network, so nothing looks wrong until someone opens it in a
+          # basement. The worker's precache list must carry subpath URLs for
+          # the same reason index.html must.
+          test -f dist/sw.js || { echo "no dist/sw.js — check the pwa() plugin in vite.config.ts"; exit 1; }
+          grep -q '"/OTcalculator/assets/' dist/sw.js \
+            || { echo "dist/sw.js precache list has no /OTcalculator/ URLs — check base handling in vite-pwa.ts"; exit 1; }
+          for asset in manifest.webmanifest icon-192.png icon-512.png apple-touch-icon.png; do
+            test -f "dist/$asset" \
+              || { echo "dist/$asset missing — run 'node scripts/make-icons.mjs' and commit public/"; exit 1; }
+          done
 
       - name: Upload the Pages artifact
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

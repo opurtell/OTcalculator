@@ -93,7 +93,7 @@ describe('Calculator', () => {
     })
 
     // 4,908.32 − 611.00 − 245.42 = 4,051.90, and the panel shows every step.
-    expect(html).toContain('5% of gross')
+    expect(html).toContain('5% of pay before tax')
     expect(html).toContain('245.42')
     expect(html).toContain('4,051.90')
   })
@@ -152,6 +152,48 @@ describe('Calculator', () => {
     })
     // Sanitised to the default band rather than showing someone else's pay.
     expect(html).toContain('AP1 Step 1')
+  })
+})
+
+/**
+ * What the markup owes a screen reader (§8).
+ *
+ * These are assertions about structure rather than about pay, and they are
+ * here rather than in the library's own tests because three of them are only
+ * true once the app has composed the pieces: the tabs know their panel, the
+ * live region is the headline alone, and the warnings have somewhere to be
+ * announced from.
+ */
+describe('Calculator accessibility', () => {
+  it('ties each tab to the panel it controls', () => {
+    const html = render(GOLDEN)
+
+    const panel = /<div role="tabpanel" id="([^"]+)" aria-labelledby="([^"]+)"/.exec(html)
+    expect(panel, 'no tabpanel in the markup').not.toBeNull()
+    const [, panelId, labelledBy] = panel!
+
+    // The selected tab carries both ends of the relationship, and is the only
+    // tab in the tab order — the strip is one control, not two stops.
+    expect(html).toContain(
+      `id="${labelledBy}" aria-controls="${panelId}" aria-selected="true" tabindex="0"`,
+    )
+    expect(html).toContain('aria-selected="false" tabindex="-1"')
+  })
+
+  it('announces the take-home figure, and only the figure', () => {
+    const html = render(GOLDEN)
+
+    // Exactly one live region on the screen. Every keystroke in the app moves
+    // these figures, so a second one — or one wrapped around the breakdown —
+    // turns a helpful announcement into something you switch off.
+    expect(html.match(/aria-live/g)).toHaveLength(1)
+    expect(html).toContain('<p class="sl-summary__figure" aria-live="polite">')
+  })
+
+  it('leaves the warnings somewhere to be announced from', () => {
+    // Empty on a fortnight with no shifts, and present all the same: a live
+    // region has to be in the DOM before its content arrives.
+    expect(render(GOLDEN)).toContain('role="status"')
   })
 })
 

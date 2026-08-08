@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Money } from './Money'
 
 /**
@@ -64,6 +64,8 @@ export function ShiftRow({
   const [offset, setOffset] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
   const dragStart = useRef<number | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const hasActions = Boolean(onDelete || onDuplicate)
 
   const endDrag = () => {
@@ -71,6 +73,29 @@ export function ShiftRow({
     dragStart.current = null
     setOffset((current) => (current <= -SWIPE_THRESHOLD ? -SWIPE_THRESHOLD : 0))
   }
+
+  /** Closes the menu and puts focus back where it was opened from. */
+  const closeMenu = () => {
+    setMenuOpen(false)
+    triggerRef.current?.focus()
+  }
+
+  // A popover that only closes by pressing its own trigger again is a trap on
+  // a phone, where there is no Escape key and the obvious gesture is to tap
+  // elsewhere. Listening on pointerdown rather than click closes it before the
+  // tap lands on whatever is underneath.
+  useEffect(() => {
+    if (!menuOpen) return
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (target instanceof Node && menuRef.current?.contains(target)) return
+      setMenuOpen(false)
+    }
+
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [menuOpen])
 
   return (
     <div className="sl-shift-wrap">
@@ -121,10 +146,20 @@ export function ShiftRow({
         </button>
 
         {hasActions ? (
-          <div className="sl-shift__menu">
+          <div
+            className="sl-shift__menu"
+            ref={menuRef}
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape' || !menuOpen) return
+              event.stopPropagation()
+              closeMenu()
+            }}
+          >
             <button
               type="button"
+              ref={triggerRef}
               className="sl-shift__menu-trigger"
+              aria-haspopup="menu"
               aria-expanded={menuOpen}
               aria-label={`Actions for ${date} ${timeRange}`}
               onClick={() => setMenuOpen((current) => !current)}

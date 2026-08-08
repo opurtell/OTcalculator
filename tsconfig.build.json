@@ -6,5 +6,9 @@
     "emitDeclarationOnly": true,
     "declarationDir": "dist-lib"
   },
-  "include": ["src/ui"]
+  "include": ["src/ui"],
+  // The library's declarations are its public surface. Tests are neither
+  // shipped nor imported by consumers, and emitting dist-lib/__tests__ puts
+  // them in front of the design-sync converter for no reason.
+  "exclude": ["src/ui/__tests__"]
 }
