@@ -22,6 +22,7 @@ export {
 export type { TaxScaleSelection } from './tax-scales'
 export {
   helpScheduleFor,
+  helpFallbackCaption,
   LATEST_VERIFIED_FINANCIAL_YEAR as LATEST_VERIFIED_HELP_YEAR,
 } from './help-thresholds'
 export type { HelpScheduleSelection } from './help-thresholds'

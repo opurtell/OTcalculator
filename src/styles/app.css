@@ -35,3 +35,51 @@ body {
 .sl-app {
   padding-block: var(--space-6) var(--space-7);
 }
+
+/* The privacy line on the setup screen. Body size, not caption: it is a
+   feature of the app, not fine print, and styling it small would say the
+   opposite of what it says. */
+.sl-setup__privacy {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-body);
+  line-height: 1.5;
+}
+
+/* The take-home figure on the empty fortnight. Bigger than body text but
+   deliberately not the display size — that is reserved for what the overtime
+   adds, and the two must not compete. */
+.sl-summary__figure {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: 24px;
+}
+
+.sl-summary__unit {
+  font-size: var(--text-caption);
+  color: var(--muted);
+}
+
+/* Clear saved settings, mid-confirmation. Ruled off rather than boxed — it is
+   the last thing on the page and does not need a panel competing with the
+   result. */
+.sl-clear {
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sl-clear__question {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-body);
+}
+
+.sl-clear__actions {
+  display: flex;
+  gap: var(--space-2);
+}

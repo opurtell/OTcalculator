@@ -48,6 +48,18 @@ export interface HelpScheduleSelection {
   isFallback: boolean
 }
 
+/**
+ * The §3.9 caption, worded to match the tax one in `tax-scales.ts` without
+ * pretending the two schedules are the same document. Remove the caption by
+ * adding the real thresholds, never by removing the fallback.
+ */
+export function helpFallbackCaption(selection: HelpScheduleSelection): string | null {
+  if (!selection.isFallback) return null
+  const from = selection.schedule.financialYear.replace('-', '–')
+  const to = selection.requested.replace('-', '–')
+  return `Using ${from} study loan thresholds — ${to} schedule not yet published.`
+}
+
 export function helpScheduleFor(financialYear: FinancialYear): HelpScheduleSelection {
   const exact = SCHEDULES.find((s) => s.financialYear === financialYear)
   if (exact) return { schedule: exact, requested: financialYear, isFallback: false }
