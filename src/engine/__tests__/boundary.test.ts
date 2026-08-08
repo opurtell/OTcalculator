@@ -32,6 +32,10 @@ const FORBIDDEN_MODULES = [
   /^\.\.\/ui\b/,
   /^\.\.\/components\b/,
   /^\.\.\/storage\b/,
+  // The engine takes reference data as parameters and never reaches for it.
+  // Reversing this arrow is what would stop an older fortnight computing
+  // against the figures that were current when it was worked.
+  /^\.\.\/data\b/,
   /^react/,
 ]
 

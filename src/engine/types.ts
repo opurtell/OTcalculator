@@ -103,6 +103,63 @@ export interface PayBand {
   annexATotal: number
 }
 
+/** `'2025-26'`. Australian financial years run 1 July to 30 June. */
+export type FinancialYear = string
+
+/**
+ * One row of the NAT 1004 weekly coefficient table.
+ *
+ * The ATO publishes this as `withholding = a × x − b`, where `x` is weekly
+ * earnings plus 99 cents. `rate` is `a` and `base` is `b`; the names match the
+ * sibling project's `tax-scales.json` so the two stay diffable.
+ */
+export interface TaxBracket {
+  /** Row applies when weekly earnings are strictly below this. */
+  threshold: number
+  /** `a` — the coefficient, not a marginal tax rate. */
+  rate: number
+  /** `b` — the subtrahend, not a dollar base amount. */
+  base: number
+}
+
+export interface TaxScale {
+  financialYear: FinancialYear
+  /** 1 = tax-free threshold not claimed, 2 = claimed. §3.8. */
+  scale: 1 | 2
+  brackets: readonly TaxBracket[]
+}
+
+/**
+ * A HELP/HECS repayment row (NAT 3539).
+ *
+ * `basis` matters: some rows charge a rate on *total* repayment income, others
+ * only on the amount above the threshold. Treating them alike overstates the
+ * repayment badly at the boundaries.
+ */
+export interface HelpBracket {
+  incomeFrom: number
+  /** `null` on the open-ended top row. */
+  incomeTo: number | null
+  rate: number
+  /** Fixed amount added before the rate, on `amount_over_threshold` rows. */
+  base?: number
+  basis: 'total_income' | 'amount_over_threshold'
+}
+
+export interface HelpSchedule {
+  financialYear: FinancialYear
+  brackets: readonly HelpBracket[]
+}
+
+/** FBT-exempt salary packaging caps (§3.10). Need an annual currency check. */
+export interface PackagingCaps {
+  effectiveFrom: IsoDate
+  livingExpensesCap: number
+  mealEntertainmentCap: number
+  /** FBT Type 2 gross-up, for the reportable fringe benefit warning. */
+  grossUpFactor: number
+}
+
 /**
  * ACT public holidays as data, with an explicit horizon.
  *

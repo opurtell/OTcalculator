@@ -6,6 +6,7 @@
  * to exercise the rules without waiting on Phase 1.
  */
 
+import { ACT_HOLIDAY_CALENDAR } from '../../data/public-holidays'
 import type { HolidayCalendar, OtShift, PayBand, ShiftKind } from '../types'
 
 /**
@@ -22,17 +23,17 @@ export const AP1_STEP_2: PayBand = {
 }
 
 /**
- * A minimal ACT calendar. Canberra Day 2026 is the second Monday in March,
- * which lands on the 9th — a Monday, so it doubles as the public-holiday →
- * weekday carry case.
+ * The real ACT calendar from `src/data/`.
  *
- * The real list arrives in Phase 1. `coversThrough` matters as much as the
- * dates: past it the engine must warn rather than quietly pay a weekday rate.
+ * Engine tests run against the shipped data rather than a hand-written stand-in
+ * — a fixture that invents a holiday proves the engine agrees with the fixture
+ * and nothing more. An earlier version of this file listed 26 December 2026 as
+ * Boxing Day; it is a Saturday, and the holiday is observed on the 28th.
+ *
+ * `coversThrough` matters as much as the dates: past it the engine must warn
+ * rather than quietly pay a weekday rate.
  */
-export const HOLIDAYS_2026: HolidayCalendar = {
-  dates: new Set(['2026-01-26', '2026-03-09', '2026-04-25', '2026-12-25', '2026-12-26']),
-  coversThrough: '2026-12-31',
-}
+export const HOLIDAYS_2026: HolidayCalendar = ACT_HOLIDAY_CALENDAR
 
 /** No public holidays at all — isolates the weekday and weekend rules. */
 export const NO_HOLIDAYS: HolidayCalendar = {

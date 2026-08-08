@@ -142,11 +142,12 @@ describe('the midnight ratchet — crossover doc §4', () => {
   })
 
   it('§4.4 PH→Sunday — the Sunday hours carry at 2.5×, not 2×', () => {
-    // Christmas Day 2026 falls on a Friday, so this uses Boxing Day, a
-    // Saturday public holiday, running into the Sunday.
-    expect(run('2026-12-26', 22, 8)).toEqual([
-      ['2026-12-26', 'ph_2_5x', 2],
-      ['2026-12-27', 'ph_2_5x', 6],
+    // Easter Saturday 2027 is a public holiday falling on the 27th of March,
+    // running into the Sunday. Boxing Day 2026 would not do: it lands on a
+    // Saturday and is observed on the Monday instead.
+    expect(run('2027-03-27', 22, 8)).toEqual([
+      ['2027-03-27', 'ph_2_5x', 2],
+      ['2027-03-28', 'ph_2_5x', 6],
     ])
   })
 

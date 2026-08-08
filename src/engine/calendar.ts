@@ -11,7 +11,7 @@
  * parses a date string through `Date`.
  */
 
-import type { HolidayCalendar, IsoDate, Minutes } from './types'
+import type { FinancialYear, HolidayCalendar, IsoDate, Minutes } from './types'
 import { MINUTES_PER_DAY } from './types'
 
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/
@@ -103,6 +103,18 @@ export function isBeyondHolidayData(
   holidays: HolidayCalendar,
 ): boolean {
   return date > holidays.coversThrough
+}
+
+/**
+ * The Australian financial year a date falls in — `'2026-27'` for anything
+ * from 1 July 2026. Tax scales and HELP thresholds are keyed by this and
+ * selected on the pay date, so an older fortnight keeps computing against the
+ * figures that were current when it was worked (§3.8).
+ */
+export function financialYearFor(date: IsoDate): FinancialYear {
+  const { year, month } = parseIsoDate(date)
+  const startYear = month >= 7 ? year : year - 1
+  return `${startYear}-${String((startYear + 1) % 100).padStart(2, '0')}`
 }
 
 function firstSundayIn(year: number, month: number): IsoDate {

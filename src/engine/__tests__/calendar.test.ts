@@ -102,8 +102,9 @@ describe('dayKind', () => {
 
 describe('isBeyondHolidayData', () => {
   it('is false inside the horizon and true past it', () => {
-    expect(isBeyondHolidayData('2026-12-31', HOLIDAYS_2026)).toBe(false)
-    expect(isBeyondHolidayData('2027-01-01', HOLIDAYS_2026)).toBe(true)
+    // The ACT list currently runs to King's Birthday, 14 June 2027.
+    expect(isBeyondHolidayData('2027-06-14', HOLIDAYS_2026)).toBe(false)
+    expect(isBeyondHolidayData('2027-06-15', HOLIDAYS_2026)).toBe(true)
   })
 })
 

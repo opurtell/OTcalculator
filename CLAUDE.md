@@ -4,16 +4,16 @@ A static single-page app for ACTAS paramedics: enter a fortnight's overtime shif
 
 ## Status
 
-**Phases 0 and 2 complete. Phase 1 is blocked on reference data; Phase 3 is next.**
+**Phases 0, 1 and 2 complete. Phase 3 is next.**
 
 Phases against `IMPLEMENTATION_PLAN.md` §6:
 
 | Phase | State |
 | --- | --- |
 | **0** Scaffold | **Done.** `src/main.tsx`, `src/App.tsx` (a deliberate placeholder — no figures), `.github/workflows/deploy.yml`, live at https://opurtell.github.io/OTcalculator/ |
-| **1** Reference data | **Not started.** Needs the ATO NAT 1004 coefficients, HELP thresholds, ACT public holidays and the full Annex A tables. See "Reference data" below |
-| **2** OT engine | **Done.** `src/engine/` — ratchet, categories, attendance grouping, C9.5 minimum, OT dollars. 100 tests green |
-| **3** Money engine | **Next.** `tax.ts`, `packaging.ts`, `fortnight.ts`. Needs Phase 1 data to finish, but the structure does not |
+| **1** Reference data | **Done, with one caveat.** `src/data/` — Annex A tables, ACT holidays, NAT 1004, HELP, FBT caps. Tax and HELP are FY2025-26 only and fall back per §3.8. See "Reference data" below |
+| **2** OT engine | **Done.** `src/engine/` — ratchet, categories, attendance grouping, C9.5 minimum, OT dollars |
+| **3** Money engine | **Next.** `tax.ts`, `packaging.ts`, `fortnight.ts`. All the data it needs is now in `src/data/` |
 | 4–10 | Not started |
 
 `calculateOvertime(shifts, band, holidays)` in `src/engine/attendance.ts` is the
@@ -87,17 +87,30 @@ Two things about a remote session are worth knowing before planning:
 
 ## Reference data
 
-`src/data/` is unwritten and Phase 2 does not wait for it. The engine takes
-every rate, table and threshold as a **parameter** — `PayBand`, `TaxScale`,
+`src/data/` holds every rate, table and threshold, each with a provenance
+comment naming its source. Nothing in there should ever acquire a figure
+without one.
+
+The engine takes all of it as **parameters** — `PayBand`, `TaxScale`,
 `HolidayCalendar` — and holds no figures of its own beyond the EBA's structural
 constants (76 fortnightly hours, the `12/313` divisor, the rate multipliers).
+The arrow runs one way, `data/` → `engine/` types only, and
+`src/engine/__tests__/boundary.test.ts` enforces it. That is what lets a
+fortnight from an earlier financial year keep computing against the figures
+that were current when it was worked.
 
-That is not only a Phase 1 workaround. It is what lets a fortnight from last
-financial year keep computing against last year's coefficients, and it makes
-dropping in the real NAT 1004 numbers a one-file change with no engine edit.
-Tests supply the §4.5 AP1 Step 2 fixture directly.
+**Tax and HELP are FY2025-26 only.** The ATO reissued Schedule 1 for FY2026-27
+(second bracket 16% → 15%) but those coefficients are not in the sibling repo
+and cannot be fetched from a web session. `taxScaleFor` and `helpScheduleFor`
+fall back to FY2025-26 per §3.8 and report `isFallback` so the UI can caption
+it. Adding the real rows to `src/data/tax-scales.ts` is the entire fix — no
+engine change. Remove the caption, never the fallback.
 
-## Four things that will bite
+Confirmed against source while porting: AP1 Step 2 is $95,698 base / $125,920
+Annex A total, and the FY2025-26 Scale 2 coefficients reproduce the §4.5 PAYG
+figures ($1,208 and $1,620) exactly.
+
+## Five things that will bite
 
 1. **Overtime is calculated on base salary only** — EBA N34.1, never the composite-inclusive Annex A total. AP1 Step 2 is $95,698, not $125,920. Getting this wrong overstates every result by ~34%. Needs a named constant and an explicit test.
 
@@ -109,7 +122,16 @@ Tests supply the §4.5 AP1 Step 2 fixture directly.
    hours, so the OT is paid at actual duration however short. Oscar confirmed
    this is how every case he will enter behaves. Never top up an overrun.
 
-4. **`vite.config.ts` carries `base: '/OTcalculator/'`.** GitHub Pages serves
+4. **Saturday overtime is double time from the first minute** — there is no
+   1.5× opening tier on a Saturday for this cohort. The general ACT public
+   sector clause C9.12 *does* put Mon–**Sat** at time-and-a-half for the first
+   2 hours, but **N34 explicitly overrides C9.12 for Mon–Sat** and says
+   "Saturday: Double time for all overtime worked". Section N covers Emergency
+   Operations — paramedics and ICPs — so N34 is the one that applies. If
+   someone reports Saturday starting at 1.5×, they are reading C9.12. Getting
+   this wrong costs about $48 on the §4.5 golden fixture's Saturday pickup.
+
+5. **`vite.config.ts` carries `base: '/OTcalculator/'`.** GitHub Pages serves
    from a subpath; the Vite default of `/` gives a blank page with a 404 on
    every asset. The deploy workflow asserts the built `index.html` has subpath
    asset URLs, so this cannot regress silently — do not "tidy" the base away.
