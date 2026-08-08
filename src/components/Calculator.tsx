@@ -7,21 +7,34 @@ import {
 } from '../app/settings'
 import type { CalculatorChoices, Pathway } from '../app/settings'
 import { amountInputFor, parseAmount, percentInputFor } from '../app/inputs'
-import { CLASSIFICATION_LABEL, payBandFor } from '../data'
+import {
+  draftFrom,
+  duplicateDraft,
+  emptyDraft,
+  removeShifts,
+  toShift,
+  upsertShift,
+} from '../app/shifts'
+import type { ShiftDraft } from '../app/shifts'
+import { formatShortDate } from '../app/dates'
+import { fortnightWarnings } from '../app/warnings'
+import { payBandFor } from '../data'
 import type { Classification } from '../data'
 import { calculateFortnight, comparePay } from '../engine/fortnight'
 import { quickOvertime } from '../engine/overtime'
-import type { IsoDate } from '../engine/types'
-import { EmptyState, Panel, formatMoney } from '../ui/index'
+import type { IsoDate, OtShift } from '../engine/types'
+import { formatMoney } from '../ui/index'
 import { CalculatorShell } from './CalculatorShell'
 import {
   DeductionsTaxPanel,
   deductionSettingsFrom,
 } from './DeductionsTaxPanel'
+import { FortnightPathway } from './FortnightPathway'
 import { FortnightResultPanel } from './FortnightResultPanel'
 import { PayBandFields, clampStep } from './PayBandFields'
 import { QuickHoursField, QuickResult } from './QuickPathway'
 import { SetupScreen } from './SetupScreen'
+import { ShiftSheet } from './ShiftSheet'
 
 export interface CalculatorProps {
   /** Where to start. The persisted record, or the defaults on a fresh device. */
@@ -67,6 +80,15 @@ export function Calculator({
   // makes. It does not survive a reload, and should not — §4.4.
   const [quickHoursInput, setQuickHoursInput] = useState('')
 
+  // Shifts are transient by design (§4.4): persisting them creates a stale-data
+  // trap where last fortnight's pickups quietly inflate this fortnight.
+  const [shifts, setShifts] = useState<OtShift[]>([])
+  // The sheet is open exactly when there is a draft.
+  const [draft, setDraft] = useState<ShiftDraft | null>(null)
+  // A deletion happens immediately and is taken back from the undo row, rather
+  // than being interrupted by a dialog asking whether it was meant (§7).
+  const [pendingDelete, setPendingDelete] = useState<OtShift[] | null>(null)
+
   const choices = choicesFrom(fields)
   const date = payDate ?? todayIso()
 
@@ -87,6 +109,34 @@ export function Calculator({
     setFields((current) => ({ ...current, ...patch }))
   }
 
+  function commitDraft() {
+    if (draft === null) return
+    const shift = toShift(draft)
+    if (shift === null) return
+
+    setShifts((current) => upsertShift(current, shift))
+    setDraft(null)
+  }
+
+  function openDraftFor(shiftId: string, copy: boolean) {
+    const shift = shifts.find((existing) => existing.id === shiftId)
+    if (shift === undefined) return
+    setDraft(copy ? duplicateDraft(shift) : draftFrom(shift))
+  }
+
+  /** Delete now, restore from the undo row (§7). */
+  function deleteShifts(shiftIds: readonly string[]) {
+    const { kept, removed } = removeShifts(shifts, shiftIds)
+    if (removed.length === 0) return
+
+    setShifts(kept)
+    setPendingDelete(removed)
+    // Editing a shift that is no longer there would commit it back on save.
+    if (draft !== null && draft.id !== null && shiftIds.includes(draft.id)) {
+      setDraft(null)
+    }
+  }
+
   if (resolved === null) {
     return (
       <SetupScreen
@@ -99,9 +149,8 @@ export function Calculator({
 
   const { settings, captions } = resolved
 
-  // No shifts yet — the fortnight pathway arrives in Phase 7. The figures are
-  // real regardless: this is the fortnight as it stands before any overtime.
-  const result = calculateFortnight([], settings)
+  const result = calculateFortnight(shifts, settings)
+  const warnings = fortnightWarnings(shifts, result.flags, settings.holidays)
 
   // The quick pathway, when it has a number to work with. Both pathways reach
   // their net figure through the same `comparePay`, so the same overtime can
@@ -206,15 +255,42 @@ export function Calculator({
           onUseFortnight={() => update({ pathway: 'fortnight' })}
         />
       ) : (
-        <Panel>
-          <div className="sl-stack">
-            <h2 className="sl-heading">Overtime shifts</h2>
-            <EmptyState
-              title="No shifts added yet."
-              body={`Adding shifts arrives next. Everything above is live: ${CLASSIFICATION_LABEL[fields.classification]} Step ${fields.step}, worked out from the pay tables.`}
+        <>
+          {draft !== null ? (
+            <ShiftSheet
+              draft={draft}
+              onDraftChange={setDraft}
+              onCommit={commitDraft}
+              onClose={() => setDraft(null)}
+              band={settings.band}
+              holidays={settings.holidays}
             />
-          </div>
-        </Panel>
+          ) : null}
+          <FortnightPathway
+            attendances={result.attendances}
+            shifts={shifts}
+            warnings={warnings}
+            onAdd={() => setDraft(emptyDraft())}
+            onEdit={(shiftId) => openDraftFor(shiftId, false)}
+            onDuplicate={(shiftId) => openDraftFor(shiftId, true)}
+            onDelete={deleteShifts}
+            pendingDelete={
+              pendingDelete === null
+                ? null
+                : {
+                    id: pendingDelete.map((shift) => shift.id).join('+'),
+                    message: deletedMessage(pendingDelete),
+                  }
+            }
+            onUndoDelete={() => {
+              setShifts((current) =>
+                pendingDelete === null ? current : [...current, ...pendingDelete],
+              )
+              setPendingDelete(null)
+            }}
+            onExpireDelete={() => setPendingDelete(null)}
+          />
+        </>
       )}
     </CalculatorShell>
   )
@@ -295,6 +371,14 @@ export function choicesFrom(fields: Fields): CalculatorChoices {
 function overrideFrom(value: string): number | null {
   const parsed = parseAmount(value)
   return parsed === null || parsed <= 0 ? null : parsed
+}
+
+/** `Shift deleted` / `2 shifts deleted`, past tense — it already happened. */
+function deletedMessage(removed: readonly OtShift[]): string {
+  if (removed.length === 1) {
+    return `${formatShortDate(removed[0].date)} shift deleted`
+  }
+  return `${removed.length} shifts deleted`
 }
 
 /** `$95,698` — cents on an annual salary are noise in a one-line summary. */

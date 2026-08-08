@@ -62,6 +62,32 @@ body {
   color: var(--muted);
 }
 
+/* Start and End sit side by side — they are one question, and putting them on
+   two rows makes the sheet scroll on a phone for no reason. */
+.sl-sheet__times {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+/* The live preview inside the add/edit sheet: what this shift pays, before
+   committing it. Teal wash rather than a panel, so it reads as an answer to
+   the fields above rather than as another field. */
+.sl-preview {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-panel);
+  background: var(--teal-wash);
+}
+
+.sl-preview__breakdown {
+  font-size: var(--text-caption);
+  color: var(--muted);
+}
+
 /* Clear saved settings, mid-confirmation. Ruled off rather than boxed — it is
    the last thing on the page and does not need a panel competing with the
    result. */
