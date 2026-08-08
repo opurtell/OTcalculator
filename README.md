@@ -104,5 +104,5 @@ so nothing looks wrong until someone opens it with no signal.
 | --- | --- |
 | `IMPLEMENTATION_PLAN.md` | The calculation spec (§3 is authoritative), tech design, 11 phases, risks |
 | `DESIGN_BRIEF.md` | Design language, tokens, 9 screen wireframes, copy deck, accessibility |
-| `NEXT_SESSION.md` | Remaining design-system work |
+| `NEXT_SESSION.md` | **What to do next** — Phase 10, the browser checks Phase 9 never got, and the design system |
 | `.design-sync/NOTES.md` | Read before any design-sync run |

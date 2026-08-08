@@ -1,52 +1,98 @@
-# Handoff — the nine screens
+# Next session
 
-**Task A is done** (2026-08-07). One piece of work remains, and **it happens in
-the browser** — Claude Code cannot drive the Claude Design agent.
+Phases 0–9 are done and deployed. Three workstreams remain, in this order.
+**A** is the gate on everything else; **B** is cheap and overdue; **C** is
+polish on the design system.
 
-## Where things stand
+`CLAUDE.md` is the state of the code. This file is what to do next.
+
+---
+
+## A. Phase 10 — reconcile against real payslips ★ the gate
+
+**Nothing ships to a colleague until this passes.** Everything the app shows is
+computed from the EBA tables and the FY2025-26 coefficients and has never been
+checked against what payroll actually paid. Until it is, this is a well-tested
+hypothesis with a confident-looking UI, which is the more dangerous kind.
+
+**This needs the local machine.** The payslips are deliberately not on GitHub,
+so a web session cannot do it — `~/claudeCode/my-actas-pay/personal-payslips/`
+holds 35 PDFs. Everything *else* Phase 10 needs (the crossover doc, the EBA
+transcription, the pay engine, the interpretation guide) is in the GitHub copy
+of the sibling and can be attached with `add_repo`.
+
+How to work it:
+
+1. **Find the fortnights with OT lines.** Not every payslip has one. The
+   sibling's `main-plan-docs/actas_pay_tracker_payslip_interpretation_guide.md`
+   explains the line codes — read it before interpreting anything, because the
+   composite and the roster adjustment appear as their own lines and are easy
+   to mistake for overtime.
+2. **Re-enter each OT fortnight into the app** (or straight into
+   `calculateFortnight` as a test fixture — faster, and it lands as a
+   regression test either way).
+3. **Compare four things, in this order**, because they fail differently:
+   - **The OT hourly rate.** Wrong here means the base-vs-composite trap
+     (gotcha 1) and everything downstream is ~34% out.
+   - **The per-line categories.** Right total, wrong split means the ratchet's
+     labelling rules are off — see the second and third bullets under the
+     engine notes in `CLAUDE.md`. This is the most likely divergence and the
+     least visible.
+   - **The four-hour minimum.** Whether payroll topped up a short standalone
+     shift, and whether it ever topped up an overrun (it should not).
+   - **PAYG.** A cent or two is rounding convention; more than that is a wrong
+     scale or a stale coefficient set.
+4. **Settle the rounding question.** §4.5 prints $1,110.34 by summing two
+   already-rounded lines; the engine carries full precision to display per
+   §3.12 and gets $1,110.33. If a real payslip sums rounded per-line amounts,
+   §3.12 needs an explicit exception for overtime lines — and
+   `golden.test.ts` changes with it.
+5. **Anything that diverges gets a fixture, not a patch.** Add the real
+   fortnight as a test case first, watch it fail, then fix the engine.
+
+Two things Phase 10 may also settle, both flagged in the plan's §8: whether
+the meal allowance (N36) shows up often enough on OT lines to belong in v1, and
+whether "current rates only" is the right v1 answer for historical fortnights.
+
+---
+
+## B. The browser checks Phase 9 never got
+
+Phase 9 was implemented without a working browser — the Chrome extension was
+not connected and there is no Playwright here — so its keyboard, offline, print
+and small-screen behaviour is written and reasoned about but **never observed**.
+Tests, `tsc`, the build assertions and the deployed URLs all pass, which covers
+less than it sounds like.
+
+The list is in `CLAUDE.md` under "What Phase 9 still owes you". It is maybe
+twenty minutes with the live site at https://opurtell.github.io/OTcalculator/
+or a local `npm run preview`, and it should happen *alongside* Phase 10 rather
+than after it: a keyboard trap or a broken offline reload found now is cheaper
+than one found by the first colleague who opens it.
+
+Note that `npm run dev` has no service worker by design, so anything about
+offline behaviour has to go through `npm run preview`.
+
+---
+
+## C. The design system
 
 `src/ui/` is the Station Ledger component library: 22 components, Vite +
 TypeScript, no runtime deps beyond React. It is synced to the Claude Design
 project **ACTAS OT Calculator** (`d6df1004-e7c3-46f0-835a-8719984bd989`,
-https://claude.ai/design/p/d6df1004-e7c3-46f0-835a-8719984bd989). Render check
-is clean at 22/22 with **zero warn lines**, and **all 22 components have
-authored preview cards graded good** — there is no floor-card tier left.
+https://claude.ai/design/p/d6df1004-e7c3-46f0-835a-8719984bd989). All 22
+components have authored preview cards graded good; there is no floor-card tier
+left.
 
-**This file is about the design system only.** Since it was written, Phases 0
-to 3 of `IMPLEMENTATION_PLAN.md` have landed: the app builds and deploys,
-`src/data/` holds the reference tables, and `src/engine/` computes a fortnight
-end to end — the §4.5 acceptance fixture passes. None of that touched `src/ui/`,
-so everything below still stands. See `CLAUDE.md` for the current state.
+**Read `.design-sync/NOTES.md` before touching anything.** It records traps that
+cost real debugging time: the Playwright pin, the icon-glyph problem, the
+`data-theme` cascade, the container query, and the hand-maintained `dtsPropsFor`
+entries. `.design-sync/conventions.md` is the brief the design agent itself
+reads.
 
-**Read `.design-sync/NOTES.md` before touching anything.** It records traps
-that cost real debugging time: the Playwright pin, the icon-glyph problem, the
-`data-theme` cascade, the container query, and the hand-maintained
-`dtsPropsFor` entries. Also read `.design-sync/conventions.md` — it is the
-brief the design agent itself reads.
+### C1. Re-sync — the anchor is stale
 
----
-
-## Task A — author previews for the 11 floor-card components — **DONE**
-
-Completed 2026-08-07. `Disclaimer`, `Disclosure`, `EmptyState`, `Money`,
-`Panel`, `SegmentedControl`, `SelectField`, `Sheet`, `Tabs`, `TextField` and
-`Toggle` all now have authored previews in `.design-sync/previews/`, graded good
-and uploaded. Every component carries a `Dark` cell, because dark mode broke
-silently here once while passing all mechanical checks.
-
-Two findings worth carrying forward (both recorded in `.design-sync/NOTES.md`):
-
-- `Panel variant="raised"` is **invisible in light mode by design** —
-  `--surface` and `--surface-raised` are both `#ffffff` and only separate in
-  dark. Its preview renders dark so the variant is actually visible.
-- `Sheet` needed `cardMode: "column"`, same as `CalculatorLayout`.
-
-Re-running `/design-sync` from here is a no-op unless `src/ui/` changes: the
-anchor carries all 22 grades forward.
-
-### Phase 9 changed `src/ui/`, so the anchor is now stale
-
-The accessibility and mobile passes touched five components and one base rule:
+Phase 9 changed `src/ui/`, so `/design-sync` is no longer a no-op:
 
 - `Tabs` — roving `tabIndex`, arrow keys, and an optional `idBase` prop that
   ties each tab to its panel.
@@ -54,27 +100,23 @@ The accessibility and mobile passes touched five components and one base rule:
 - `Sheet` — `Escape` to close, focus on open, `aria-labelledby`.
 - `ShiftRow` — the row menu closes on `Escape` and on a tap outside, and its
   trigger is a 44px target.
-- `ResultPanel` — the `aria-live` region is now the headline only, with a new
-  `.sl-result__headline` wrapper around it.
-- **`.sl-stack` gained a gap.** This one moves every preview: the class was a
-  bare flex column and is now `gap: var(--stack-gap, var(--space-4))`. Anything
-  composed with it will be spaced differently — that is the fix, not a
-  regression, but the cards need re-capturing to show it.
+- `ResultPanel` — the `aria-live` region is now the headline only, wrapped in a
+  new `.sl-result__headline`.
+- **`.sl-stack` gained a gap**, which moves *every* preview: it was a bare flex
+  column and is now `gap: var(--stack-gap, var(--space-4))`. That is the fix,
+  not a regression — the app had no spacing between panels at all before — but
+  the cards need re-capturing to show it.
 
-So the next `/design-sync` run is no longer a no-op. Re-capture and re-grade at
-least those five, and expect the spacing change to show up everywhere.
+Re-capture and re-grade at least those five, and expect the spacing change
+everywhere else.
 
----
+### C2. The nine screens, in Claude Design
 
-## Task B — the nine screens, in Claude Design
+Open the project and prompt the agent there. It already has the components,
+their prop types and the conventions header, so **do not re-explain the design
+language** — name the screen and the components.
 
-Open https://claude.ai/design/p/d6df1004-e7c3-46f0-835a-8719984bd989 and prompt
-the agent there. It already has the components, their prop types, and the
-conventions header, so **do not re-explain the design language** — just ask for
-the screen and name the components.
-
-Priority order is `DESIGN_BRIEF.md` §9. The first five are enough to start
-building the app.
+Priority order is `DESIGN_BRIEF.md` §9:
 
 1. **Fortnight calculator, populated** (§5.4) — light, mobile. The most
    important frame. `CalculatorLayout`, `ResultPanel` with the comparison
@@ -94,6 +136,11 @@ building the app.
 8. "How this was worked out" (§5.7)
 9. Desktop layout (§5.9)
 
+**These are now mockups of screens that already exist as real React.** That
+changes what they are for: not a spec to build from, but a second opinion on
+layout and hierarchy against something shipped. Where a mockup and the app
+disagree, the interesting question is which one a paramedic reads faster.
+
 Give it the real §4.5 figures. When a screen comes back, check three things:
 
 - Does it use the library components, or has it hand-rolled lookalikes? Ask it
@@ -104,30 +151,22 @@ Give it the real §4.5 figures. When a screen comes back, check three things:
 
 ### The success test
 
-§10: hand the populated mockup to a paramedic who has never seen it. Within ten
-seconds, without explanation, they should be able to say what the overtime is
-worth to them. If they have to ask a question first, the design isn't finished.
-Nothing else in this file matters as much as that.
+`DESIGN_BRIEF.md` §10: hand the populated screen to a paramedic who has never
+seen it. Within ten seconds, without explanation, they should be able to say
+what the overtime is worth to them. If they have to ask a question first, the
+design isn't finished. Nothing in this section matters as much as that.
 
 ---
 
 ## Standing caveat
 
-Every figure in the previews and mockups comes from `IMPLEMENTATION_PLAN.md`
-§4.5, which is computed from the EBA tables and **has not been verified against
-a real payslip**. That is Phase 10, and it gates sharing the app with anyone. If
-the golden fixture moves, the preview cards need re-capturing and re-grading.
+Every figure in the app, the previews and the mockups comes from
+`IMPLEMENTATION_PLAN.md` §4.5, computed from the EBA tables and **not verified
+against a real payslip**. That is workstream A, and it gates sharing this with
+anyone. If the golden fixture moves, the preview cards need re-capturing.
 
 One figure has already moved by a cent: the overtime delta is **$1,110.33 →
 $698.33**, not the `$1,110.34 → $698.34` printed in §4.5. The engine carries
-full precision to display, per §3.12; the plan's figure sums two already-rounded
-line items. Not worth re-grading a card over, but do not "fix" a preview back to
-the plan's number.
-
-## If you wanted real screens instead of mockups
-
-Building the nine screens as actual React in `src/` is a different job, and the
-groundwork for it is now done — Phases 0 to 3 are complete, so
-`calculateFortnight` will hand a screen real numbers today. What remains is
-Phase 4 (persistence) and Phases 5 to 8 (shell, the two pathways, results).
-Say so explicitly if that is what you want; it is not what Task B does.
+full precision to display per §3.12; the plan's figure sums two already-rounded
+line items. Do not "fix" a preview or a test back to the plan's number — which
+convention is right is a question for A, not a typo.

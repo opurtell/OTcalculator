@@ -246,13 +246,20 @@ Rejected: Next.js (static export works but the framework earns nothing here); Ta
 
 ### 4.2 Repository layout
 
+As built through Phase 9:
+
 ```
 OTcalculator/
 ├── index.html
 ├── vite.config.ts               base: '/OTcalculator/'   ← see §4.6
+├── vite-pwa.ts                  emits sw.js with the build's asset list (§4.7)
+├── vite.config.lib.ts           the SEPARATE library build → dist-lib/
+├── scripts/
+│   └── make-icons.mjs           draws + encodes the PNGs in public/
+├── public/                      manifest.webmanifest, icons
 ├── src/
-│   ├── main.tsx
-│   ├── App.tsx
+│   ├── main.tsx                 mount + service-worker registration
+│   ├── App.tsx                  the only place that touches localStorage
 │   ├── engine/                  pure, no DOM, no React
 │   │   ├── types.ts
 │   │   ├── calendar.ts          date utils, day-of-week, PH lookup, DST flags
@@ -269,14 +276,33 @@ OTcalculator/
 │   │   └── public-holidays.ts   ACT
 │   ├── storage/
 │   │   └── preferences.ts       localStorage, versioned schema
-│   ├── components/
+│   ├── app/                     pure app logic, no JSX — testable in node
+│   │   ├── settings.ts          choices → resolved engine settings
+│   │   ├── inputs.ts            typed strings ↔ figures
+│   │   ├── shifts.ts            drafts, grouping descriptions
+│   │   ├── warnings.ts          the five non-blocking warnings (§5.2)
+│   │   ├── breakdown.ts         figure rows for §5.4 and §5.7
+│   │   ├── dates.ts
+│   │   └── summary.ts           the shareable plain-text summary (§4.7)
+│   ├── components/              the screens
+│   │   ├── Calculator.tsx       owns every choice; reports changes upward
+│   │   ├── CalculatorShell.tsx  frame, tabs, tabpanel, settings disclosures
+│   │   ├── ErrorBoundary.tsx    the last line before a white page
+│   │   ├── ShareSummary.tsx     share / copy / print
+│   │   └── …
+│   ├── ui/                      Station Ledger component library
+│   │   ├── roving.ts            arrow-key navigation for tabs + radio groups
+│   │   ├── tokens.css  base.css  components.css
+│   │   └── __tests__/           contrast + roving
 │   └── styles/
-│       └── tokens.css
+│       └── app.css              page ground, safe areas, @media print
 ├── .github/workflows/deploy.yml
 └── README.md
 ```
 
-The `engine/` directory has no imports from `components/` or `storage/` and no DOM access. That boundary is what makes the money math testable.
+The `engine/` directory has no imports from `components/` or `storage/` and no DOM access. That boundary is what makes the money math testable, and `engine/__tests__/boundary.test.ts` enforces it.
+
+`app/` is the second layer of the same idea: everything between the engine and the screen that can be decided without rendering — which drafts are valid, which warnings apply, what the figure rows say, what the shareable summary reads like. It keeps the components thin enough to read in one sitting and the logic testable in a node environment.
 
 ### 4.3 Dates without a library
 
@@ -370,6 +396,26 @@ Other required coverage:
 
 Property test worth having: OT dollars are monotonic in hours, and net pay is monotonic in gross.
 
+**Added in Phase 9** (401 tests total). Tests run in a node environment against
+`renderToStaticMarkup`, so anything needing real events or layout is out of
+reach by design — those are the browser checks listed in `CLAUDE.md`:
+
+- **Contrast** (`ui/__tests__/contrast.test.ts`) — parses `tokens.css` and holds
+  every foreground/background pair at 4.5:1 in *both* themes, §8 of the design
+  brief. It also asserts the three hand-duplicated copies of the palette still
+  agree, which is how dark mode broke silently once already.
+- **Roving index** (`ui/__tests__/roving.test.ts`) — the arrow-key arithmetic
+  behind the tabs and the segmented control, separated from the DOM half
+  precisely so it can be tested here.
+- **The shareable summary** (`app/__tests__/summary.test.ts`) — the golden
+  fixture's figures, its shifts, and the disclaimer, in the text that leaves
+  the device.
+- **Error and repair states** (`components/__tests__/error-states.test.tsx`) —
+  the error boundary's copy and its two ways out, and that a `'repaired'` read
+  is surfaced rather than silently swallowed.
+- **ARIA wiring**, asserted in the rendered markup: each tab controls the
+  panel, the live region is the headline alone and there is exactly one of it.
+
 ### 4.6 Deployment
 
 GitHub Actions on push to `main`: install, `vitest run`, `vite build`, publish `dist/` via `actions/deploy-pages`. **A failing test blocks the deploy.**
@@ -381,11 +427,49 @@ Two gotchas to get right on day one:
 
 Add a `404.html` that redirects to `index.html` if client-side routing is used; simpler to use hash-based tabs and skip it.
 
+**The workflow asserts the build is servable**, because every failure in this
+class is silent at build time and only visible to a user: subpath asset URLs in
+`index.html`, a stylesheet actually linked (`package.json`'s `sideEffects` lets
+Rollup drop the barrel's CSS import), and — since Phase 9 — `sw.js` present with
+subpath URLs in its precache list, plus the manifest and icons. Offline support
+fails the same way the base path does: the app still loads over the network, so
+nothing looks wrong until someone opens it with no signal.
+
 ### 4.7 Privacy and offline
 
 No backend, no analytics, no external requests, no web fonts loaded from a CDN — system font stack or self-hosted subset only. Every number stays in `localStorage`.
 
-A service worker with a precache manifest makes the app work with no signal — genuinely useful in an ambulance station basement. Combined with a web app manifest, it installs to the home screen and behaves like a native app. This is cheap (Vite PWA plugin) and disproportionately improves the experience.
+A service worker with a precache manifest makes the app work with no signal — genuinely useful in an ambulance station basement. Combined with a web app manifest, it installs to the home screen and behaves like a native app. This is cheap and disproportionately improves the experience.
+
+**Built in Phase 9, hand-rolled rather than with the Vite PWA plugin.** The
+whole strategy is about fifteen lines — network-first for the document so a
+deploy is picked up the moment there is signal, cache-first for fingerprinted
+assets because a changed file is a different URL — and a generated worker would
+have been fifteen hundred lines nobody in this repo would read, plus a Workbox
+dependency tree in a project whose defining constraint is having none.
+`vite-pwa.ts` emits it at build time because the precache list is the build's
+own asset names, which only the bundler knows. Three decisions inside it:
+
+- **No `skipWaiting`.** Swapping assets under a live session to save one reload
+  is a bad trade for an app someone is reading figures off. The new version
+  takes over on the next load.
+- **Only same-origin, successful, basic responses are cached** on the fly. An
+  opaque or errored response cached here would be served back forever.
+- **Emitted on build only.** In dev it would cache the module graph and fight
+  HMR, so `npm run dev` has no worker and offline behaviour must be checked
+  through `npm run preview`.
+
+Icons are drawn and PNG-encoded by `scripts/make-icons.mjs` — `node:zlib` plus
+a CRC is the whole of it — rather than adding an image dependency to draw three
+rectangles.
+
+**Sharing is text, never a URL.** Phase 9 added a copy/share summary
+(`app/summary.ts`) carrying the figures, the shifts and the disclaimer. It
+deliberately does not encode state into the address bar: the hash-payload idea
+in §4.4 remains deferred, and shipping it as the *default* share route would
+put a pay band into every link pasted into a group chat. "Nothing you enter
+leaves this device" stays true because the only thing that leaves is what the
+user explicitly sends.
 
 ---
 
@@ -426,10 +510,17 @@ Validation, all non-blocking warnings rather than hard errors:
 
 Each phase ends in a working, deployed state. No phase leaves the app broken.
 
-**Status: Phases 0–4 are complete** — scaffold, reference data, overtime engine,
-money engine and persistence, with the §4.5 fixture passing end to end. Phase 5
-is next, and it is the first one that puts a real figure on screen.
-`CLAUDE.md` carries the current detail; this table is the plan, not the record.
+**Status: Phases 0–9 are complete** — the engine, the money, persistence, both
+pathways, the results display and the polish pass, with the §4.5 fixture
+rendering end to end through the real UI. **Phase 10 is next, and it is the one
+that decides whether any of this is right.** `CLAUDE.md` carries the current
+detail; this table is the plan, not the record.
+
+One caveat on Phase 9: it was implemented without a browser in the session, so
+its keyboard, offline, print and small-screen behaviour is written and reasoned
+about but not observed. That verification list lives in `CLAUDE.md` and should
+be worked through alongside Phase 10, not after it — a bug found there is
+cheaper than a bug found by a colleague.
 
 | # | Phase | Deliverable | Depends on |
 | --- | --- | --- | --- |
@@ -442,10 +533,14 @@ is next, and it is the first one that puts a real figure on screen.
 | **6** | Quick pathway | Hours input, assumption note, result | 5 |
 | **7** | Fortnight pathway | Shift list, add/edit/delete/duplicate, live recalculation, warnings | 5 |
 | **8** | Results | Delta headline, with/without comparison, per-shift breakdown, expandable "how this was worked out" | 6, 7 |
-| **9** | Polish | Accessibility pass, mobile pass, PWA + offline, print/share, empty and error states, copy review | 8 |
+| **9** | Polish | Accessibility pass, mobile pass, PWA + offline, print/share, empty and error states, copy review. **Done — see §4.7 for the offline design and `CLAUDE.md` for what is still unverified in a browser** | 8 |
 | **10** | Validation | Reconcile against real payslips from `~/claudeCode/my-actas-pay/personal-payslips/` that contain OT lines. Correct any divergence. **Gate before sharing with colleagues** | 9 |
 
-Phases 0–3 are the substance. Phases 5–8 are a form and a table.
+Phases 0–3 are the substance. Phases 5–8 are a form and a table — and Phase 9
+turned out to be where the form's real problems surfaced, from a component
+library with no spacing between its panels to a live region that read the whole
+table aloud on every keystroke. Phase 10 is the only one that can tell you
+whether the substance is right.
 
 ### Phase 10 is not optional
 
@@ -471,11 +566,23 @@ Until Phase 10 passes, the app is a well-tested hypothesis.
 
 ## 8. Open questions
 
-None blocking. Worth deciding before Phase 8:
+None blocking.
 
-1. Should the fortnight calculator offer a "copy result as text" for pasting into a message to a partner or a colleague? Cheap, and likely to be used.
-2. Should there be a rate-effective-date selector for calculating historical fortnights, or is "current rates only" correct for v1? Leaning current-only.
-3. Meal allowance (N36, $35.38/occasion) is a real cash addition to most OT shifts and is not in v1. Worth including at Phase 8 if the eligibility rules can be expressed as a simple per-shift checkbox rather than inferred.
+1. ~~Should the fortnight calculator offer a "copy result as text"?~~
+   **Settled in Phase 9: yes.** `app/summary.ts` builds it, `ShareSummary.tsx`
+   sends it via the native share sheet on mobile and the clipboard elsewhere,
+   and it always ends with the disclaimer — an estimate that leaves the device
+   carries its caveat with it. Print landed alongside it.
+2. Should there be a rate-effective-date selector for calculating historical
+   fortnights, or is "current rates only" correct for v1? Leaning current-only.
+   The engine already takes the pay table as a parameter, so this is a UI
+   question rather than an engine one.
+3. Meal allowance (N36, $35.38/occasion) is a real cash addition to most OT
+   shifts and is not in v1. Worth including if the eligibility rules can be
+   expressed as a simple per-shift checkbox rather than inferred. **Phase 10 is
+   the moment to decide**: a real payslip will show whether the allowance
+   appears on OT lines often enough to matter, and the reconciliation will
+   surface it as an unexplained difference if it does.
 
 ---
 

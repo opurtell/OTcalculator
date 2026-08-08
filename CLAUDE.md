@@ -29,7 +29,7 @@ Phases against `IMPLEMENTATION_PLAN.md` §6:
 | **7** Fortnight pathway | **Done.** Shift list, add/edit sheet with live preview, delete-with-undo, duplicate, and the five non-blocking warnings. A row is an attendance, not an entry |
 | **8** Results | **Done.** The with/without comparison table, an inspectable per-shift Overtime breakdown, and the §5.7 "how this was worked out" disclosure. Row logic lives in `src/app/breakdown.ts`; `HowItWasWorkedOut.tsx` wraps the §5.7 derivation |
 | **9** Polish | **Done, unverified in a browser.** Keyboard operation of the tabs and segmented control, the tab panel, a narrowed live region, Escape and focus return on the sheet and row menu; 44px targets, 16px inputs, a capped sticky result, safe areas; PWA with a hand-rolled service worker; print stylesheet and a shareable text summary; an error boundary and the settings-repair notice; a copy sweep against the §6 deck |
-| 10 | Not started — payslip reconciliation, and it still gates sharing |
+| **10** Validation | **Not started, and it is the gate.** Reconcile against the 35 payslips in the sibling repo. Needs the local machine — they are deliberately not on GitHub. Method in `NEXT_SESSION.md` |
 
 `calculateFortnight(shifts, settings)` in `src/engine/fortnight.ts` is the entry
 point — shifts and settings in, take-home and the overtime delta out. It calls
@@ -94,14 +94,51 @@ is the first thing to check. It is also a reminder worth keeping: the app was
 built for four phases without anyone opening it in a browser.
 
 **There are two Vite configs and mixing them up wastes a session.**
-`vite.config.ts` is the *app* build (`base: '/OTcalculator/'`, output `dist/`).
-`vite.config.lib.ts` is the *library* build for the design sync (output
-`dist-lib/`, `npm run build:lib`). `package.json` still carries the library's
-`name`, `exports` and `peerDependencies` — that metadata describes `dist-lib/`,
-not the app.
+`vite.config.ts` is the *app* build (`base: '/OTcalculator/'`, output `dist/`,
+and the `pwa()` plugin from `vite-pwa.ts`). `vite.config.lib.ts` is the
+*library* build for the design sync (output `dist-lib/`, `npm run build:lib`,
+`publicDir: false` so the app's icons stay out of it). `package.json` still
+carries the library's `name`, `exports` and `peerDependencies` — that metadata
+describes `dist-lib/`, not the app.
 
-Remaining design work is in `NEXT_SESSION.md`; it needs a browser and cannot be
-done from Claude Code.
+## The polish layer, and where it lives
+
+Phase 9's work is spread thin by nature, so this is the index:
+
+| Concern | Where |
+| --- | --- |
+| Arrow-key navigation for the tabs and segmented control | `src/ui/roving.ts` — pure index arithmetic, DOM half separate so the part that can be wrong is testable |
+| Tab ↔ panel wiring | `Tabs.tsx` (`idBase`, `tabId`, `tabPanelId`) and `CalculatorShell.tsx`, which renders the panel |
+| Escape, focus-in, focus-return | `Sheet.tsx` and `ShiftRow.tsx`; the *return* target is `Calculator.tsx`'s `sheetOpenedFrom`, because only the opener knows where focus came from |
+| Touch targets, iOS input zoom, the capped sticky result | `src/ui/components.css` |
+| Page ground, safe areas, print | `src/styles/app.css` |
+| Service worker | `vite-pwa.ts` (build-time plugin), registered in `src/main.tsx` |
+| Icons and manifest | `scripts/make-icons.mjs` → `public/` |
+| Shareable text | `src/app/summary.ts` (pure) behind `src/components/ShareSummary.tsx` |
+| Render failures | `src/components/ErrorBoundary.tsx`, wrapped around `Calculator` in `App.tsx` |
+| Settings-repair notice | `readNotice` in `Calculator.tsx`, fed by `App.tsx` from the read status |
+
+Two rules in there are easy to undo by accident:
+
+- **There is exactly one `aria-live` region on screen, and it is the headline.**
+  Every keystroke moves these figures; a region wrapped around the comparison
+  table re-reads the whole thing each time, which is how a helpful announcement
+  becomes something the user switches off. `calculator.test.tsx` asserts the
+  count, so widening it fails a test rather than shipping.
+- **The warnings container is always rendered and never hidden.** A live region
+  has to exist *and be displayed* before its content arrives, or the first
+  warning — the one that matters, because it responds to what was just typed —
+  goes unannounced. It has its own `.sl-warnings` class for exactly this
+  reason; do not "tidy" it into a `.sl-stack` that collapses when empty.
+
+**Sharing is text, never a URL.** No pay band or roster is encoded into the
+address bar, deliberately — see `IMPLEMENTATION_PLAN.md` §4.7. The summary
+always ends with the disclaimer, because an estimate that leaves the device has
+to carry its caveat with it.
+
+What to do next — Phase 10, the browser checks, and the design system, in that
+order — is in `NEXT_SESSION.md`. The design-system half needs a browser and
+cannot be done from Claude Code.
 
 ## What Phase 9 still owes you
 
@@ -127,6 +164,10 @@ can see, and what someone should therefore actually try:
 requirement in both themes, and asserts the three copies of the palette in
 `tokens.css` still agree, which is the failure that bit last time.
 
+Do these alongside Phase 10 rather than after it — `NEXT_SESSION.md` §B. It is
+about twenty minutes against the live site, and a keyboard trap found now is
+cheaper than one found by the first colleague who opens the app.
+
 **`@types/node` is a real dependency now** — `contrast.test.ts` reads
 `tokens.css` off disk, and `scripts/`, `vite-pwa.ts` and `vite.config.lib.ts`
 all use node built-ins. It was missing at first and `tsc` still passed locally,
@@ -148,7 +189,7 @@ the PNGs itself) and committed to `public/`; rerun it only if the mark changes.
 | `IMPLEMENTATION_PLAN.md` | The calculation spec (§3 is authoritative), tech design, 11 phases, risks |
 | `README.md` | Commands, layout, and the two deploy settings that are easy to get wrong |
 | `DESIGN_BRIEF.md` | Design language, tokens, 9 screen wireframes, copy deck, a11y |
-| `NEXT_SESSION.md` | What's left on the design system, and how to pick it up |
+| `NEXT_SESSION.md` | **Start here next session.** Phase 10, the browser checks Phase 9 never got, and the design-system work — in priority order |
 | `.design-sync/NOTES.md` | **Read before any design-sync run.** Playwright pin, icon-glyph traps, the `data-theme` cascade, hand-maintained `dtsPropsFor` |
 | `.design-sync/conventions.md` | The component-usage contract the Claude Design agent reads |
 
