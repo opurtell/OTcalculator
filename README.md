@@ -23,7 +23,7 @@ HELP, pre-tax deductions, and what the overtime added to take-home).
 `src/data/` holds the Annex A pay tables, ACT public holidays, NAT 1004
 coefficients, HELP thresholds and FBT caps. `src/storage/` remembers the
 settings across reloads. `src/components/` is the app: both pathways, the shift
-list, the results and the working behind them. 401 tests.
+list, the results and the working behind them. 413 tests.
 
 Phase 9 added the polish layer — keyboard operation, touch targets, an
 installable offline build, a print stylesheet, a shareable text summary, an

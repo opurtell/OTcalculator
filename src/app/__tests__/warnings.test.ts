@@ -3,7 +3,7 @@ import { AP1_STEP_2, HOLIDAYS_2026 } from '../../engine/__tests__/fixtures'
 import { calculateFortnight } from '../../engine/fortnight'
 import { NO_DEDUCTIONS } from '../../engine/packaging'
 import type { FortnightSettings, OtShift } from '../../engine'
-import { PACKAGING_CAPS, taxScaleFor } from '../../data'
+import { helpScheduleFor, taxScaleFor } from '../../data'
 import { fortnightWarnings } from '../warnings'
 
 const SETTINGS: FortnightSettings = {
@@ -11,7 +11,6 @@ const SETTINGS: FortnightSettings = {
   taxScale: taxScaleFor('2025-26', 2).scale,
   helpSchedule: null,
   deductions: NO_DEDUCTIONS,
-  packagingCaps: PACKAGING_CAPS,
   holidays: HOLIDAYS_2026,
 }
 
@@ -96,10 +95,10 @@ describe('fortnightWarnings', () => {
   })
 
   it('leaves packaging flags to the panel that caused them', () => {
-    // A cap warning beside the shift list would be adrift from the field it
-    // is about.
+    // A note beside the shift list would be adrift from the field it is about.
     const packaged = calculateFortnight([shift({ id: 'a', date: '2026-08-19' })], {
       ...SETTINGS,
+      helpSchedule: helpScheduleFor('2025-26').schedule,
       deductions: { fixedPerFortnight: 900, percentOfGross: 0 },
     })
     const texts = fortnightWarnings(
@@ -108,7 +107,9 @@ describe('fortnightWarnings', () => {
       HOLIDAYS_2026,
     ).map((w) => w.text)
 
-    expect(packaged.flags.some((f) => f.kind === 'packaging-cap-exceeded')).toBe(true)
+    expect(packaged.flags.some((f) => f.kind === 'packaging-help-interaction')).toBe(
+      true,
+    )
     expect(texts).toEqual([])
   })
 })

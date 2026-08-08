@@ -1,14 +1,7 @@
-import { PACKAGING_CAPS } from '../data'
 import { parseAmount, parsePercent } from '../app/inputs'
 import { computeDeductions, packagingFlags } from '../engine/packaging'
 import type { DeductionSettings } from '../engine/packaging'
-import {
-  AssumptionNote,
-  FigureTable,
-  TextField,
-  Toggle,
-  formatMoney,
-} from '../ui/index'
+import { AssumptionNote, FigureTable, TextField, Toggle } from '../ui/index'
 import type { FigureRow } from '../ui/index'
 
 export interface DeductionsTaxPanelProps {
@@ -52,7 +45,7 @@ export function DeductionsTaxPanel({
 }: DeductionsTaxPanelProps) {
   const settings = deductionSettingsFrom(fixedInput, percentInput)
   const deductions = computeDeductions(gross, settings)
-  const flags = packagingFlags(deductions, PACKAGING_CAPS, hasStudyDebt)
+  const flags = packagingFlags(deductions, hasStudyDebt)
 
   const percentLabel = percentInput.replace(/[\s%]/g, '')
 
@@ -82,7 +75,6 @@ export function DeductionsTaxPanel({
     total: true,
   })
 
-  const capFlag = flags.find((flag) => flag.kind === 'packaging-cap-exceeded')
   const helpFlag = flags.find((flag) => flag.kind === 'packaging-help-interaction')
 
   return (
@@ -90,7 +82,8 @@ export function DeductionsTaxPanel({
       <div>
         <h3 className="sl-heading">Pre-tax deductions</h3>
         <p className="sl-caption">
-          Salary packaging comes out before tax is calculated.
+          Salary packaging, or super you salary sacrifice. It comes out before
+          tax is calculated.
         </p>
       </div>
 
@@ -111,17 +104,6 @@ export function DeductionsTaxPanel({
       />
 
       <FigureTable caption="Pre-tax deductions" rows={rows} />
-
-      {capFlag ? (
-        <AssumptionNote>
-          <p>
-            That annualises to {formatMoney(capFlag.annualised)}, above the{' '}
-            {formatMoney(capFlag.cap)} FBT-exempt cap for living expenses. Worth
-            checking with your packaging provider — the app still works it out
-            as entered.
-          </p>
-        </AssumptionNote>
-      ) : null}
 
       <div>
         <h3 className="sl-heading">Tax</h3>

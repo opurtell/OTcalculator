@@ -14,6 +14,7 @@
 export * from './pay-rates'
 export * from './public-holidays'
 export * from './packaging'
+export * from './roster-shifts'
 export {
   taxScaleFor,
   fallbackCaption,

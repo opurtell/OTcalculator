@@ -14,6 +14,8 @@ import {
 } from '../engine/types'
 import type { IsoDate, OtCategory, OtShift, ShiftKind } from '../engine/types'
 import type { Attendance } from '../engine/attendance'
+import { ROSTER_SHIFTS, rosterShift } from '../data/roster-shifts'
+import type { RosterShiftCode } from '../data/roster-shifts'
 import { formatHours } from '../ui/format'
 import { clockTime, isIsoDate, parseClockTime } from './dates'
 
@@ -96,6 +98,50 @@ export function draftEndsNextDay(draft: ShiftDraft): boolean {
  */
 export function inferKind(durationMinutes: number): ShiftKind {
   return durationMinutes < MINIMUM_PAYMENT_MINUTES ? 'overrun' : 'separate'
+}
+
+// ---------------------------------------------------------------------------
+// Roster shift quick-fill
+// ---------------------------------------------------------------------------
+
+/**
+ * Fill the times from a roster shift, leaving the date alone.
+ *
+ * The C9.5 kind is re-inferred rather than set: every roster pattern is ten
+ * hours or more, so the heuristic reads all four as a separate attendance,
+ * which is right for a picked-up shift. A user who has already said "ran on
+ * from my shift" keeps that answer — `withInferredKind` stops once told, and a
+ * quick-fill is a shortcut for the times, not a second opinion about the money.
+ */
+export function applyRosterShift(
+  draft: ShiftDraft,
+  code: RosterShiftCode,
+): ShiftDraft {
+  const shift = rosterShift(code)
+  return withInferredKind({
+    ...draft,
+    start: clockTime(shift.startMin),
+    end: clockTime(shift.endMin),
+  })
+}
+
+/**
+ * Which roster shift these times are, or `null` for anything else.
+ *
+ * Derived from the times rather than remembered on the draft, so the control
+ * cannot claim `D` while the fields say 09:00–22:00. Editing a time after a
+ * quick-fill simply deselects, and a shift typed by hand that happens to match
+ * the roster shows as that shift — which is the same answer either way.
+ */
+export function rosterShiftFor(draft: ShiftDraft): RosterShiftCode | null {
+  const start = parseClockTime(draft.start)
+  const end = parseClockTime(draft.end)
+  if (start === null || end === null) return null
+
+  return (
+    ROSTER_SHIFTS.find((shift) => shift.startMin === start && shift.endMin === end)
+      ?.code ?? null
+  )
 }
 
 /** Re-applies the heuristic after a time changes, unless the user has spoken. */

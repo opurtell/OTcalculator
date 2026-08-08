@@ -218,6 +218,28 @@ describe('the add/edit sheet', () => {
     expect(html).toContain('EBA C9.5')
   })
 
+  it('offers the four roster shifts, with none picked on a blank draft', () => {
+    const html = renderSheet({ date: '2026-08-15' })
+    expect(html).toContain('Roster shift')
+    expect(html).toContain('06:30–\n16:30')
+    expect(html).toContain('21:00–\n07:00')
+    // Nothing selected is a real state here — the quick-fill is optional, so
+    // every one of the four renders unchecked rather than one being a default.
+    for (const code of ['AM', 'D', 'PM', 'N']) {
+      expect(html).toMatch(new RegExp(`aria-checked="false"[^>]*>${code}<`))
+    }
+  })
+
+  it('shows the roster shift the times already are', () => {
+    // Derived from the fields, so it also lights up for a shift typed by hand
+    // and goes dark the moment a time is edited.
+    const night = renderSheet({ date: '2026-08-15', start: '21:00', end: '07:00' })
+    expect(night).toMatch(/aria-checked="true"[^>]*>N</)
+
+    const edited = renderSheet({ date: '2026-08-15', start: '21:00', end: '07:40' })
+    expect(edited).not.toMatch(/aria-checked="true"[^>]*>N</)
+  })
+
   it('waits for a shift before showing a figure', () => {
     const html = renderSheet({ date: '2026-08-15' })
     expect(html).toContain('to see what this shift pays')

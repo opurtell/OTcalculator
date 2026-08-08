@@ -187,9 +187,10 @@ body {
     display: none !important;
   }
 
-  /* Sticky positioning on paper pins the panel to the top of every page. */
-  .sl-layout__result,
-  .sl-result--sticky {
+  /* Sticky positioning on paper pins the panel to the top of every page. The
+     result is only sticky in the two-column layout, but a wide print stylesheet
+     is cheaper than one that depends on the print width matching. */
+  .sl-layout__result {
     position: static;
     max-height: none;
     overflow: visible;

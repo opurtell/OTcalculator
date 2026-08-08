@@ -15,7 +15,6 @@ import { calculateOvertime } from '../attendance'
 import { calculateFortnight } from '../fortnight'
 import { NO_DEDUCTIONS } from '../packaging'
 import { ordinaryFortnightlyGross } from '../tax'
-import { PACKAGING_CAPS } from '../../data/packaging'
 import { taxScaleFor } from '../../data/tax-scales'
 import { AP1_STEP_2, HOLIDAYS_2026, cents, shift } from './fixtures'
 
@@ -97,7 +96,6 @@ describe('golden fixture — the whole fortnight', () => {
     taxScale: taxScaleFor('2025-26', 2).scale,
     helpSchedule: null,
     deductions: NO_DEDUCTIONS,
-    packagingCaps: PACKAGING_CAPS,
     holidays: HOLIDAYS_2026,
   })
 

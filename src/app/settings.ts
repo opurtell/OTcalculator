@@ -18,7 +18,6 @@
 
 import {
   ACT_HOLIDAY_CALENDAR,
-  PACKAGING_CAPS,
   fallbackCaption,
   helpFallbackCaption,
   helpScheduleFor,
@@ -154,7 +153,6 @@ export function resolveSettings(
       taxScale: taxSelection.scale,
       helpSchedule: helpSelection?.schedule ?? null,
       deductions: choices.deductions,
-      packagingCaps: PACKAGING_CAPS,
       holidays: ACT_HOLIDAY_CALENDAR,
       // `undefined` rather than `null`: the engine's field is optional, and
       // `??` on an explicit null would silently mean "no override" anyway.

@@ -10,11 +10,7 @@
  * Post-tax deductions are out of scope for v1.
  */
 
-import type { AttendanceFlag, PackagingCaps } from './types'
-import {
-  FORTNIGHTS_PER_YEAR_DENOMINATOR,
-  FORTNIGHTS_PER_YEAR_NUMERATOR,
-} from './types'
+import type { AttendanceFlag } from './types'
 
 export interface DeductionSettings {
   /** Dollars per fortnight, held constant regardless of overtime. */
@@ -40,10 +36,8 @@ export interface DeductionBreakdown {
  * compute is worse than one that cautions.
  */
 export type PackagingFlag =
-  /** Annualised packaging exceeds the FBT-exempt living expenses cap. */
-  | { kind: 'packaging-cap-exceeded'; annualised: number; cap: number }
   /** Packaging and a study debt together — see the note in `tax.ts`. */
-  | { kind: 'packaging-help-interaction' }
+  { kind: 'packaging-help-interaction' }
 
 /** Every flag a fortnight can raise, from either half of the engine. */
 export type FortnightFlag = AttendanceFlag | PackagingFlag
@@ -65,31 +59,23 @@ export function computeDeductions(
 }
 
 /**
- * Warn when the annualised packaged amount passes the FBT-exempt cap.
+ * What the app has to say about the packaging it was given.
  *
- * The caps are per FBT year and this app sees one fortnight, so the check
- * annualises at the EBA's 26.0833 fortnights. Someone who started packaging
- * midway through the year will trip it early — which is why it is worded as a
- * caution rather than an error.
+ * **There is deliberately no FBT-cap warning here, and adding one back is a
+ * mistake.** "Pre-tax deductions" is one field covering several unrelated
+ * things: novated leases and living-expenses packaging count towards the
+ * FBT-exempt caps, but salary-sacrificed super does not, and super is both the
+ * commonest entry and the one large enough to trip a $9,010 cap on its own.
+ * The app cannot tell which is which from a dollar figure, so a cap warning
+ * would fire confidently on the case where it is simply wrong. Whether someone
+ * is over their cap is a question for their packaging provider, who knows what
+ * the money is for; this app works out tax on what it was told.
  */
 export function packagingFlags(
   deductions: DeductionBreakdown,
-  caps: PackagingCaps,
   hasStudyDebt: boolean,
 ): PackagingFlag[] {
   const flags: PackagingFlag[] = []
-
-  const annualised =
-    (deductions.total * FORTNIGHTS_PER_YEAR_DENOMINATOR) /
-    FORTNIGHTS_PER_YEAR_NUMERATOR
-
-  if (annualised > caps.livingExpensesCap) {
-    flags.push({
-      kind: 'packaging-cap-exceeded',
-      annualised,
-      cap: caps.livingExpensesCap,
-    })
-  }
 
   if (deductions.total > 0 && hasStudyDebt) {
     flags.push({ kind: 'packaging-help-interaction' })

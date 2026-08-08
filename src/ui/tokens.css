@@ -161,6 +161,18 @@
     --text-result-support: var(--text-result-support-lg);
     --text-heading: var(--text-heading-lg);
     --text-figure: var(--text-figure-lg);
+
+    /* The two-column layout wants 420 + 340 + a 32px gutter, and `.sl-measure`
+     * adds 16px of padding either side — so anything under 824px silently
+     * shrinks both columns instead. At 720 it did exactly that: the comparison
+     * table lost enough of its label column to break "Take-home" at its own
+     * hyphen, and the fix looked like a result-panel problem when it was the
+     * page cap all along.
+     *
+     * 720px stays the *reading* measure below 900px, where there is one column
+     * and it is prose width that matters. `.sl-disclaimer` caps itself, so the
+     * fine print does not stretch to 824 just because the grid needs to. */
+    --measure: 824px;
   }
 }
 

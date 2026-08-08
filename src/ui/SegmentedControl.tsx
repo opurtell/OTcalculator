@@ -11,7 +11,12 @@ export interface SegmentedControlProps<T extends string = string> {
   /** Visible group label. Required — no unlabelled controls (§8). */
   label: string
   options: SegmentedOption<T>[]
-  value: T
+  /**
+   * `null` for nothing selected yet — a legitimate state for an optional group
+   * like the roster quick-fill, where any answer is as valid as no answer. The
+   * two required groups (pay step, C9.5 kind) always pass a value.
+   */
+  value: T | null
   onChange: (value: T) => void
   /**
    * `compact` sizes options to their content rather than filling the row —
@@ -23,9 +28,10 @@ export interface SegmentedControlProps<T extends string = string> {
 }
 
 /**
- * Used for pay step (3–4 options, a single tap each — never a dropdown) and
- * for the continuous/separate choice. That second one is pre-selected by the
- * duration heuristic but is always visibly a choice, never silent (§5.5).
+ * Used for pay step (3–4 options, a single tap each — never a dropdown), for
+ * the continuous/separate choice, and for the roster quick-fill. The C9.5 one
+ * is pre-selected by the duration heuristic but is always visibly a choice,
+ * never silent (§5.5).
  *
  * It is a radio group, so it behaves like one on a keyboard: one tab stop for
  * the group, either arrow axis moving the selection within it (§8).

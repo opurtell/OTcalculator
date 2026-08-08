@@ -195,7 +195,7 @@ taxableGross        = grossIncludingOt − totalPreTax
 
 PAYG and HELP are both computed on `taxableGross`. Net pay is `grossIncludingOt − totalPreTax − payg − help`.
 
-Warn (don't block) when the annualised packaged amount exceeds the FBT-exempt caps — $9,010 living expenses, $2,650 meal entertainment, per `packaging.json`. These caps need an annual currency check.
+**No FBT-cap warning.** An earlier draft of this section had one — warn (don't block) when the annualised packaged amount exceeds the FBT-exempt caps of $9,010 living expenses and $2,650 meal entertainment. It was built and then removed, on Oscar's call, because it was overstepping: this app offers a single "pre-tax deductions" field, and salary-sacrificed super goes in the same box as living-expenses packaging while not counting towards any cap. Super is the commonest entry and easily large enough to clear $9,010 alone, so the warning fired most confidently on the case where it was wrong. Whether someone is over their cap is a question for their packaging provider, who knows what the money is for. The caps stay in `src/data/packaging.ts` as reference data with nothing reading them; a future version that wants the check needs the field split by purpose first.
 
 Post-tax deductions are out of scope for v1; the user asked for pre-tax specifically. If added later they subtract after tax and don't affect withholding.
 
@@ -273,7 +273,9 @@ OTcalculator/
 │   │   ├── pay-rates.ts         AP1/AP2/ICP1/ICP2 × steps
 │   │   ├── tax-scales.ts        NAT 1004 by FY
 │   │   ├── help-thresholds.ts
-│   │   └── public-holidays.ts   ACT
+│   │   ├── public-holidays.ts   ACT
+│   │   ├── packaging.ts         FBT caps — reference only, nothing reads them
+│   │   └── roster-shifts.ts     the 44-hour roster's AM/D/PM/N patterns (§5.2)
 │   ├── storage/
 │   │   └── preferences.ts       localStorage, versioned schema
 │   ├── app/                     pure app logic, no JSX — testable in node
@@ -390,7 +392,7 @@ Other required coverage:
 - Attendance grouping at 30/60/90/120-minute gaps.
 - Public holiday all-hours 2.5×; PH→weekday carry.
 - PAYG at bracket boundaries and at zero income.
-- Packaging: fixed only, percent only, both; cap warning.
+- Packaging: fixed only, percent only, both; no cap warning at any amount.
 - Delta consistency: zero OT ⇒ zero delta.
 - Storage: corrupt JSON, unknown schema version, missing keys all fall back cleanly.
 
@@ -492,6 +494,16 @@ Output: OT gross, and the estimated net delta once added to the remembered ordin
 The core loop is *add shift → see the number move*. Every added shift updates the result immediately; there is no "Calculate" button.
 
 Per shift: date, start time, end time, and the continuous/separate toggle (§3.6). The app derives `endsNextDay` automatically when end ≤ start, showing "ends next day" as confirmation rather than asking.
+
+**The roster quick-fill.** Between the date and the times sits an optional four-option control — `AM` `D` `PM` `N` — which fills the two time fields from the 44-hour roster's own shift patterns: 06:30–16:30, 09:00–21:00, 11:00–23:00, 21:00–07:00. Most overtime is a whole rostered shift picked up, so the common case becomes date, code, done.
+
+Three properties make it a shortcut rather than a mode:
+
+- It **writes to the two time fields** and nothing else. A shift that started on time and ran forty minutes over is one tap and one edit.
+- Which code is selected is **derived from the times**, never remembered. Edit an end time and the selection clears; type 09:00–21:00 by hand and `D` lights up. The control cannot claim a shift the fields contradict.
+- The C9.5 kind is **re-inferred, not set**. All four patterns are ten hours or more, so the §3.6 heuristic reads them as separate attendances — right for a pickup — while a user who has already answered that question keeps their answer.
+
+The patterns live in `src/data/roster-shifts.ts`. They are the station's roster, not EBA text: the agreement sets rates and ordinary hours, not shift patterns. The four durations sum to 44 hours, which is the one checkable property of the transcription and is asserted in the tests.
 
 Per shift, display: hours worked, hours paid (if different), the rate-category breakdown, and dollars. A shift showing `Sun 22:00–06:00 · 8h · all at 2× (rate carried past midnight)` teaches the ratchet rule in passing.
 

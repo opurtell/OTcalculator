@@ -16,7 +16,6 @@ import type {
   HelpSchedule,
   HolidayCalendar,
   OtShift,
-  PackagingCaps,
   PayBand,
   TaxScale,
 } from './types'
@@ -28,7 +27,6 @@ export interface FortnightSettings {
   /** `null` when the user has no study debt. */
   helpSchedule: HelpSchedule | null
   deductions: DeductionSettings
-  packagingCaps: PackagingCaps
   holidays: HolidayCalendar
   /**
    * Overrides the derived ordinary gross. For someone part-way through a step,
@@ -140,11 +138,7 @@ export function calculateFortnight(
     attendances: overtime.attendances,
     flags: [
       ...overtime.flags,
-      ...packagingFlags(
-        deductions,
-        settings.packagingCaps,
-        settings.helpSchedule !== null,
-      ),
+      ...packagingFlags(deductions, settings.helpSchedule !== null),
     ],
   }
 }

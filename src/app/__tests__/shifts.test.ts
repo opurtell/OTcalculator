@@ -3,6 +3,7 @@ import { calculateOvertime } from '../../engine/attendance'
 import { AP1_STEP_2, HOLIDAYS_2026 } from '../../engine/__tests__/fixtures'
 import type { OtShift } from '../../engine/types'
 import {
+  applyRosterShift,
   describeAttendance,
   draftDuration,
   draftEndsNextDay,
@@ -11,6 +12,7 @@ import {
   emptyDraft,
   inferKind,
   removeShifts,
+  rosterShiftFor,
   toShift,
   upsertShift,
   withInferredKind,
@@ -70,6 +72,51 @@ describe('the C9.5 default', () => {
   it('treats an edited shift as already settled', () => {
     const shift = toShift(draft({ end: '11:00', kind: 'separate', kindTouched: true }))!
     expect(draftFrom(shift).kindTouched).toBe(true)
+  })
+})
+
+describe('the roster quick-fill', () => {
+  it('fills the times and leaves the date alone', () => {
+    const filled = applyRosterShift(draft({ start: '', end: '' }), 'AM')
+    expect(filled.date).toBe('2026-08-15')
+    expect(filled.start).toBe('06:30')
+    expect(filled.end).toBe('16:30')
+  })
+
+  it('fills the night shift as ending next day', () => {
+    const night = applyRosterShift(draft(), 'N')
+    expect(night.start).toBe('21:00')
+    expect(night.end).toBe('07:00')
+    expect(draftEndsNextDay(night)).toBe(true)
+    expect(draftDuration(night)).toBe(10 * 60)
+  })
+
+  it('reads every pattern as a separate attendance', () => {
+    // All four are ten hours or more, so the §3.6 heuristic calls them pickups
+    // rather than overruns — which is what a picked-up roster shift is.
+    for (const code of ['AM', 'D', 'PM', 'N'] as const) {
+      expect(applyRosterShift(draft(), code).kind).toBe('separate')
+    }
+  })
+
+  it('does not overrule a kind the user has already chosen', () => {
+    const chosen = { ...draft(), kind: 'overrun' as const, kindTouched: true }
+    expect(applyRosterShift(chosen, 'D').kind).toBe('overrun')
+  })
+
+  it('names the shift the times are, and nothing when they are not one', () => {
+    // Derived rather than remembered, so the control cannot claim `D` while
+    // the fields say 09:00–22:00.
+    expect(rosterShiftFor(draft({ start: '09:00', end: '21:00' }))).toBe('D')
+    expect(rosterShiftFor(draft({ start: '11:00', end: '23:00' }))).toBe('PM')
+    expect(rosterShiftFor(draft({ start: '09:00', end: '22:00' }))).toBeNull()
+    expect(rosterShiftFor(draft({ start: '', end: '' }))).toBeNull()
+  })
+
+  it('round-trips: filling then reading back names the same shift', () => {
+    for (const code of ['AM', 'D', 'PM', 'N'] as const) {
+      expect(rosterShiftFor(applyRosterShift(draft(), code))).toBe(code)
+    }
   })
 })
 

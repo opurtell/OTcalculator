@@ -11,30 +11,32 @@ works offline, prints, keyboards, and says something useful when it breaks.
 §4.5 golden fixture renders end to end through the real UI, with the
 with/without comparison, per-shift breakdown, and the §5.7 derivation.**
 
-**Phase 9 has not been looked at in a browser.** Every claim below is from
-tests, static reasoning and the built output; the keyboard, print and offline
-paths were written but not driven. See "What Phase 9 still owes you".
+**The app has now had one browser pass** (Chrome, 1438px, 8 August 2026): the
+keyboard, both themes, both pathways and the settings panels were driven by hand
+and three layout defects were fixed. **Print, offline and a real phone are still
+undriven**, and the pass could not get a narrow viewport. See "What Phase 9 still
+owes you" for the split.
 
 Phases against `IMPLEMENTATION_PLAN.md` §6:
 
 | Phase | State |
 | --- | --- |
 | **0** Scaffold | **Done.** `src/main.tsx`, `src/App.tsx` (a deliberate placeholder — no figures), `.github/workflows/deploy.yml`, live at https://opurtell.github.io/OTcalculator/ |
-| **1** Reference data | **Done, with one caveat.** `src/data/` — Annex A tables, ACT holidays, NAT 1004, HELP, FBT caps. Tax and HELP are FY2025-26 only and fall back per §3.8. See "Reference data" below |
+| **1** Reference data | **Done, with one caveat.** `src/data/` — Annex A tables, ACT holidays, NAT 1004, HELP, FBT caps, the 44-hour roster patterns. Tax and HELP are FY2025-26 only and fall back per §3.8. See "Reference data" below |
 | **2** OT engine | **Done.** `src/engine/` — ratchet, categories, attendance grouping, C9.5 minimum, OT dollars |
 | **3** Money engine | **Done.** `tax.ts`, `packaging.ts`, `fortnight.ts` — PAYG, HELP, pre-tax deductions, the with/without-OT delta. **The §4.5 golden fixture passes end to end** |
 | **4** Persistence | **Done.** `src/storage/preferences.ts` — versioned `localStorage` per §4.4, defensive reads, debounced writes, clear-settings |
 | **5** Shell + setup | **Done.** `src/components/` + `src/app/` — app frame, pathway switcher, pay band picker with editable overrides, deductions and tax panel, disclaimer, clear-settings. `App.tsx` wires the calculator to persistence |
 | **6** Quick pathway | **Done.** One hours field, the §5.1 two-tier split, the low-estimate note. Adds `quickOvertime` and the behaviour-preserving `comparePay` extraction in `src/engine/` |
-| **7** Fortnight pathway | **Done.** Shift list, add/edit sheet with live preview, delete-with-undo, duplicate, and the five non-blocking warnings. A row is an attendance, not an entry |
+| **7** Fortnight pathway | **Done.** Shift list, add/edit sheet with live preview, delete-with-undo, duplicate, the roster quick-fill, and the five non-blocking warnings. A row is an attendance, not an entry |
 | **8** Results | **Done.** The with/without comparison table, an inspectable per-shift Overtime breakdown, and the §5.7 "how this was worked out" disclosure. Row logic lives in `src/app/breakdown.ts`; `HowItWasWorkedOut.tsx` wraps the §5.7 derivation |
-| **9** Polish | **Done, unverified in a browser.** Keyboard operation of the tabs and segmented control, the tab panel, a narrowed live region, Escape and focus return on the sheet and row menu; 44px targets, 16px inputs, a capped sticky result, safe areas; PWA with a hand-rolled service worker; print stylesheet and a shareable text summary; an error boundary and the settings-repair notice; a copy sweep against the §6 deck |
+| **9** Polish | **Done; verified in a browser at desktop width only.** Keyboard operation of the tabs and segmented control, the tab panel, a narrowed live region, Escape and focus return on the sheet and row menu; 44px targets, 16px inputs, a capped sticky result on desktop, safe areas; PWA with a hand-rolled service worker; print stylesheet and a shareable text summary; an error boundary and the settings-repair notice; a copy sweep against the §6 deck |
 | **10** Validation | **Not started, and it is the gate.** Reconcile against the 35 payslips in the sibling repo. Needs the local machine — they are deliberately not on GitHub. Method in `NEXT_SESSION.md` |
 
 `calculateFortnight(shifts, settings)` in `src/engine/fortnight.ts` is the entry
 point — shifts and settings in, take-home and the overtime delta out. It calls
 `calculateOvertime` underneath, which is usable alone if you only want gross OT.
-401 tests. All seven crossover worked examples pass. Three things to know:
+413 tests. All seven crossover worked examples pass. Three things to know:
 
 - **The §4.5 golden total is a cent adrift**, and it is the plan that is out.
   See `src/engine/__tests__/golden.test.ts` — §3.12 says full precision until
@@ -101,6 +103,18 @@ and the `pwa()` plugin from `vite-pwa.ts`). `vite.config.lib.ts` is the
 carries the library's `name`, `exports` and `peerDependencies` — that metadata
 describes `dist-lib/`, not the app.
 
+**The roster quick-fill is derived, not stored.** `AM`/`D`/`PM`/`N` in the shift
+sheet fill the two time fields from `src/data/roster-shifts.ts`; which code shows
+as selected comes from `rosterShiftFor(draft)` reading the fields back, not from
+a code kept on the draft. Do not "simplify" it into draft state — the whole
+point is that the control cannot claim `D` while the fields say 09:00–22:00, so
+editing a time clears the selection and a pattern typed by hand lights it up.
+Two more things it settles: it writes only the times, so a shift that ran forty
+minutes over is one tap and one edit; and it re-infers the C9.5 kind rather than
+setting it, so a user who has already answered that question keeps their answer.
+The four durations sum to 44 hours, which is the only checkable property of the
+transcription and is asserted in `data/__tests__/roster-shifts.test.ts`.
+
 ## The polish layer, and where it lives
 
 Phase 9's work is spread thin by nature, so this is the index:
@@ -110,7 +124,7 @@ Phase 9's work is spread thin by nature, so this is the index:
 | Arrow-key navigation for the tabs and segmented control | `src/ui/roving.ts` — pure index arithmetic, DOM half separate so the part that can be wrong is testable |
 | Tab ↔ panel wiring | `Tabs.tsx` (`idBase`, `tabId`, `tabPanelId`) and `CalculatorShell.tsx`, which renders the panel |
 | Escape, focus-in, focus-return | `Sheet.tsx` and `ShiftRow.tsx`; the *return* target is `Calculator.tsx`'s `sheetOpenedFrom`, because only the opener knows where focus came from |
-| Touch targets, iOS input zoom, the capped sticky result | `src/ui/components.css` |
+| Touch targets, iOS input zoom, the desktop-only sticky result | `src/ui/components.css` |
 | Page ground, safe areas, print | `src/styles/app.css` |
 | Service worker | `vite-pwa.ts` (build-time plugin), registered in `src/main.tsx` |
 | Icons and manifest | `scripts/make-icons.mjs` → `public/` |
@@ -118,7 +132,7 @@ Phase 9's work is spread thin by nature, so this is the index:
 | Render failures | `src/components/ErrorBoundary.tsx`, wrapped around `Calculator` in `App.tsx` |
 | Settings-repair notice | `readNotice` in `Calculator.tsx`, fed by `App.tsx` from the read status |
 
-Two rules in there are easy to undo by accident:
+Five rules in there are easy to undo by accident:
 
 - **There is exactly one `aria-live` region on screen, and it is the headline.**
   Every keystroke moves these figures; a region wrapped around the comparison
@@ -130,6 +144,25 @@ Two rules in there are easy to undo by accident:
   warning — the one that matters, because it responds to what was just typed —
   goes unannounced. It has its own `.sl-warnings` class for exactly this
   reason; do not "tidy" it into a `.sl-stack` that collapses when empty.
+- **The 16px input rule is keyed to `pointer: coarse`, not to a width.** Mobile
+  Safari zooms the page when a field under 16px takes focus and does not zoom
+  back out. The obvious `max-width` query leaks: an iPhone Pro Max in landscape
+  is 932 CSS px and an iPad is wider still in both orientations. The width arm
+  is kept so a narrow desktop window is unchanged, but the pointer arm is the
+  one doing the work.
+- **The result panel is sticky only at ≥900px, and only `.sl-layout__result`
+  pins it.** Over a single column a pinned panel covers the field being typed
+  into, which is what it did on a phone. `ResultPanel` used to take a `sticky`
+  prop as well; it was removed rather than fixed, because two places that can
+  pin the same panel is how the mobile case survived being noticed.
+- **The desktop column widths and `--measure` are one change, not two.** The
+  grid is 420px + 340px + a 32px gutter, which needs `--measure: 824px` — set in
+  the `min-width: 900px` block of `tokens.css`. Narrow the measure back to 720
+  and both columns shrink silently: the comparison table loses enough label
+  column to break "Take-home" at its hyphen, and if you widen the result column
+  to fix that, the shift row starts wrapping its date instead. 720px is still
+  the reading measure below 900px, and `.sl-disclaimer` caps itself so the fine
+  print does not stretch with the grid.
 
 **Sharing is text, never a URL.** No pay band or roster is encoded into the
 address bar, deliberately — see `IMPLEMENTATION_PLAN.md` §4.7. The summary
@@ -142,23 +175,34 @@ cannot be done from Claude Code.
 
 ## What Phase 9 still owes you
 
-Phase 9 was written without a working browser in the session — the Chrome
-extension was not connected and there is no Playwright in this repo. Tests,
-`tsc` and the build all pass, and the build assertions in the deploy workflow
-now cover the service worker and the icons. What no test in a node environment
-can see, and what someone should therefore actually try:
+Phase 9 was written without a working browser. It has since had one pass in
+Chrome at a 1438px viewport (8 August 2026), which found and fixed three things
+no node test could see — the settings disclosures sitting on their panel
+borders, the result panel pinned over the single column, and `PAYG tax` running
+into its own figure. What that pass **confirmed working**, so nobody re-checks
+it: arrow keys on the tabs and on both segmented controls with selection
+following focus and a visible ring; `Escape` closing the shift sheet and
+returning focus to the button that opened it; light and dark at every step; both
+pathways' figures against the §4.5 fixture; the roster quick-fill end to end;
+and no console warnings anywhere.
 
-- **Keyboard.** Tab through the app: arrow keys between Quick/Fortnight and
-  between pay steps, `Escape` closing the shift sheet and the row menu, focus
-  landing back where it started, a visible ring at every stop.
+What that viewport could not reach — the extension's `resize_window` had no
+effect on the window — and what someone should still actually try:
+
+- **A real iPhone.** The 16px input rule is the fix for zoom-on-focus and no
+  desktop browser reproduces the behaviour, so this one needs the phone. The
+  roster control was checked at a 286px container instead, which is what a 320px
+  phone gives it: four 66px columns, nothing overflowing.
 - **Offline.** `npm run build && npm run preview`, load once, go offline in
   DevTools, reload. Confirm the app returns and a rebuild is picked up on the
   next load. The worker is `vite-pwa.ts` and is emitted on build only.
 - **Print.** One clean page, disclosures open, no buttons or tabs, disclaimer
   present.
-- **Small screens.** 320px and 390px: no horizontal scroll, no zoom when a
-  field takes focus, the sticky result never hiding its own bottom.
-- **Dark mode at each step** — it has broken silently here before.
+- **A genuinely narrow viewport.** 320px and 390px: no horizontal scroll, and
+  the single-column layout end to end rather than a width-constrained element
+  inside a wide one.
+- **The capped sticky result at ≥900px** with the derivation open — that it
+  scrolls within itself rather than hiding its own bottom.
 
 `src/ui/__tests__/contrast.test.ts` does hold the line on §8's contrast
 requirement in both themes, and asserts the three copies of the palette in
@@ -224,13 +268,18 @@ Two things about a remote session are worth knowing before planning:
 comment naming its source. Nothing in there should ever acquire a figure
 without one.
 
-The engine takes all of it as **parameters** — `PayBand`, `TaxScale`,
-`HolidayCalendar` — and holds no figures of its own beyond the EBA's structural
-constants (76 fortnightly hours, the `12/313` divisor, the rate multipliers).
-The arrow runs one way, `data/` → `engine/` types only, and
+The engine takes every figure it uses as a **parameter** — `PayBand`,
+`TaxScale`, `HolidayCalendar` — and holds none of its own beyond the EBA's
+structural constants (76 fortnightly hours, the `12/313` divisor, the rate
+multipliers). The arrow runs one way, `data/` → `engine/` types only, and
 `src/engine/__tests__/boundary.test.ts` enforces it. That is what lets a
 fortnight from an earlier financial year keep computing against the figures
 that were current when it was worked.
+
+Two tables in there are read by nobody, which is deliberate rather than rot:
+`packaging.ts` (see the FBT note below) and `roster-shifts.ts`, which the shift
+sheet reads and the engine never does. A figure being *in* `data/` does not mean
+the money depends on it.
 
 **Tax and HELP are FY2025-26 only.** The ATO reissued Schedule 1 for FY2026-27
 (second bracket 16% → 15%) but those coefficients are not in the sibling repo
@@ -243,7 +292,7 @@ Confirmed against source while porting: AP1 Step 2 is $95,698 base / $125,920
 Annex A total, and the FY2025-26 Scale 2 coefficients reproduce the §4.5 PAYG
 figures ($1,208 and $1,620) exactly.
 
-## Five things that will bite
+## Six things that will bite
 
 1. **Overtime is calculated on base salary only** — EBA N34.1, never the composite-inclusive Annex A total. AP1 Step 2 is $95,698, not $125,920. Getting this wrong overstates every result by ~34%. Needs a named constant and an explicit test.
 
@@ -268,6 +317,16 @@ figures ($1,208 and $1,620) exactly.
    from a subpath; the Vite default of `/` gives a blank page with a 404 on
    every asset. The deploy workflow asserts the built `index.html` has subpath
    asset URLs, so this cannot regress silently — do not "tidy" the base away.
+
+6. **"Pre-tax deductions" is one field over several unrelated things, so it
+   cannot be checked against the FBT caps.** Living-expenses packaging and a
+   novated lease count towards the $9,010 cap; salary-sacrificed super does not,
+   and super is both the commonest entry and easily large enough to clear the cap
+   on its own. A cap warning therefore fires hardest on the case where it is
+   simply wrong. Oscar had one removed for exactly this reason — it was
+   overstepping. `PACKAGING_CAPS` stays in `src/data/` as transcribed reference
+   data with nothing reading it; `packagingFlags` carries the note. If a future
+   version wants the check, it needs the field split by purpose first.
 
 ## EBA status
 

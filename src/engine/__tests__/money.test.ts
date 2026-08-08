@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { calculateFortnight } from '../fortnight'
 import { NO_DEDUCTIONS, computeDeductions, packagingFlags } from '../packaging'
 import { helpRepayment, ordinaryFortnightlyGross, paygWithholding } from '../tax'
-import { PACKAGING_CAPS } from '../../data/packaging'
 import { helpScheduleFor } from '../../data/help-thresholds'
 import { taxScaleFor } from '../../data/tax-scales'
 import { AP1_STEP_2, HOLIDAYS_2026, cents, shift } from './fixtures'
@@ -16,7 +15,6 @@ const baseSettings = {
   taxScale: SCALE_2,
   helpSchedule: null,
   deductions: NO_DEDUCTIONS,
-  packagingCaps: PACKAGING_CAPS,
   holidays: HOLIDAYS_2026,
 }
 
@@ -148,37 +146,36 @@ describe('computeDeductions', () => {
 })
 
 describe('packagingFlags', () => {
-  it('warns once the annualised amount passes the living expenses cap', () => {
-    // $9,010 a year is about $345 a fortnight.
-    const under = computeDeductions(5000, {
-      fixedPerFortnight: 340,
-      percentOfGross: 0,
-    })
-    const over = computeDeductions(5000, {
-      fixedPerFortnight: 350,
-      percentOfGross: 0,
-    })
-
-    expect(packagingFlags(under, PACKAGING_CAPS, false)).toEqual([])
-    expect(packagingFlags(over, PACKAGING_CAPS, false)).toContainEqual(
-      expect.objectContaining({ kind: 'packaging-cap-exceeded', cap: 9010 }),
-    )
-  })
-
   it('warns about the packaging and study-debt interaction', () => {
     const deductions = computeDeductions(5000, {
       fixedPerFortnight: 100,
       percentOfGross: 0,
     })
-    expect(packagingFlags(deductions, PACKAGING_CAPS, true)).toContainEqual({
+    expect(packagingFlags(deductions, true)).toContainEqual({
       kind: 'packaging-help-interaction',
     })
-    expect(packagingFlags(deductions, PACKAGING_CAPS, false)).toEqual([])
+    expect(packagingFlags(deductions, false)).toEqual([])
   })
 
   it('does not raise the interaction warning when nothing is packaged', () => {
     const nothing = computeDeductions(5000, NO_DEDUCTIONS)
-    expect(packagingFlags(nothing, PACKAGING_CAPS, true)).toEqual([])
+    expect(packagingFlags(nothing, true)).toEqual([])
+  })
+
+  /*
+   * No FBT-cap warning, deliberately. The one "pre-tax deductions" field takes
+   * packaging and salary-sacrificed super alike; only the first counts towards
+   * the $9,010 cap, and super is both the commonest entry and easily large
+   * enough to trip it on its own. A cap warning would fire hardest on the case
+   * where it is simply wrong, so the app does not guess what the money is for.
+   */
+  it('says nothing about a packaged amount well past the FBT cap', () => {
+    // $9,010 a year is about $345 a fortnight; $900 is nearly triple it.
+    const large = computeDeductions(5000, {
+      fixedPerFortnight: 900,
+      percentOfGross: 0,
+    })
+    expect(packagingFlags(large, false)).toEqual([])
   })
 })
 
@@ -289,9 +286,6 @@ describe('calculateFortnight', () => {
 
     expect(result.flags).toContainEqual(
       expect.objectContaining({ kind: 'dst-transition' }),
-    )
-    expect(result.flags).toContainEqual(
-      expect.objectContaining({ kind: 'packaging-cap-exceeded' }),
     )
     expect(result.flags).toContainEqual({ kind: 'packaging-help-interaction' })
   })

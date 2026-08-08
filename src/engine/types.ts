@@ -151,12 +151,17 @@ export interface HelpSchedule {
   brackets: readonly HelpBracket[]
 }
 
-/** FBT-exempt salary packaging caps (§3.10). Need an annual currency check. */
+/**
+ * FBT-exempt salary packaging caps (§3.10). Need an annual currency check.
+ *
+ * Reference data only — no calculation takes these as an input. See the note in
+ * `src/data/packaging.ts` for why the app does not check a figure against them.
+ */
 export interface PackagingCaps {
   effectiveFrom: IsoDate
   livingExpensesCap: number
   mealEntertainmentCap: number
-  /** FBT Type 2 gross-up, for the reportable fringe benefit warning. */
+  /** FBT Type 2 gross-up, for the reportable fringe benefit on §3.9's HELP. */
   grossUpFactor: number
 }
 

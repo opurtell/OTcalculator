@@ -1,15 +1,19 @@
 import { calculateOvertime } from '../engine/attendance'
 import type { HolidayCalendar, PayBand } from '../engine/types'
 import {
+  applyRosterShift,
   describeAttendance,
   draftDuration,
   draftEndsNextDay,
+  rosterShiftFor,
   toShift,
   withInferredKind,
 } from '../app/shifts'
 import type { ShiftDraft } from '../app/shifts'
+import { ROSTER_SHIFTS } from '../data/roster-shifts'
+import type { RosterShiftCode } from '../data/roster-shifts'
 import { addDays } from '../engine/calendar'
-import { formatLongDate, formatShortDate, isIsoDate } from '../app/dates'
+import { clockTime, formatLongDate, formatShortDate, isIsoDate } from '../app/dates'
 import {
   AssumptionNote,
   Button,
@@ -41,6 +45,12 @@ export interface ShiftSheetProps {
  * `endsNextDay` is derived from the times rather than asked (§5.2) — an end at
  * or before the start can only mean the next morning — and shown back as
  * confirmation so the derivation is visible rather than merely correct.
+ *
+ * The roster quick-fill sits between the date and the times because that is the
+ * order the work happens in: which day, which shift, and only then the times —
+ * which by that point are already filled in. It writes to the same two fields
+ * rather than replacing them, so a shift that started on time and ran forty
+ * minutes over is one tap and one edit, not a special case.
  */
 export function ShiftSheet({
   draft,
@@ -80,6 +90,21 @@ export function ShiftSheet({
           value={draft.date}
           onChange={(date) => updateTime({ date })}
           hint={isIsoDate(draft.date) ? formatLongDate(draft.date) : undefined}
+        />
+
+        <SegmentedControl<RosterShiftCode>
+          label="Roster shift"
+          value={rosterShiftFor(draft)}
+          onChange={(code) => onDraftChange(applyRosterShift(draft, code))}
+          options={ROSTER_SHIFTS.map((rostered) => ({
+            value: rostered.code,
+            label: rostered.code,
+            // Two lines, because four ranges across a 320px sheet is about
+            // 50px a column. The trailing dash carries the range over the
+            // break so the pair cannot be read as two separate times.
+            note: `${clockTime(rostered.startMin)}–\n${clockTime(rostered.endMin)}`,
+          }))}
+          hint="Optional — fills the times below, which you can still edit."
         />
 
         <div className="sl-sheet__times">

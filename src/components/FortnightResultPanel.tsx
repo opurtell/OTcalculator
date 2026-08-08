@@ -96,7 +96,6 @@ export function FortnightResultPanel({
       label="Your OT adds"
       amount={result.otNetDelta}
       beforeTax={result.otGrossDelta}
-      sticky
     >
       <FigureTable
         caption="Your fortnight with and without overtime"

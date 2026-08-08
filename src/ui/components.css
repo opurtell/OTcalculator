@@ -100,12 +100,17 @@
   font-weight: 600;
 }
 
+/* `pre-line` so a note can break where it was written to. The roster quick-fill
+   puts a time range on two lines because four of them across a 320px sheet is
+   about 50px a column; nothing else in the app has a newline in a note, so this
+   changes only the option that asked for it. */
 .sl-seg__option-note {
   display: block;
   font-size: var(--text-caption);
   font-weight: 400;
   opacity: 0.85;
   margin-top: 2px;
+  white-space: pre-line;
 }
 
 /* ------------------------------------------------------------------ Tabs */
@@ -170,9 +175,18 @@
 
 /* Mobile Safari zooms the whole page when a field under 16px takes focus, and
    does not zoom back out — which leaves the result panel off screen at the
-   exact moment the user is typing the number that changes it. The designed
-   15px stands everywhere the pointer is fine. */
-@media (max-width: 899px) {
+   exact moment the user is typing the number that changes it.
+ *
+ * Keyed to the *pointer*, not the viewport. A width query is the obvious way to
+ * write this and it leaks: an iPhone Pro Max in landscape is 932 CSS px, an
+ * iPad is wider still in both orientations, and every one of them zooms. The
+ * designed 15px stands wherever the pointer is fine — which is the actual
+ * condition, since this is a touch-keyboard behaviour and not a small-screen
+ * one. The width arm stays so a narrow desktop window is unchanged.
+ *
+ * `pointer: coarse` reads the primary pointer, so a touchscreen laptop driven
+ * by its trackpad keeps 15px. */
+@media (pointer: coarse), (max-width: 899px) {
   .sl-field__input,
   .sl-field__select {
     font-size: 16px;
@@ -354,6 +368,20 @@
   padding-bottom: var(--space-4);
 }
 
+/* A disclosure inside a flush panel is standing in for the panel's own padding,
+   so it has to carry the inset itself. Without this the trigger's label and the
+   ▸ sit hard against the panel's left and right borders, and so does every
+   field inside it once it is open — which is how the settings sections read on
+   a phone.
+ *
+ * The disclosure's own top rule comes off in the same breath: the panel border
+ * is already the line that divides this section from the one above, and two of
+ * them a pixel apart read as a rendering fault rather than as structure. */
+.sl-panel--flush > .sl-disclosure {
+  border-top: none;
+  padding-inline: var(--space-4);
+}
+
 /* -------------------------------------------------------- HowItWasWorkedOut */
 /* Three labeled derivation tables inside the §5.7 disclosure. `.sl-stack`
    carries no gap of its own, so the spacing is named here. */
@@ -457,8 +485,13 @@
   color: var(--muted);
 }
 
+/* `th + td` is the label-to-first-figure gap, and it is the one that was
+   missing: with a narrow column and a wide figure the two run together and
+   `PAYG tax−1,208.00` reads as a single token. The other two selectors space
+   the value columns from each other. */
 .sl-figures td + td,
-.sl-figures th + th {
+.sl-figures th + th,
+.sl-figures th + td {
   padding-left: var(--space-4);
 }
 
@@ -486,12 +519,6 @@
   border-radius: var(--radius-result);
   box-shadow: var(--shadow-result);
   padding: var(--space-5);
-}
-
-.sl-result--sticky {
-  position: sticky;
-  top: 0;
-  z-index: 10;
 }
 
 .sl-result__label {
@@ -632,11 +659,14 @@
 
 /* ------------------------------------------------------------ Disclaimer */
 
+/* Capped independently of `--measure`: the page widens at 900px to fit the two
+   columns, and fine print set to 824px is a line too long to track. */
 .sl-disclaimer {
   font-size: var(--text-caption);
   color: var(--muted);
   line-height: 1.45;
   margin: 0;
+  max-width: 68ch;
 }
 
 /* -------------------------------------------------------------- ShiftRow
@@ -895,42 +925,54 @@
   gap: var(--space-5);
 }
 
-/* Pinned to the top so the figure stays visible while the shift list scrolls
-   under it — watching it move is the core experience (§7).
+/* In the single column the result sits at the top of the page and scrolls away
+   with it.
  *
- * The cap is not decoration. Once the comparison table, the captions and an
- * opened "how this was worked out" are stacked under the headline, the panel
- * is taller than a phone; a sticky box taller than the viewport can never
- * show its own bottom, so the derivation would be unreachable exactly when
- * someone tries to read it. Capped, it scrolls within itself instead. */
-.sl-layout__result {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  max-height: 100dvh;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
+ * It was sticky here until it was seen on a phone. The theory was that watching
+ * the figure move while the shift list scrolls under it is the core experience
+ * (§7); what actually happens is that an opaque panel pinned over a single
+ * column half-covers whatever it is floating above, and the overlap is the part
+ * you notice. The figure is still the first thing on the page, and one flick of
+ * the thumb goes back to it. */
 
 @media (min-width: 900px) {
-  /* Two columns: inputs left, sticky result right. Same content, no new
-     features — resist filling a 1440px screen (§5.9). */
+  /* Two columns: inputs left, result right. Same content, no new features —
+     resist filling a 1440px screen (§5.9). */
+  /* 340px, not the brief's ~300px. At 300 the comparison table has about 67px
+     for its label column once two 16px money columns and their gutters are in,
+     which is narrower than "Take-home" — so the label broke at its own hyphen.
+     `--measure` widens to 824px here to pay for it; take the two together or
+     the extra 40px comes straight out of the inputs column, and the shift row
+     starts wrapping its date instead. */
   .sl-layout {
     display: grid;
-    grid-template-columns: minmax(0, 420px) minmax(0, 300px);
+    grid-template-columns: minmax(0, 420px) minmax(0, 340px);
     justify-content: center;
     align-items: start;
     gap: var(--space-6);
-  }
-
-  .sl-layout__result {
-    order: 2;
   }
 
   .sl-layout__inputs {
     order: 1;
   }
 
+  /* Sticky is reinstated only here, where the result has a column to itself and
+   * pinning cannot cover anything.
+   *
+   * The cap is not decoration. Once the comparison table, the captions and an
+   * opened "how this was worked out" are stacked under the headline, the panel
+   * can be taller than the viewport; a sticky box taller than the viewport can
+   * never show its own bottom, so the derivation would be unreachable exactly
+   * when someone tries to read it. Capped, it scrolls within itself instead. */
+  .sl-layout__result {
+    order: 2;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    max-height: 100dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }
 
 /* The shift list's table treatment (§5.9) keys off the LIST's own width, not

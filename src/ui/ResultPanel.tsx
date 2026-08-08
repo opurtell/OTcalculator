@@ -14,8 +14,6 @@ export interface ResultPanelProps {
   unit?: string
   /** Pre-tax figure, shown as "from $1,110.34 before tax". */
   beforeTax?: number
-  /** Sticky on mobile so the number stays visible as the shift list scrolls. */
-  sticky?: boolean
   /** The comparison table or anything else below the rule. */
   children?: ReactNode
 }
@@ -36,17 +34,21 @@ export interface ResultPanelProps {
  * read at leisure.
  *
  * Retention is framed as "63% kept", never "37% lost" (§6).
+ *
+ * The panel does not position itself. Where it sits, and whether it pins, is
+ * `CalculatorLayout`'s business — it took a `sticky` prop once, and having two
+ * places that could pin the same panel is how it ended up pinned over a single
+ * column on a phone, covering the field being typed into.
  */
 export function ResultPanel({
   label,
   amount,
   unit = 'take-home',
   beforeTax,
-  sticky = false,
   children,
 }: ResultPanelProps) {
   return (
-    <section className={`sl-result${sticky ? ' sl-result--sticky' : ''}`}>
+    <section className="sl-result">
       <div className="sl-result__headline" aria-live="polite">
         <p className="sl-result__label">{label}</p>
         <p className="sl-result__amount">

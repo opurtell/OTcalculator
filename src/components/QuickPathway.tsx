@@ -101,7 +101,6 @@ export function QuickResult({ comparison, overtime }: QuickResultProps) {
       label="Adds about"
       amount={comparison.otNetDelta}
       beforeTax={comparison.otGrossDelta}
-      sticky
     >
       <FigureTable caption="How the overtime was worked out" rows={rows} />
     </ResultPanel>

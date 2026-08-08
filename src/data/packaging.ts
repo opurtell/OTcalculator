@@ -3,12 +3,17 @@
  *
  * ACTAS is a public health employer, so staff can package up to the living
  * expenses cap plus a separate meal entertainment cap, both free of fringe
- * benefits tax. The app **warns rather than blocks** when an annualised
- * packaged amount exceeds a cap — the user may be packaging elsewhere too, and
- * a calculator that refuses to compute is worse than one that cautions.
+ * benefits tax.
  *
- * The gross-up factor is the FBT Type 2 rate, used for the reportable fringe
- * benefit that lands on the annual HELP assessment (§3.9).
+ * **Nothing in the app consults these figures.** They are kept as transcribed
+ * reference data, not as a live input: the app's one "pre-tax deductions" field
+ * covers packaging and salary-sacrificed super alike, and only the first counts
+ * towards a cap — so a cap check on that figure would be confidently wrong for
+ * the commonest entry. See the note on `packagingFlags` in
+ * `src/engine/packaging.ts` before wiring them to anything.
+ *
+ * The gross-up factor is the FBT Type 2 rate, which would be needed for the
+ * reportable fringe benefit that lands on the annual HELP assessment (§3.9).
  *
  * Source: the ACTAS Pay Tracker's `packaging.json`, which flags the caps as
  * needing a currency check each financial year. They have been stable since

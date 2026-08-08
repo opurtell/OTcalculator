@@ -281,7 +281,7 @@ This is where the product lives. It must show a genuinely mixed fortnight.
 
 Design notes:
 
-- **The result panel is sticky.** On mobile it pins to the top as the shift list scrolls beneath it. The whole point is watching the number move as shifts are added.
+- **The result panel sits at the top and scrolls with the page.** It was sticky on mobile at first, on the theory that watching the number move as shifts are added is the whole point — but pinned over a single column it overlaps the fields underneath it, and the overlap is what you notice. It pins only in the desktop layout, where it has a column of its own.
 - Shift rows are tappable to edit, swipe-to-delete on mobile, with a duplicate action in the row menu.
 - The rate breakdown line (`10h · all at 2×`) is where the app teaches the EBA rules without a tutorial.
 - `Separate shift` / `Shift overrun` is the C9.5 toggle rendered as a status. It must be visible in the collapsed row because it changes the money.
@@ -299,6 +299,16 @@ Presented as a bottom sheet on mobile, an inline panel on desktop.
 │  ┌─────────────────────────────┐    │
 │  │ Sat 15 August 2026        ▾ │    │
 │  └─────────────────────────────┘    │
+│                                     │
+│  Roster shift                       │
+│  ┌─────┬─────┬─────┬─────┐          │
+│  │ AM  │  D  │ PM  │  N  │          │
+│  │06:30│09:00│11:00│21:00│          │
+│  │  –  │  –  │  –  │  –  │          │
+│  │16:30│21:00│23:00│07:00│          │
+│  └─────┴─────┴─────┴─────┘          │
+│  Optional — fills the times below,  │
+│  which you can still edit.          │
 │                                     │
 │  Start            End               │
 │  ┌───────────┐    ┌───────────┐     │
@@ -326,6 +336,8 @@ Presented as a bottom sheet on mobile, an inline panel on desktop.
 ```
 
 Notes: the live preview panel updates as fields change — the user sees the shift's value before committing it. The continuous/separate segmented control is pre-selected by the duration heuristic but always visibly a choice, never silent.
+
+The **roster quick-fill** sits between the date and the times because that is the order the work happens in: which day, which shift, and by then the times are already filled. Nothing is selected by default — no answer is as valid as any answer here — and the selection is derived from the time fields, so editing a time clears it and typing a roster pattern by hand lights it up. The time range is set on its own lines under the code because four ranges across a 320px sheet is about 50px a column; the trailing dash carries the range over the break.
 
 **Two variants worth mocking** because they're where the design earns its keep:
 
@@ -405,7 +417,9 @@ Concept first, clause reference second — `roster adjustment 2.20% (EBA N44)`, 
 
 ### 5.9 Desktop layout — *one mockup*
 
-Two columns at `>900px`: inputs left (~420px), sticky result right (~300px). Same content, no new features. The shift list gains a table treatment with aligned columns.
+Two columns at `>900px`: inputs left (420px), sticky result right (340px). Same content, no new features. The shift list gains a table treatment with aligned columns.
+
+The result column is 340px, not the ~300px first specified: at 300 the comparison table has about 67px left for its label column once two 16px money columns and their gutters are in, and "Take-home" broke at its own hyphen. The page's `--measure` widens from 720px to 824px at this breakpoint to pay for it — 420 + 340 + a 32px gutter + 32px of page padding. Without that the extra width comes straight out of the inputs column and the shift row starts wrapping its date instead. `.sl-disclaimer` caps itself so the fine print does not stretch to 824.
 
 ---
 
@@ -444,7 +458,7 @@ Not a modal. Not dismissible. Not styled to be ignored, but not shouting either.
 | Rule | Detail |
 | --- | --- |
 | **No calculate button** | Every input recalculates live. The result is always current. |
-| **Result is sticky** | On mobile it pins below the tab bar as the list scrolls. Watching it move is the core experience. |
+| **Result leads the page** | First thing on the page, scrolling away with it. Sticky only in the two-column desktop layout, where pinning cannot cover the inputs. |
 | **Number transitions** | ~200ms fade or count. Perceptible, never delaying. |
 | **Warnings never block** | Overlapping shifts, 16h+ shifts, out-of-range dates — all amber notes, never disabled buttons. The user knows their roster better than the app does. |
 | **Settings are summarised when collapsed** | `Deductions: $611 + 5% · Study debt on`, never `Advanced ▸` |
