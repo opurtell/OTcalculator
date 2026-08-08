@@ -100,6 +100,13 @@ Two consequences:
 
 Algorithm: walk the attendance minute by minute, tracking the highest multiplier seen so far and a cumulative Mon–Fri minute counter. For each minute, take the calendar-implied category; if its multiplier is ≥ the highest seen, use it and update the high-water mark; otherwise carry the highest category forward. Coalesce contiguous same-category minutes into segments.
 
+> **Two clarifications added in Phase 2**, without which the paragraph above reproduces five of the seven worked examples but mislabels §4.2 and §4.5.
+>
+> 1. **The Mon–Fri counter advances only while a weekday rate is actually being paid**, not on every calendar-weekday minute. In Sunday 22:00 → Monday 06:00 the Monday minutes are carried at 2×, so the counter never starts, the calendar never reaches `mf_2x`, and all eight hours stay tagged `sun_2x`. Ticking it on calendar weekdays instead relabels half the Monday as `mf_2x` — same money, but line items that no longer match payroll's, which is what Phase 10 reconciles.
+> 2. **Ties genuinely go to the calendar** (`≥`, as written). The crossover doc's own reference implementation in its §6.1 uses strict `>`, which contradicts its §4.1: a Saturday running into Sunday must tag the Sunday hours `sun_2x`, not carry the Saturday label. The sibling project's shipped code uses `≥`, and `≥` plus clarification 1 is the only combination that reproduces all seven examples.
+>
+> Segments also break at midnight, so each describes exactly one calendar day and matches the sibling engine's per-day line items.
+
 This is directly portable from `lib/pay-engine/pay/overtime.ts:57` (`categoriseAttendance`) with the Temporal dependency swapped out (see §4.3).
 
 ### 3.5 Attendance grouping
@@ -339,6 +346,14 @@ Add one Saturday 09:00–19:00 pickup (10 h @ 2× = $965.51) and one Wednesday 2
 
 **OT delta: $1,110.34 gross → $698.34 net (62.9% retained).**
 
+> **Correction, resolved in Phase 3.** The implemented figures are **$1,110.33 →
+> $698.33**. Both line items above are exact; the totals here sum them *after*
+> rounding, while §3.12 requires full precision until display. One cent, in the
+> plan's favour, and accepted — but the tests assert the .33 figures and should
+> not be "fixed" back. Which convention payroll actually uses is a Phase 10
+> question: if a real payslip sums rounded lines, §3.12 needs an exception for
+> per-line overtime.
+
 These figures are computed from the EBA tables and the FY2025-26 NAT 1004 coefficients in the sibling project. They must be **re-verified against a real payslip in Phase 10** before the app is shared with anyone else.
 
 Other required coverage:
@@ -411,6 +426,10 @@ Validation, all non-blocking warnings rather than hard errors:
 
 Each phase ends in a working, deployed state. No phase leaves the app broken.
 
+**Status: Phases 0–3 are complete** — scaffold, reference data, overtime engine
+and money engine, with the §4.5 fixture passing end to end. Phase 4 is next.
+`CLAUDE.md` carries the current detail; this table is the plan, not the record.
+
 | # | Phase | Deliverable | Depends on |
 | --- | --- | --- | --- |
 | **0** | Scaffold | Vite + TS + React + Vitest, GitHub Actions deploying to Pages, "hello world" live at the real URL, base path proven correct | — |
@@ -461,7 +480,13 @@ None blocking. Worth deciding before Phase 8:
 
 ## 9. Reference sources
 
-All in `~/claudeCode/my-actas-pay/`:
+All in the ACTAS Pay Tracker — `~/claudeCode/my-actas-pay/` locally, or
+`github.com/opurtell/my-actas-pay`, which a web session can attach mid-run with
+`add_repo`. The GitHub copy carries everything below **except**
+`personal-payslips/`, so Phase 10 is the only item that needs the local machine.
+
+Everything except the payslips and the ratchet implementation has now been
+ported into `src/data/`; the entries below are the provenance record.
 
 | What | Where |
 | --- | --- |

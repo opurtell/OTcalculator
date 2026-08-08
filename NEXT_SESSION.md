@@ -12,8 +12,11 @@ https://claude.ai/design/p/d6df1004-e7c3-46f0-835a-8719984bd989). Render check
 is clean at 22/22 with **zero warn lines**, and **all 22 components have
 authored preview cards graded good** — there is no floor-card tier left.
 
-There is no app yet — this is the design system only. Phase 0 of
-`IMPLEMENTATION_PLAN.md` has not been started.
+**This file is about the design system only.** Since it was written, Phases 0
+to 3 of `IMPLEMENTATION_PLAN.md` have landed: the app builds and deploys,
+`src/data/` holds the reference tables, and `src/engine/` computes a fortnight
+end to end — the §4.5 acceptance fixture passes. None of that touched `src/ui/`,
+so everything below still stands. See `CLAUDE.md` for the current state.
 
 **Read `.design-sync/NOTES.md` before touching anything.** It records traps
 that cost real debugging time: the Playwright pin, the icon-glyph problem, the
@@ -95,9 +98,16 @@ Every figure in the previews and mockups comes from `IMPLEMENTATION_PLAN.md`
 a real payslip**. That is Phase 10, and it gates sharing the app with anyone. If
 the golden fixture moves, the preview cards need re-capturing and re-grading.
 
+One figure has already moved by a cent: the overtime delta is **$1,110.33 →
+$698.33**, not the `$1,110.34 → $698.34` printed in §4.5. The engine carries
+full precision to display, per §3.12; the plan's figure sums two already-rounded
+line items. Not worth re-grading a card over, but do not "fix" a preview back to
+the plan's number.
+
 ## If you wanted real screens instead of mockups
 
-Building the nine screens as actual React in `src/` is a different job — Phase 0
-(scaffold, GitHub Actions, `base: '/OTcalculator/'`) and Phase 1 of
-`IMPLEMENTATION_PLAN.md`, with `src/engine/` and the §4.5 golden test underneath
-them. Say so explicitly if that is what you want; it is not what Task B does.
+Building the nine screens as actual React in `src/` is a different job, and the
+groundwork for it is now done — Phases 0 to 3 are complete, so
+`calculateFortnight` will hand a screen real numbers today. What remains is
+Phase 4 (persistence) and Phases 5 to 8 (shell, the two pathways, results).
+Say so explicitly if that is what you want; it is not what Task B does.
