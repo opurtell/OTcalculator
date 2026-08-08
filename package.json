@@ -3,28 +3,33 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Station Ledger — the ACTAS OT Calculator component library",
-  "main": "./dist/actas-ot-ui.umd.cjs",
-  "module": "./dist/actas-ot-ui.js",
-  "types": "./dist/index.d.ts",
-  "style": "./dist/actas-ot-ui.css",
+  "description": "ACTAS OT Calculator \u2014 a static overtime and take-home estimator for ACTAS paramedics",
+  "main": "./dist-lib/actas-ot-ui.umd.cjs",
+  "module": "./dist-lib/actas-ot-ui.js",
+  "types": "./dist-lib/index.d.ts",
+  "style": "./dist-lib/actas-ot-ui.css",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/actas-ot-ui.js",
-      "require": "./dist/actas-ot-ui.umd.cjs"
+      "types": "./dist-lib/index.d.ts",
+      "import": "./dist-lib/actas-ot-ui.js",
+      "require": "./dist-lib/actas-ot-ui.umd.cjs"
     },
-    "./styles.css": "./dist/actas-ot-ui.css"
+    "./styles.css": "./dist-lib/actas-ot-ui.css"
   },
   "files": [
-    "dist"
+    "dist-lib"
   ],
   "sideEffects": [
     "**/*.css"
   ],
   "scripts": {
-    "build": "vite build && tsc -p tsconfig.build.json",
-    "typecheck": "tsc --noEmit"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "build:lib": "vite build --config vite.config.lib.ts && tsc -p tsconfig.build.json"
   },
   "peerDependencies": {
     "react": "^19.0.0",
@@ -38,6 +43,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "typescript": "^5.7.0",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "vitest": "^4.1.10"
   }
 }

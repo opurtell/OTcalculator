@@ -1,0 +1,37 @@
+/*
+ * App-level styling. The Station Ledger stylesheet deliberately scopes
+ * everything to .sl-root so the library never fights a host page's reset —
+ * which leaves the page ground itself to the app.
+ */
+
+/* Without this the .sl-root div is only as tall as its content, and anything
+ * below it is the browser's default white. In dark mode that is a bright slab
+ * under the fold on every phone. --paper is declared on :root in tokens.css,
+ * so it is readable here.
+ *
+ * This follows the OS preference. If Phase 5 adds an in-app theme toggle, the
+ * toggle stamps data-theme on the .sl-root div and this rule will not follow
+ * it — move the stamp to <html> at that point, or mirror it here.
+ */
+html {
+  background: var(--paper);
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--paper);
+}
+
+/* The app fills the viewport so the paper background reaches the bottom of a
+   short screen as well as a long one. */
+#root > .sl-root {
+  min-height: 100dvh;
+}
+
+/* Breathing room at the top and bottom of the column. The library's spacing
+   tokens handle the gaps between panels; the page's own top and bottom edges
+   are the app's business. */
+.sl-app {
+  padding-block: var(--space-6) var(--space-7);
+}

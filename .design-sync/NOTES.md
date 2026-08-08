@@ -12,16 +12,20 @@ Repo-specific gotchas for future syncs. Read before running anything.
   `chromium-1208` + `chromium-1223`. v1.58.0 pins build 1208, so it launches
   against the cache with no download. Install it explicitly in `.ds-sync/`:
   `npm i playwright@1.58.0`.
-- Build order in `package.json` is `vite build && tsc`, deliberately. Reversed,
+- **The library build is `npm run build:lib`, not `npm run build`** — since
+  Phase 0, `npm run build` builds the *app*. `config.json`'s `buildCmd` points
+  at `build:lib`. Its order, `vite build && tsc`, is deliberate: reversed,
   Vite's `emptyOutDir` wipes the declarations tsc just emitted and the
   converter finds no `.d.ts` tree.
-- **The dist entry is `./dist/actas-ot-ui.js`** (Vite library mode names it from
-  the package, so it is not `index.es.js` as the skill's example assumes). The
-  whole re-sync, from the repo root, is:
+- **The dist entry is `./dist-lib/actas-ot-ui.js`** (Vite library mode names it
+  from the package, so it is not `index.es.js` as the skill's example assumes).
+  Phase 0 moved the library output from `dist/` to `dist-lib/` so the app build
+  could take `dist/`; `config.json` was updated to match. The whole re-sync,
+  from the repo root, is:
 
   ```sh
   node .ds-sync/resync.mjs --config .design-sync/config.json \
-    --node-modules ./node_modules --entry ./dist/actas-ot-ui.js \
+    --node-modules ./node_modules --entry ./dist-lib/actas-ot-ui.js \
     --out ./ds-bundle --remote .design-sync/.cache/remote-sync.json
   ```
 
@@ -50,10 +54,10 @@ Repo-specific gotchas for future syncs. Read before running anything.
   (OFL), weights 400 + 600, via `src/ui/fonts.css`. The interface sans is
   deliberately the system stack — `DESIGN_BRIEF.md` §4.2 permits it and it
   costs no bytes. Vite's library mode inlines both woff2 as `data:` URIs, so
-  `dist/fonts/` is never emitted and `[FONT_MISSING]` stays clear without
+  `dist-lib/fonts/` is never emitted and `[FONT_MISSING]` stays clear without
   `cfg.extraFonts`. Do not "fix" the missing `fonts/` directory.
-- `assetFileNames` in `vite.config.ts` is a function, not a string pattern. A
-  plain `actas-ot-ui.[ext]` collapses both font weights onto one filename.
+- `assetFileNames` in `vite.config.lib.ts` is a function, not a string pattern.
+  A plain `actas-ot-ui.[ext]` collapses both font weights onto one filename.
 
 - **`--on-teal` exists because white-on-teal fails in dark mode.** The dark
   teal (`#3d9b9b`) is light enough that a white label sits at 3.30:1, under the
@@ -139,10 +143,13 @@ rather than matching it against this list.
   **not** been checked against a real payslip (that is Phase 10). If the golden
   fixture changes, every authored preview's numbers change with it and the
   cards must be re-captured and re-graded.
-- The app itself does not exist yet — this is a component library only. When
-  Phase 0 adds the app build, `vite.config.ts` gains a second config needing
-  `base: '/OTcalculator/'`; keep the library build's config separate or the
-  bundle entry the converter reads will move.
+- **The app and the library are two separate Vite configs.** `vite.config.ts`
+  is the app (Phase 0, `base: '/OTcalculator/'`, output `dist/`);
+  `vite.config.lib.ts` is this library (output `dist-lib/`). The converter
+  reads the library bundle, so nothing about `vite.config.lib.ts`'s entry,
+  `fileName` or `outDir` may move without updating `config.json`'s `cssEntry`,
+  the `--entry` flag above, and `tsconfig.build.json`'s `declarationDir` in the
+  same commit.
 - `react@19` has no UMD build, so the converter bundles React via esbuild into
   `_vendor/`. Expect the `has no UMD — bundling via esbuild` line; it is not an
   error.

@@ -3,10 +3,10 @@
   "globalName": "ActasOtUi",
   "projectId": "d6df1004-e7c3-46f0-835a-8719984bd989",
   "shape": "package",
-  "buildCmd": "npm run build",
+  "buildCmd": "npm run build:lib",
   "srcDir": "src/ui",
   "tsconfig": "./tsconfig.json",
-  "cssEntry": "./dist/actas-ot-ui.css",
+  "cssEntry": "./dist-lib/actas-ot-ui.css",
   "tokensGlob": "src/ui/tokens.css",
   "readmeHeader": ".design-sync/conventions.md",
   "overrides": {
