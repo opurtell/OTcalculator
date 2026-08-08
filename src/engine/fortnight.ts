@@ -48,7 +48,11 @@ export interface PayRun {
   net: number
 }
 
-export interface FortnightResult {
+/**
+ * The fortnight run twice and the two answers subtracted — everything except
+ * where the overtime figure came from.
+ */
+export interface PayComparison {
   ordinaryGross: number
   overtimeGross: number
   withOt: PayRun
@@ -59,6 +63,9 @@ export interface FortnightResult {
   otNetDelta: number
   /** `otNetDelta / otGrossDelta`, or 0 when there was no overtime. */
   retention: number
+}
+
+export interface FortnightResult extends PayComparison {
   attendances: ReturnType<typeof calculateOvertime>['attendances']
   flags: FortnightFlag[]
 }
@@ -83,12 +90,19 @@ function runPay(gross: number, settings: FortnightSettings): PayRun {
   }
 }
 
-export function calculateFortnight(
-  shifts: readonly OtShift[],
+/**
+ * What a given amount of overtime is worth, once tax has had its say.
+ *
+ * Separated from `calculateFortnight` because the quick pathway (§5.1) arrives
+ * at its overtime figure from an hours field rather than from a shift list,
+ * and must not arrive at its *net* figure any differently. Applying a marginal
+ * rate there instead would give a number that quietly disagreed with the
+ * fortnight calculator on the same overtime.
+ */
+export function comparePay(
+  overtimeGross: number,
   settings: FortnightSettings,
-): FortnightResult {
-  const overtime = calculateOvertime(shifts, settings.band, settings.holidays)
-
+): PayComparison {
   const ordinaryGross =
     settings.ordinaryGrossOverride ?? ordinaryFortnightlyGross(settings.band)
 
@@ -96,21 +110,33 @@ export function calculateFortnight(
   // percentage one on the smaller gross, so the two sides stay internally
   // consistent — a percentage deduction genuinely would have been smaller.
   const withoutOt = runPay(ordinaryGross, settings)
-  const withOt = runPay(ordinaryGross + overtime.gross, settings)
+  const withOt = runPay(ordinaryGross + overtimeGross, settings)
 
   const otGrossDelta = withOt.gross - withoutOt.gross
   const otNetDelta = withOt.net - withoutOt.net
 
-  const deductions = computeDeductions(withOt.gross, settings.deductions)
-
   return {
     ordinaryGross,
-    overtimeGross: overtime.gross,
+    overtimeGross,
     withOt,
     withoutOt,
     otGrossDelta,
     otNetDelta,
     retention: otGrossDelta === 0 ? 0 : otNetDelta / otGrossDelta,
+  }
+}
+
+export function calculateFortnight(
+  shifts: readonly OtShift[],
+  settings: FortnightSettings,
+): FortnightResult {
+  const overtime = calculateOvertime(shifts, settings.band, settings.holidays)
+  const comparison = comparePay(overtime.gross, settings)
+
+  const deductions = computeDeductions(comparison.withOt.gross, settings.deductions)
+
+  return {
+    ...comparison,
     attendances: overtime.attendances,
     flags: [
       ...overtime.flags,

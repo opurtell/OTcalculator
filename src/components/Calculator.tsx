@@ -9,7 +9,8 @@ import type { CalculatorChoices, Pathway } from '../app/settings'
 import { amountInputFor, parseAmount, percentInputFor } from '../app/inputs'
 import { CLASSIFICATION_LABEL, payBandFor } from '../data'
 import type { Classification } from '../data'
-import { calculateFortnight } from '../engine/fortnight'
+import { calculateFortnight, comparePay } from '../engine/fortnight'
+import { quickOvertime } from '../engine/overtime'
 import type { IsoDate } from '../engine/types'
 import { EmptyState, Panel, formatMoney } from '../ui/index'
 import { CalculatorShell } from './CalculatorShell'
@@ -19,6 +20,7 @@ import {
 } from './DeductionsTaxPanel'
 import { FortnightResultPanel } from './FortnightResultPanel'
 import { PayBandFields, clampStep } from './PayBandFields'
+import { QuickHoursField, QuickResult } from './QuickPathway'
 import { SetupScreen } from './SetupScreen'
 
 export interface CalculatorProps {
@@ -59,6 +61,11 @@ export function Calculator({
 }: CalculatorProps) {
   const [fields, setFields] = useState(() => fieldsFrom(initialChoices))
   const [inSetup, setInSetup] = useState(startAtSetup)
+  // Not part of the persisted choices, and deliberately not per-pathway state
+  // either: a number typed on the quick tab survives a look at the fortnight
+  // tab and back, which is the round trip someone weighing a shift actually
+  // makes. It does not survive a reload, and should not — §4.4.
+  const [quickHoursInput, setQuickHoursInput] = useState('')
 
   const choices = choicesFrom(fields)
   const date = payDate ?? todayIso()
@@ -95,6 +102,14 @@ export function Calculator({
   // No shifts yet — the fortnight pathway arrives in Phase 7. The figures are
   // real regardless: this is the fortnight as it stands before any overtime.
   const result = calculateFortnight([], settings)
+
+  // The quick pathway, when it has a number to work with. Both pathways reach
+  // their net figure through the same `comparePay`, so the same overtime can
+  // never be worth two different amounts depending on which tab you are on.
+  const quickHours = parseAmount(quickHoursInput) ?? 0
+  const quick =
+    quickHours > 0 ? quickOvertime(quickHours, settings.band.annualBase) : null
+  const quickComparison = quick === null ? null : comparePay(quick.gross, settings)
 
   function bandFieldProps() {
     const band = payBandFor(fields.classification, fields.step)
@@ -146,11 +161,19 @@ export function Calculator({
       pathway={fields.pathway}
       onPathwayChange={(pathway: Pathway) => update({ pathway })}
       result={
-        <FortnightResultPanel
-          result={result}
-          bandSummary={bandLabel}
-          captions={captions}
-        />
+        // On the quick tab with hours entered, the result is what those hours
+        // add. Everywhere else it is the fortnight itself — an empty hours
+        // field has nothing to say, and a zero in the loud position would be
+        // an answer to a question nobody asked.
+        quick !== null && quickComparison !== null && fields.pathway === 'quick' ? (
+          <QuickResult comparison={quickComparison} overtime={quick} />
+        ) : (
+          <FortnightResultPanel
+            result={result}
+            bandSummary={bandLabel}
+            captions={captions}
+          />
+        )
       }
       bandSummary={`${bandLabel} · ${wholeDollars(settings.band.annualBase)}`}
       payBand={<PayBandFields {...bandFieldProps()} />}
@@ -177,12 +200,11 @@ export function Calculator({
       }}
     >
       {fields.pathway === 'quick' ? (
-        <Panel>
-          <EmptyState
-            title="Quick calculation"
-            body="Hours in, an estimate out — arriving next. The Fortnight tab already shows your pay before overtime."
-          />
-        </Panel>
+        <QuickHoursField
+          hoursInput={quickHoursInput}
+          onHoursInputChange={setQuickHoursInput}
+          onUseFortnight={() => update({ pathway: 'fortnight' })}
+        />
       ) : (
         <Panel>
           <div className="sl-stack">

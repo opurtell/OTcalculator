@@ -61,6 +61,54 @@ export function segmentsPay(segments: readonly Segment[], annualBase: number): n
   return segments.reduce((total, segment) => total + segmentPay(segment, annualBase), 0)
 }
 
+/** One tier of the quick calculation, kept so the UI can show its working. */
+export interface QuickTier {
+  category: OtCategory
+  hours: number
+  hourlyRate: number
+  pay: number
+}
+
+export interface QuickOvertime {
+  gross: number
+  tiers: QuickTier[]
+}
+
+/**
+ * The quick pathway's deliberately simplified split (§5.1): one Mon–Fri
+ * attendance, the first two hours at 1.5× and the rest at 2×.
+ *
+ * **It is wrong on purpose, and the UI must say so on the same screen.** No
+ * date means no Saturday, no Sunday, no public holiday and no ratchet; no
+ * shift kind means no C9.5 four-hour minimum. Every one of those makes the
+ * real figure larger, so the estimate errs low — the safe direction for
+ * someone deciding whether a shift is worth taking.
+ *
+ * The tier boundary is `MF_FIRST_TIER_MINUTES`, the same constant the real
+ * ratchet walks, so the two cannot drift apart.
+ */
+export function quickOvertime(hours: number, annualBase: number): QuickOvertime {
+  const firstTierHours = MF_FIRST_TIER_MINUTES / 60
+  const capped = Math.max(0, hours)
+
+  const split: [OtCategory, number][] = [
+    ['mf_1_5x', Math.min(capped, firstTierHours)],
+    ['mf_2x', Math.max(0, capped - firstTierHours)],
+  ]
+
+  const tiers = split
+    .filter(([, tierHours]) => tierHours > 0)
+    .map(([category, tierHours]) => {
+      const hourlyRate = categoryHourlyRate(annualBase, category)
+      return { category, hours: tierHours, hourlyRate, pay: tierHours * hourlyRate }
+    })
+
+  return {
+    gross: tiers.reduce((total, tier) => total + tier.pay, 0),
+    tiers,
+  }
+}
+
 /**
  * Ratchet state, carried across every interval of one attendance.
  *

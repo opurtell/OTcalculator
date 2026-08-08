@@ -120,11 +120,29 @@ describe('Calculator', () => {
 
   it('offers both pathways and shows the one selected', () => {
     const quick = render({ ...GOLDEN, pathway: 'quick' })
-    expect(quick).toContain('Quick calculation')
+    expect(quick).toContain('How many hours?')
     expect(quick).not.toContain('No shifts added yet.')
 
     const fortnight = render(GOLDEN)
     expect(fortnight).toContain('No shifts added yet.')
+    expect(fortnight).not.toContain('How many hours?')
+  })
+
+  it('states the quick pathway assumptions on the same screen as the field', () => {
+    const html = render({ ...GOLDEN, pathway: 'quick' })
+
+    // Mon-Fri, not the brief's Mon-Sat: N34 overrides C9.12 and puts Saturday
+    // at double time from the first minute, so a Saturday is understated by
+    // the 1.5x opening tier rather than described by it.
+    expect(html).toContain('Assumes one Mon–Fri shift')
+    expect(html).toContain('4-hour minimum')
+    expect(html).toContain('every one of those pays more')
+  })
+
+  it('shows the fortnight, not a zero, until hours are entered', () => {
+    const html = render({ ...GOLDEN, pathway: 'quick' })
+    expect(html).not.toContain('Adds about')
+    expect(html).toContain('Your fortnight')
   })
 
   it('falls back to the setup screen when a stored band no longer exists', () => {
