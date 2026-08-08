@@ -119,12 +119,16 @@ describe('the fortnight list', () => {
 })
 
 describe('the result once shifts are in', () => {
-  it('leads with what the overtime added to take-home', () => {
-    const result = calculateFortnight([SATURDAY, WEDNESDAY], settings)
-    const html = renderToStaticMarkup(
-      <FortnightResultPanel result={result} bandSummary="AP1 Step 2" />,
-    )
+  const result = calculateFortnight([SATURDAY, WEDNESDAY], settings)
+  const html = renderToStaticMarkup(
+    <FortnightResultPanel
+      result={result}
+      bandSummary="AP1 Step 2"
+      settings={settings}
+    />,
+  )
 
+  it('leads with what the overtime added to take-home', () => {
     // §4.5: $1,110.33 of overtime, $698.33 in the hand, 63% kept. The plan
     // prints $1,110.34 by summing two already-rounded lines; §3.12 says full
     // precision until display, which gives the figure asserted here.
@@ -135,6 +139,27 @@ describe('the result once shifts are in', () => {
     // PAYG moves from $1,208 to $1,620 — the reason the delta is not the
     // overtime's marginal rate.
     expect(html).toContain('1,620.00')
+  })
+
+  it('shows the fortnight both with and without overtime', () => {
+    expect(html).toContain('Without OT')
+    expect(html).toContain('With OT')
+    // PAYG before the overtime, in the without-OT column.
+    expect(html).toContain('1,208.00')
+  })
+
+  it('puts the per-shift breakdown behind the overtime line', () => {
+    // The Overtime label is the inspect trigger; its per-attendance derivation
+    // expands on tap rather than cluttering the comparison.
+    expect(html).toContain('Overtime')
+    expect(html).toContain('how this was worked out')
+  })
+
+  it('exposes the full derivation with its clause references', () => {
+    expect(html).toContain('How this was worked out')
+    expect(html).toContain('EBA N34.1')
+    expect(html).toContain('EBA N44')
+    expect(html).toContain('ATO NAT 1004')
   })
 })
 

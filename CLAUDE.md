@@ -4,10 +4,11 @@ A static single-page app for ACTAS paramedics: enter a fortnight's overtime shif
 
 ## Status
 
-**Phases 0–7 complete — the engine, persistence, and both calculator pathways
-are done and wired together. `App.tsx` connects the persistence layer to the
-calculator's choices seam; the §4.5 golden fixture now renders end to end
-through the real UI.**
+**Phases 0–8 complete — the engine, persistence, both calculator pathways, and
+the results display are done and wired together. `App.tsx` connects the
+persistence layer to the calculator's choices seam; the §4.5 golden fixture now
+renders end to end through the real UI, with the with/without comparison,
+per-shift breakdown, and the §5.7 "how this was worked out" derivation.**
 
 Phases against `IMPLEMENTATION_PLAN.md` §6:
 
@@ -21,12 +22,13 @@ Phases against `IMPLEMENTATION_PLAN.md` §6:
 | **5** Shell + setup | **Done.** `src/components/` + `src/app/` — app frame, pathway switcher, pay band picker with editable overrides, deductions and tax panel, disclaimer, clear-settings. `App.tsx` wires the calculator to persistence |
 | **6** Quick pathway | **Done.** One hours field, the §5.1 two-tier split, the low-estimate note. Adds `quickOvertime` and the behaviour-preserving `comparePay` extraction in `src/engine/` |
 | **7** Fortnight pathway | **Done.** Shift list, add/edit sheet with live preview, delete-with-undo, duplicate, and the five non-blocking warnings. A row is an attendance, not an entry |
-| 8–10 | Not started |
+| **8** Results | **Done.** The with/without comparison table, an inspectable per-shift Overtime breakdown, and the §5.7 "how this was worked out" disclosure. Row logic lives in `src/app/breakdown.ts`; `HowItWasWorkedOut.tsx` wraps the §5.7 derivation |
+| 9–10 | Not started |
 
 `calculateFortnight(shifts, settings)` in `src/engine/fortnight.ts` is the entry
 point — shifts and settings in, take-home and the overtime delta out. It calls
 `calculateOvertime` underneath, which is usable alone if you only want gross OT.
-310 tests. All seven crossover worked examples pass. Three things to know:
+329 tests. All seven crossover worked examples pass. Three things to know:
 
 - **The §4.5 golden total is a cent adrift**, and it is the plan that is out.
   See `src/engine/__tests__/golden.test.ts` — §3.12 says full precision until

@@ -221,6 +221,7 @@ export function Calculator({
             result={result}
             bandSummary={bandLabel}
             captions={captions}
+            settings={settings}
           />
         )
       }

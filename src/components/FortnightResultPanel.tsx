@@ -1,6 +1,7 @@
-import type { FortnightResult } from '../engine/fortnight'
+import type { FortnightResult, FortnightSettings } from '../engine/fortnight'
 import { FigureTable, Money, Panel, ResultPanel } from '../ui/index'
-import type { FigureRow } from '../ui/index'
+import { breakdownRows, comparisonRows } from '../app/breakdown'
+import { HowItWasWorkedOut } from './HowItWasWorkedOut'
 
 export interface FortnightResultPanelProps {
   result: FortnightResult
@@ -12,28 +13,42 @@ export interface FortnightResultPanelProps {
    * which year's rates produced it.
    */
   captions?: string[]
+  /**
+   * The resolved settings. When present the "How this was worked out" (§5.7)
+   * derivation is offered beneath the figures. Optional so a caller with only a
+   * result can still render the headline and breakdown — the comparison and the
+   * per-shift derivation do not need it, only the rate-and-clause working does.
+   */
+  settings?: FortnightSettings
 }
 
 /**
- * The figure the app exists to show, and the working behind it.
+ * The figure the app exists to show, and the working behind it (§5.4).
  *
  * Two shapes, chosen by whether there is any overtime yet:
  *
  * - **No overtime.** A quiet panel — this is the §5.3 empty state, where the
  *   loud treatment would be shouting a figure the user already knows.
- * - **With overtime.** The headline: what the overtime added to take-home,
- *   what it was before tax, and how much of it was kept.
+ * - **With overtime.** The headline: what the overtime added to take-home, what
+ *   it was before tax, and how much of it was kept — above a two-column
+ *   with/without comparison so every line's movement is visible.
  *
- * Both shapes carry the full breakdown underneath. Never show an unexplained
- * figure: if the app says $698.33, the PAYG line that produced it is on screen.
+ * Both shapes carry the full breakdown, and both offer the §5.7 derivation when
+ * settings are supplied. Never show an unexplained figure: if the app says
+ * $698.33, the PAYG line that produced it is on screen, the shifts behind the
+ * overtime are one tap away, and the clause that sets the rate is one more.
  */
 export function FortnightResultPanel({
   result,
   bandSummary,
   captions = [],
+  settings,
 }: FortnightResultPanelProps) {
   const hasOvertime = result.overtimeGross > 0
-  const breakdown = breakdownRows(result)
+  const workings =
+    settings === undefined ? null : (
+      <HowItWasWorkedOut settings={settings} result={result} />
+    )
 
   if (!hasOvertime) {
     return (
@@ -50,12 +65,22 @@ export function FortnightResultPanel({
             <Money value={result.withOt.net} tone="net" />
             <span className="sl-summary__unit">take-home</span>
           </p>
-          <FigureTable caption="Your fortnight before overtime" rows={breakdown} />
+          <FigureTable
+            caption="Your fortnight before overtime"
+            rows={breakdownRows(result)}
+          />
           <Captions lines={captions} />
+          {workings}
         </div>
       </Panel>
     )
   }
+
+  // A two-column comparison is the whole point once there is overtime: the same
+  // fortnight run with and without it, so the overtime's effect on gross, tax
+  // and take-home is read across each row rather than inferred. The Overtime
+  // row carries the per-shift derivation (`comparisonRows`).
+  const comparison = comparisonRows(result)
 
   return (
     <ResultPanel
@@ -64,8 +89,13 @@ export function FortnightResultPanel({
       beforeTax={result.otGrossDelta}
       sticky
     >
-      <FigureTable caption="Your fortnight with overtime" rows={breakdown} />
+      <FigureTable
+        caption="Your fortnight with and without overtime"
+        columns={comparison.columns}
+        rows={comparison.rows}
+      />
       <Captions lines={captions} />
+      {workings}
     </ResultPanel>
   )
 }
@@ -81,52 +111,4 @@ function Captions({ lines }: { lines: string[] }) {
       ))}
     </>
   )
-}
-
-/**
- * Gross down to take-home, with every line that moved the figure and none that
- * did not — a zero deduction row is noise, not disclosure.
- */
-function breakdownRows(result: FortnightResult): FigureRow[] {
-  const { withOt } = result
-  const rows: FigureRow[] = [
-    { label: 'Base pay', values: [result.ordinaryGross] },
-  ]
-
-  if (result.overtimeGross > 0) {
-    rows.push({ label: 'Overtime', values: [result.overtimeGross] })
-  }
-  if (withOt.preTaxDeductions > 0) {
-    rows.push({
-      label: 'Pre-tax deductions',
-      values: [withOt.preTaxDeductions],
-      tone: 'out',
-      sign: 'always-negative',
-    })
-  }
-
-  rows.push({
-    label: 'PAYG tax',
-    values: [withOt.payg],
-    tone: 'out',
-    sign: 'always-negative',
-  })
-
-  if (withOt.help > 0) {
-    rows.push({
-      label: 'Study loan',
-      values: [withOt.help],
-      tone: 'out',
-      sign: 'always-negative',
-    })
-  }
-
-  rows.push({
-    label: 'Take-home',
-    values: [withOt.net],
-    tone: 'net',
-    total: true,
-  })
-
-  return rows
 }
