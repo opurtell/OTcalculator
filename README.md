@@ -15,13 +15,16 @@ analytics; every figure stays in your browser's `localStorage`.
 
 ## Status
 
-Phase 0 of `IMPLEMENTATION_PLAN.md` is complete: the app builds, tests and
-deploys, and the live page proves the Pages base path. It does not calculate
-anything yet — `src/engine/` is empty and the screen is a placeholder.
+Phases 0 and 2 of `IMPLEMENTATION_PLAN.md` are complete. The app builds, tests
+and deploys, and `src/engine/` calculates overtime: rate categories, the
+midnight ratchet, attendance grouping and the C9.5 four-hour minimum, under 100
+tests. The screen is still the Phase 0 placeholder — nothing is wired up yet.
 
-Next up is Phase 1 (reference data), which needs the pay tables, NAT 1004
-coefficients and ACT public holidays from the sibling ACTAS Pay Tracker
-project. See `IMPLEMENTATION_PLAN.md` §6 and §9.
+Phase 1 (reference data) is the blocker for everything downstream. It needs the
+NAT 1004 coefficients and HELP thresholds from the ATO, ACT public holidays, and
+the Annex A pay tables. The engine takes all of these as parameters and holds no
+figures of its own, so Phase 3 can be built against fixtures and have the real
+tables dropped in behind it.
 
 ## Working on it
 
@@ -42,7 +45,7 @@ component library in `src/ui/` to `dist-lib/` for the Claude Design sync. See
 
 | Path | What it is |
 | --- | --- |
-| `src/engine/` | Pure calculation. No DOM, no React, no imports from `components/` or `storage/` — that boundary is what makes the money math testable |
+| `src/engine/` | Pure calculation. No DOM, no React, no imports from `components/` or `storage/` — that boundary is what makes the money math testable, and `__tests__/boundary.test.ts` enforces it |
 | `src/ui/` | Station Ledger, the 22-component design system |
 | `src/App.tsx` | The app shell |
 | `vite.config.ts` | App build. Carries `base: '/OTcalculator/'` |
