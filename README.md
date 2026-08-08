@@ -15,20 +15,23 @@ analytics; every figure stays in your browser's `localStorage`.
 
 ## Status
 
-Phases 0, 1 and 2 of `IMPLEMENTATION_PLAN.md` are complete. The app builds,
-tests and deploys; `src/engine/` calculates overtime — rate categories, the
-midnight ratchet, attendance grouping and the C9.5 four-hour minimum; and
+Phases 0 to 3 of `IMPLEMENTATION_PLAN.md` are complete — **the calculation
+engine is done and the §4.5 acceptance fixture passes end to end.**
+`src/engine/` computes overtime (rate categories, the midnight ratchet,
+attendance grouping, the C9.5 four-hour minimum) and then the money (PAYG,
+HELP, pre-tax deductions, and what the overtime added to take-home).
 `src/data/` holds the Annex A pay tables, ACT public holidays, NAT 1004
-coefficients, HELP thresholds and FBT caps. 127 tests. The screen is still the
-Phase 0 placeholder — nothing is wired up yet.
+coefficients, HELP thresholds and FBT caps. 167 tests.
+
+The screen is still the Phase 0 placeholder — nothing is wired up yet.
 
 One caveat on the data: the tax and HELP figures are FY2025-26 only. The
 FY2026-27 NAT 1004 coefficients exist but are not in hand, so the app falls back
 to FY2025-26 and captions it, exactly as §3.8 specifies. Adding the real rows to
 `src/data/tax-scales.ts` is the whole fix.
 
-Phase 3 is next: `tax.ts`, `packaging.ts` and `fortnight.ts` — PAYG, HELP,
-pre-tax deductions and the with/without-overtime delta.
+Phase 4 is next: versioned `localStorage` persistence, then the app shell and
+the two pathways.
 
 ## Working on it
 

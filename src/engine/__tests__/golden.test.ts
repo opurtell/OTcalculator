@@ -1,17 +1,22 @@
 /**
  * The golden fixture — `IMPLEMENTATION_PLAN.md` §4.5.
  *
- * AP1 Step 2, one Saturday 10-hour pickup and one Wednesday 2-hour shift
- * overrun. This file covers the overtime half; the PAYG, net and delta figures
- * join it in Phase 3.
+ * AP1 Step 2, Scale 2, no study debt, no deductions. One Saturday 10-hour
+ * pickup and one Wednesday 2-hour shift overrun.
  *
- * Every figure here is computed from the EBA tables and has **not** been
- * verified against a real payslip. That is Phase 10, and it gates sharing the
- * app with anyone else.
+ * This is the acceptance test for the whole engine. Every figure in it is
+ * computed from the EBA tables and the FY2025-26 coefficients, and has **not**
+ * been verified against a real payslip. That is Phase 10, and it gates sharing
+ * the app with anyone else.
  */
 
 import { describe, expect, it } from 'vitest'
 import { calculateOvertime } from '../attendance'
+import { calculateFortnight } from '../fortnight'
+import { NO_DEDUCTIONS } from '../packaging'
+import { ordinaryFortnightlyGross } from '../tax'
+import { PACKAGING_CAPS } from '../../data/packaging'
+import { taxScaleFor } from '../../data/tax-scales'
 import { AP1_STEP_2, HOLIDAYS_2026, cents, shift } from './fixtures'
 
 // 15 August 2026 is a Saturday and 19 August 2026 a Wednesday. §4.5 names the
@@ -82,6 +87,57 @@ describe('golden fixture — overtime', () => {
   })
 
   it('raises no flags for an ordinary fortnight', () => {
+    expect(result.flags).toEqual([])
+  })
+})
+
+describe('golden fixture — the whole fortnight', () => {
+  const result = calculateFortnight([SATURDAY_PICKUP, WEDNESDAY_OVERRUN], {
+    band: AP1_STEP_2,
+    taxScale: taxScaleFor('2025-26', 2).scale,
+    helpSchedule: null,
+    deductions: NO_DEDUCTIONS,
+    packagingCaps: PACKAGING_CAPS,
+    holidays: HOLIDAYS_2026,
+  })
+
+  it('derives ordinary fortnightly gross of $4,908.32', () => {
+    // (Annex A total + 2.20% roster adjustment) × 12/313.
+    expect(cents(result.ordinaryGross)).toBe(4908.32)
+    expect(cents(ordinaryFortnightlyGross(AP1_STEP_2))).toBe(4908.32)
+  })
+
+  it('grosses $4,908.32 without overtime and $6,018.66 with', () => {
+    expect(cents(result.withoutOt.gross)).toBe(4908.32)
+    expect(cents(result.withOt.gross)).toBe(6018.66)
+  })
+
+  it('withholds $1,208 without overtime and $1,620 with', () => {
+    // NAT 1004 rounds at the weekly step, so both land on whole dollars.
+    expect(result.withoutOt.payg).toBe(1208)
+    expect(result.withOt.payg).toBe(1620)
+  })
+
+  it('nets $3,700.32 without overtime and $4,398.66 with', () => {
+    expect(cents(result.withoutOt.net)).toBe(3700.32)
+    expect(cents(result.withOt.net)).toBe(4398.66)
+  })
+
+  it('turns $1,110.33 of overtime into $698.33 of take-home, 62.9% kept', () => {
+    // §4.5 prints $1,110.34 → $698.34. Both are a cent higher because the plan
+    // sums already-rounded line items; §3.12 says full precision until display.
+    // Oscar has accepted the divergence — see the note in the overtime block.
+    expect(cents(result.otGrossDelta)).toBe(1110.33)
+    expect(cents(result.otNetDelta)).toBe(698.33)
+    expect(Math.round(result.retention * 1000) / 10).toBe(62.9)
+  })
+
+  it('withholds no HELP when there is no study debt', () => {
+    expect(result.withOt.help).toBe(0)
+    expect(result.withOt.preTaxDeductions).toBe(0)
+  })
+
+  it('raises no flags', () => {
     expect(result.flags).toEqual([])
   })
 })

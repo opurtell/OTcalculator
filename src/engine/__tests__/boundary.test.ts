@@ -60,8 +60,11 @@ describe('engine boundary', () => {
     expect(sourceFiles.map((f) => f.name).sort()).toEqual([
       'attendance.ts',
       'calendar.ts',
+      'fortnight.ts',
       'index.ts',
       'overtime.ts',
+      'packaging.ts',
+      'tax.ts',
       'types.ts',
     ])
   })

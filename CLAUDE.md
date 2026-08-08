@@ -4,7 +4,7 @@ A static single-page app for ACTAS paramedics: enter a fortnight's overtime shif
 
 ## Status
 
-**Phases 0, 1 and 2 complete. Phase 3 is next.**
+**Phases 0–3 complete — the engine is done. Phase 4 (persistence) is next.**
 
 Phases against `IMPLEMENTATION_PLAN.md` §6:
 
@@ -13,18 +13,23 @@ Phases against `IMPLEMENTATION_PLAN.md` §6:
 | **0** Scaffold | **Done.** `src/main.tsx`, `src/App.tsx` (a deliberate placeholder — no figures), `.github/workflows/deploy.yml`, live at https://opurtell.github.io/OTcalculator/ |
 | **1** Reference data | **Done, with one caveat.** `src/data/` — Annex A tables, ACT holidays, NAT 1004, HELP, FBT caps. Tax and HELP are FY2025-26 only and fall back per §3.8. See "Reference data" below |
 | **2** OT engine | **Done.** `src/engine/` — ratchet, categories, attendance grouping, C9.5 minimum, OT dollars |
-| **3** Money engine | **Next.** `tax.ts`, `packaging.ts`, `fortnight.ts`. All the data it needs is now in `src/data/` |
-| 4–10 | Not started |
+| **3** Money engine | **Done.** `tax.ts`, `packaging.ts`, `fortnight.ts` — PAYG, HELP, pre-tax deductions, the with/without-OT delta. **The §4.5 golden fixture passes end to end** |
+| **4** Persistence | **Next.** Versioned `localStorage` per §4.4, defensive reads, clear-settings |
+| 5–10 | Not started |
 
-`calculateOvertime(shifts, band, holidays)` in `src/engine/attendance.ts` is the
-Phase 2 entry point. All seven crossover worked examples pass. Two things to
-know:
+`calculateFortnight(shifts, settings)` in `src/engine/fortnight.ts` is the entry
+point — shifts and settings in, take-home and the overtime delta out. It calls
+`calculateOvertime` underneath, which is usable alone if you only want gross OT.
+167 tests. All seven crossover worked examples pass. Three things to know:
 
 - **The §4.5 golden total is a cent adrift**, and it is the plan that is out.
   See `src/engine/__tests__/golden.test.ts` — §3.12 says full precision until
   display, which gives $1,110.33; §4.5 prints $1,110.34, the sum of the two
   already-rounded lines. Both line items are exact. Oscar has accepted the
   divergence; Phase 10 settles which one payroll does.
+- **The delta is computed by running the whole fortnight twice**, not by
+  applying a marginal rate. PAYG is withheld on the fortnight's total and
+  rounds at the weekly step, so the marginal rate is not the answer.
 - **The ratchet's two labelling rules are load-bearing** and neither is
   obvious. Ties go to the calendar, so a Saturday running into Sunday tags the
   Sunday hours `sun_2x`. But the weekday counter advances *only while a weekday
@@ -149,4 +154,13 @@ The ACTAS Enterprise Agreement 2023–2026 **remains in effect**. Its 31 March 2
 
 ## Acceptance test
 
-The golden fixture in `IMPLEMENTATION_PLAN.md` §4.5 (AP1 Step 2, one Saturday 10h pickup + one Wednesday 2h overrun → $1,110.34 gross OT becomes $698.34 net) is the acceptance test for the engine. It is computed from the EBA tables, **not yet verified against a real payslip** — that is Phase 10, and it gates sharing the app with anyone else.
+The golden fixture in `IMPLEMENTATION_PLAN.md` §4.5 — AP1 Step 2, one Saturday
+10h pickup + one Wednesday 2h overrun — **passes end to end** in
+`src/engine/__tests__/golden.test.ts`. Ordinary gross $4,908.32, with-OT gross
+$6,018.66, PAYG $1,208 → $1,620, net $3,700.32 → $4,398.66, and $1,110.33 of
+overtime worth $698.33 in the hand at 62.9% retained.
+
+It is computed from the EBA tables and the FY2025-26 coefficients, and is
+**not yet verified against a real payslip** — that is Phase 10, and it gates
+sharing the app with anyone else. Until then the app is a well-tested
+hypothesis.
