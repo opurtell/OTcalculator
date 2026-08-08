@@ -127,6 +127,15 @@ can see, and what someone should therefore actually try:
 requirement in both themes, and asserts the three copies of the palette in
 `tokens.css` still agree, which is the failure that bit last time.
 
+**`@types/node` is a real dependency now** — `contrast.test.ts` reads
+`tokens.css` off disk, and `scripts/`, `vite-pwa.ts` and `vite.config.lib.ts`
+all use node built-ins. It was missing at first and `tsc` still passed locally,
+because TypeScript walks *parent directories* for `node_modules/@types` and
+found a stray copy in the home directory; CI has no such thing and failed on
+`Cannot find module 'node:fs'`. If a typecheck ever passes here and fails in
+CI, check for a resolution that escaped the repo:
+`npx tsc --noEmit --typeRoots ./node_modules/@types` reproduces CI's view.
+
 The service worker deliberately has no `skipWaiting`: a new version takes over
 on the next load rather than swapping assets under a session mid-calculation.
 Icons are drawn by `scripts/make-icons.mjs` (no image dependency — it encodes
