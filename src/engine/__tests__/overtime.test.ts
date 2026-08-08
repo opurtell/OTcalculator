@@ -5,6 +5,7 @@ import {
   categoriseAttendance,
   categoryHourlyRate,
   otHourlyRate,
+  quickOvertime,
   totalMinutes,
 } from '../overtime'
 import type { Interval, Segment } from '../types'
@@ -283,5 +284,52 @@ describe('attendanceSpan', () => {
     ])
     expect(span.crossesMidnight).toBe(false)
     expect(span.dates).toEqual(['2026-08-16'])
+  })
+})
+
+describe('quickOvertime', () => {
+  const base = AP1_STEP_2.annualBase
+
+  it('splits at two hours: time and a half, then double time', () => {
+    const { tiers, gross } = quickOvertime(10, base)
+
+    expect(tiers.map((t) => [t.category, t.hours])).toEqual([
+      ['mf_1_5x', 2],
+      ['mf_2x', 8],
+    ])
+    expect(gross).toBeCloseTo(917.23, 2)
+  })
+
+  it('prices the tiers off base salary, never the composite', () => {
+    const { tiers } = quickOvertime(10, base)
+    // $48.28 an hour at 1×. Off the Annex A total these would be about $95
+    // and $127, which is the 34% overstatement N34.1 exists to prevent.
+    expect(tiers[0].hourlyRate).toBeCloseTo(72.41, 2)
+    expect(tiers[1].hourlyRate).toBeCloseTo(96.55, 2)
+  })
+
+  it('never reaches the second tier on a short shift', () => {
+    const { tiers, gross } = quickOvertime(1.5, base)
+    expect(tiers).toHaveLength(1)
+    expect(tiers[0].category).toBe('mf_1_5x')
+    expect(gross).toBeCloseTo(108.62, 2)
+  })
+
+  it('has nothing to say about no hours', () => {
+    expect(quickOvertime(0, base)).toEqual({ gross: 0, tiers: [] })
+    // A negative reading is a mid-edit artefact, not a refund.
+    expect(quickOvertime(-5, base).gross).toBe(0)
+  })
+
+  it('understates every shift it cannot see', () => {
+    // The whole justification for the simplification: a Saturday, a Sunday and
+    // a public holiday all pay more than the Mon-Fri split it assumes, so the
+    // estimate errs in the safe direction for someone deciding on a shift.
+    const quick = quickOvertime(10, base).gross
+    const allAtDouble = 10 * categoryHourlyRate(base, 'sat_2x')
+    const allAtHoliday = 10 * categoryHourlyRate(base, 'ph_2_5x')
+
+    expect(quick).toBeLessThan(allAtDouble)
+    expect(quick).toBeLessThan(allAtHoliday)
   })
 })
