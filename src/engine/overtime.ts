@@ -70,7 +70,12 @@ export function segmentsPay(segments: readonly Segment[], annualBase: number): n
 interface RatchetState {
   /** Highest category applied so far. The rate never falls below this. */
   highWater: OtCategory | null
-  /** Mon–Fri minutes worked so far. Does **not** reset at midnight. */
+  /**
+   * Minutes actually **paid at a Mon–Fri rate** so far. Does not reset at
+   * midnight, and — the subtle part — does not advance while a higher rate is
+   * being carried. See `categoriseAttendance` for why that distinction decides
+   * how §4.2 of the crossover doc comes out.
+   */
   weekdayMinutes: number
 }
 
@@ -108,9 +113,21 @@ function calendarCategory(kind: DayKind, weekdayMinutesSoFar: number): OtCategor
  * - Monday 19:00 → Tuesday 03:00 pays 2h at 1.5× then 6h at 2×, because the
  *   "first 2 hours" counter does not reset at midnight.
  *
- * In the first of those, the Monday minutes switch label from `sun_2x` to
- * `mf_2x` once the weekday counter passes two hours — both are 2×, so the money
- * is identical and the breakdown stays honest about which day it is describing.
+ * Two details decide how the *labels* come out, and both are load-bearing for
+ * reconciling against a payslip in Phase 10:
+ *
+ * - **Ties go to the calendar.** A Saturday running into Sunday is 2× either
+ *   side, and the Sunday hours are tagged `sun_2x` rather than carrying the
+ *   Saturday label (crossover doc §4.1).
+ * - **The weekday counter advances only while a weekday rate is actually being
+ *   paid.** In the Sunday → Monday case the Monday minutes are carried at 2×,
+ *   so the counter never starts, the calendar never reaches `mf_2x`, and all
+ *   eight hours stay tagged `sun_2x` (§4.2). Ticking the counter on calendar
+ *   weekdays instead would relabel half the Monday as `mf_2x` — same money,
+ *   but line items that no longer match payroll's.
+ *
+ * Segments never span midnight: a carried category still breaks at the date
+ * boundary, so every segment describes exactly one calendar day.
  */
 export function categoriseAttendance(
   intervals: readonly Interval[],
@@ -139,7 +156,6 @@ export function categoriseAttendance(
 
       const kind = dayKind(date, holidays)
       const calendar = calendarCategory(kind, state.weekdayMinutes)
-      if (kind === 'weekday') state.weekdayMinutes += 1
 
       const carried = state.highWater
       const applied =
@@ -148,9 +164,18 @@ export function categoriseAttendance(
           : carried
       state.highWater = applied
 
+      // Only minutes genuinely paid at a weekday rate count toward the first
+      // two hours. A minute carried at a higher rate is not Mon–Fri overtime
+      // for this purpose, so the counter stays put and the carry persists for
+      // the rest of the attendance.
+      if (applied === 'mf_1_5x' || applied === 'mf_2x') state.weekdayMinutes += 1
+
       const last = segments[segments.length - 1]
       const contiguous =
-        last !== undefined && last.category === applied && clockAfterLast === clock
+        last !== undefined &&
+        last.category === applied &&
+        last.date === date &&
+        clockAfterLast === clock
 
       if (contiguous) {
         last.minutes += 1

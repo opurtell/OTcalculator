@@ -204,10 +204,10 @@ describe('flags', () => {
     })
   })
 
-  it('flags the second date of an attendance that crosses midnight in one segment', () => {
-    // Sunday 22:00 → Monday 01:00 is a single carried sun_2x segment dated
-    // Sunday. The Monday is only visible through the span, and this is the
-    // regression guard for that.
+  it('flags both dates of an attendance that crosses midnight', () => {
+    // Sunday 22:00 → Monday 01:00 carries sun_2x straight through, so nothing
+    // in the rate signals the new day. The Monday still has to raise its own
+    // beyond-holiday-data warning.
     const attendance = price([shift('2027-06-20', '22:00', '01:00')])
     expect(attendance.crossesMidnight).toBe(true)
     expect(attendance.flags).toContainEqual({

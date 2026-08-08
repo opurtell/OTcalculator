@@ -15,6 +15,11 @@ function shape(segments: readonly Segment[]): [string, number][] {
   return segments.map((s) => [s.category, s.minutes / 60])
 }
 
+/** `[date, category, hours]`, for the cases where the day carries meaning. */
+function dated(segments: readonly Segment[]): [string, string, number][] {
+  return segments.map((s) => [s.date, s.category, s.minutes / 60])
+}
+
 function hours(date: string, startHour: number, count: number): Interval {
   return { date, startMin: startHour * 60, durationMinutes: count * 60 }
 }
@@ -90,96 +95,118 @@ describe('categoriseAttendance — single day', () => {
   })
 })
 
-describe('the midnight ratchet', () => {
-  // Both examples are quoted verbatim in IMPLEMENTATION_PLAN.md §3.4. The
-  // other five worked examples live in the sibling project's crossover doc and
-  // should be added when that repo is to hand.
-
-  it('carries Sunday 2× straight through into Monday', () => {
-    // Sun 22:00 → Mon 06:00 pays all 8 hours at 2×, never dropping to 1.5×.
-    const segments = categoriseAttendance(
-      [{ date: '2026-08-16', startMin: 22 * 60, durationMinutes: 8 * 60 }],
-      HOLIDAYS_2026,
+/**
+ * All seven worked examples from the ACTAS Pay Tracker's crossover doc,
+ * `main-plan-docs/actas_pay_tracker_ot_midnight_crossover.md` §4.1–§4.7 — the
+ * authoritative statement of the ratchet, since the EBA itself is silent.
+ *
+ * Assertions carry the date as well as the category: in several of these the
+ * money is identical under a naive reading and only the labelling differs, and
+ * the labelling is what has to match a payslip line item in Phase 10.
+ */
+describe('the midnight ratchet — crossover doc §4', () => {
+  const run = (date: string, startHour: number, hours: number) =>
+    dated(
+      categoriseAttendance(
+        [{ date, startMin: startHour * 60, durationMinutes: hours * 60 }],
+        HOLIDAYS_2026,
+      ),
     )
 
-    expect(totalMinutes(segments)).toBe(8 * 60)
-    expect(segments.every((s) => s.category === 'sun_2x' || s.category === 'mf_2x')).toBe(
-      true,
-    )
-    expect(segments.some((s) => s.category === 'mf_1_5x')).toBe(false)
-  })
-
-  it('labels the carried Monday hours honestly once the weekday tier catches up', () => {
-    // The rate is 2× for the whole attendance either way; the label switches at
-    // Monday 02:00 because mf_2x ties the high-water mark and is the truthful
-    // description of a Monday.
-    const segments = categoriseAttendance(
-      [{ date: '2026-08-16', startMin: 22 * 60, durationMinutes: 8 * 60 }],
-      HOLIDAYS_2026,
-    )
-    expect(shape(segments)).toEqual([
-      ['sun_2x', 4],
-      ['mf_2x', 4],
+  it('§4.1 Sat→Sun — ties go to the calendar, so Sunday keeps its own label', () => {
+    // 2× either side, so no money moves. The Sunday hours are still tagged
+    // sun_2x rather than carrying the Saturday label forward.
+    expect(run('2026-08-15', 22, 8)).toEqual([
+      ['2026-08-15', 'sat_2x', 2],
+      ['2026-08-16', 'sun_2x', 6],
     ])
   })
 
-  it('does not reset the Mon–Fri two-hour counter at midnight', () => {
-    // Mon 19:00 → Tue 03:00 is 2h at 1.5× then 6h at 2×. If the counter reset,
-    // Tuesday would wrongly open with another two hours at 1.5×.
-    const segments = categoriseAttendance(
-      [{ date: '2026-08-17', startMin: 19 * 60, durationMinutes: 8 * 60 }],
-      HOLIDAYS_2026,
-    )
-    expect(shape(segments)).toEqual([
-      ['mf_1_5x', 2],
-      ['mf_2x', 6],
+  it('§4.2 Sun→Mon — all 8h at 2×, Monday carried as sun_2x, never mf', () => {
+    // The case the engine must get right. A plain EBA reading would pay 2h at
+    // 1.5× in the middle; the ratchet suppresses that. And because the carried
+    // minutes are not weekday-rate minutes, the two-hour counter never starts,
+    // so the Monday hours never become mf_2x either.
+    expect(run('2026-08-16', 22, 8)).toEqual([
+      ['2026-08-16', 'sun_2x', 2],
+      ['2026-08-17', 'sun_2x', 6],
     ])
   })
 
-  it('carries a public holiday rate into the following weekday', () => {
-    // Canberra Day 22:00 → Tuesday 06:00: 2.5× for all 8 hours.
-    const segments = categoriseAttendance(
-      [{ date: '2026-03-09', startMin: 22 * 60, durationMinutes: 8 * 60 }],
-      HOLIDAYS_2026,
-    )
-    expect(shape(segments)).toEqual([['ph_2_5x', 8]])
+  it('§4.3 PH→weekday — all 8h at 2.5×', () => {
+    // Canberra Day 2026 is Monday the 9th of March.
+    expect(run('2026-03-09', 22, 8)).toEqual([
+      ['2026-03-09', 'ph_2_5x', 2],
+      ['2026-03-10', 'ph_2_5x', 6],
+    ])
+  })
+
+  it('§4.4 PH→Sunday — the Sunday hours carry at 2.5×, not 2×', () => {
+    // Christmas Day 2026 falls on a Friday, so this uses Boxing Day, a
+    // Saturday public holiday, running into the Sunday.
+    expect(run('2026-12-26', 22, 8)).toEqual([
+      ['2026-12-26', 'ph_2_5x', 2],
+      ['2026-12-27', 'ph_2_5x', 6],
+    ])
+  })
+
+  it('§4.5 Sat→Sun→Mon — implausible but it pins the state machine', () => {
+    expect(run('2026-08-15', 20, 34)).toEqual([
+      ['2026-08-15', 'sat_2x', 4],
+      ['2026-08-16', 'sun_2x', 24],
+      ['2026-08-17', 'sun_2x', 6],
+    ])
+  })
+
+  it('§4.6 within Mon–Fri across midnight — the counter does not reset', () => {
+    // Mon 19:00 → Tue 03:00. If the counter reset at midnight, Tuesday would
+    // wrongly open with another two hours at 1.5×.
+    expect(run('2026-08-17', 19, 8)).toEqual([
+      ['2026-08-17', 'mf_1_5x', 2],
+      ['2026-08-17', 'mf_2x', 3],
+      ['2026-08-18', 'mf_2x', 3],
+    ])
+  })
+
+  it('§4.7 Mon→Tue starting close to midnight — the counter is cumulative', () => {
+    // Mon 23:00 → Tue 03:00 splits 2h/2h, with the 1.5× tier straddling
+    // midnight rather than restarting on the Tuesday.
+    expect(run('2026-08-17', 23, 4)).toEqual([
+      ['2026-08-17', 'mf_1_5x', 1],
+      ['2026-08-18', 'mf_1_5x', 1],
+      ['2026-08-18', 'mf_2x', 2],
+    ])
   })
 
   it('lets the rate rise on the way into a public holiday', () => {
-    // The ratchet is a floor, not a freeze — Sunday 22:00 into Canberra Day
-    // 06:00 steps up to 2.5× at midnight.
-    const segments = categoriseAttendance(
-      [{ date: '2026-03-08', startMin: 22 * 60, durationMinutes: 8 * 60 }],
-      HOLIDAYS_2026,
-    )
-    expect(shape(segments)).toEqual([
-      ['sun_2x', 2],
-      ['ph_2_5x', 6],
-    ])
-  })
-
-  it('carries Saturday 2× into Sunday without a dip', () => {
-    const segments = categoriseAttendance(
-      [{ date: '2026-08-15', startMin: 22 * 60, durationMinutes: 6 * 60 }],
-      HOLIDAYS_2026,
-    )
-    expect(shape(segments)).toEqual([
-      ['sat_2x', 2],
-      ['sun_2x', 4],
+    // Not from the doc: the ratchet is a floor, not a freeze. Sunday 22:00 into
+    // Canberra Day steps up to 2.5× at midnight.
+    expect(run('2026-03-08', 22, 8)).toEqual([
+      ['2026-03-08', 'sun_2x', 2],
+      ['2026-03-09', 'ph_2_5x', 6],
     ])
   })
 
   it('steps up from a weekday into Saturday', () => {
-    // Fri 22:00 → Sat 04:00. Friday's first two hours are 1.5×, then 2×, and
-    // Saturday cannot drop below that.
-    const segments = categoriseAttendance(
-      [{ date: '2026-08-14', startMin: 22 * 60, durationMinutes: 6 * 60 }],
-      HOLIDAYS_2026,
-    )
-    expect(shape(segments)).toEqual([
-      ['mf_1_5x', 2],
-      ['sat_2x', 4],
+    expect(run('2026-08-14', 22, 6)).toEqual([
+      ['2026-08-14', 'mf_1_5x', 2],
+      ['2026-08-15', 'sat_2x', 4],
     ])
+  })
+
+  it('pays every minute exactly once in all of the above', () => {
+    for (const [date, startHour, hours] of [
+      ['2026-08-15', 22, 8],
+      ['2026-08-16', 22, 8],
+      ['2026-08-15', 20, 34],
+      ['2026-08-17', 23, 4],
+    ] as const) {
+      const segments = categoriseAttendance(
+        [{ date, startMin: startHour * 60, durationMinutes: hours * 60 }],
+        HOLIDAYS_2026,
+      )
+      expect(totalMinutes(segments)).toBe(hours * 60)
+    }
   })
 })
 
@@ -237,10 +264,9 @@ describe('attendanceSpan', () => {
     expect(span.dates).toEqual(['2026-08-15'])
   })
 
-  it('reports an attendance that crosses midnight inside one segment', () => {
-    // The case the segment list alone cannot answer: Sunday 22:00 → Monday
-    // 01:00 is a single carried sun_2x segment dated Sunday, but it touches
-    // two days and the flags need both.
+  it('reports an attendance that crosses midnight', () => {
+    // Sunday 22:00 → Monday 01:00 carries at 2× throughout, so the category
+    // never changes; the span is what knows it touched two days.
     const span = attendanceSpan([
       { date: '2026-08-16', startMin: 22 * 60, durationMinutes: 3 * 60 },
     ])

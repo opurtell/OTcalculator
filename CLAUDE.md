@@ -17,15 +17,21 @@ Phases against `IMPLEMENTATION_PLAN.md` §6:
 | 4–10 | Not started |
 
 `calculateOvertime(shifts, band, holidays)` in `src/engine/attendance.ts` is the
-Phase 2 entry point. Two gaps to know about:
+Phase 2 entry point. All seven crossover worked examples pass. Two things to
+know:
 
-- **Five of the seven ratchet worked examples are untested** — they live in the
-  sibling repo's crossover doc. The two quoted in §3.4 are covered, along with
-  several cases derived from the rule.
 - **The §4.5 golden total is a cent adrift**, and it is the plan that is out.
   See `src/engine/__tests__/golden.test.ts` — §3.12 says full precision until
   display, which gives $1,110.33; §4.5 prints $1,110.34, the sum of the two
-  already-rounded lines. Both line items are exact. Phase 10 settles it.
+  already-rounded lines. Both line items are exact. Oscar has accepted the
+  divergence; Phase 10 settles which one payroll does.
+- **The ratchet's two labelling rules are load-bearing** and neither is
+  obvious. Ties go to the calendar, so a Saturday running into Sunday tags the
+  Sunday hours `sun_2x`. But the weekday counter advances *only while a weekday
+  rate is actually being paid*, so Sunday 22:00 → Monday 06:00 stays `sun_2x`
+  for all eight hours rather than turning into `mf_2x` partway. Get the second
+  one wrong and the money is still right — only the line items stop matching
+  payroll, which is exactly what Phase 10 reconciles.
 
 `src/ui/` is the Station Ledger component library — 22 components covering the
 nine screens, React the only runtime dep. It is pushed to the Claude Design
@@ -62,18 +68,22 @@ done from Claude Code.
 
 **Port code from it; never add it as a dependency.** This app is zero-dependency and static; that one is a full stack app. Full source index in `IMPLEMENTATION_PLAN.md` §9.
 
-**It is only on Oscar's local machine.** Claude Code on the web clones this
-repo alone, so in a remote session the sibling is simply absent — check before
-planning around it. What that blocks, and what it does not:
+**In a remote session, add it — do not work around it.** Claude Code on the
+web clones this repo alone, but the sibling is on GitHub at
+`opurtell/my-actas-pay` and can be attached mid-session with `add_repo`. The
+GitHub copy carries everything except `personal-payslips/`.
 
-- **Blocked:** Phase 10 (the 35 payslips), and the five remaining worked
-  examples from the crossover doc. Two of the seven are quoted in full in
-  `IMPLEMENTATION_PLAN.md` §3.4, so the ratchet is still testable.
-- **Not blocked:** the engine. §3.4–§3.6 specify the ratchet, the grouping and
-  the C9.5 minimum in enough detail to write fresh — and §3.6 has no
-  counterpart in the sibling project at all.
-- **Sourceable elsewhere:** the ATO data was never meant to come from the
-  sibling. §3.8 sends you to `softwaredevelopers.ato.gov.au` for NAT 1004.
+Two things about a remote session are worth knowing before planning:
+
+- **Phase 10 is the only thing the GitHub copy cannot unblock.** The 35
+  payslips are deliberately not in the repo. Everything else — the crossover
+  doc, the reference data, the EBA transcription, the pay engine — is there.
+- **Outbound network is blocked to almost everything.** The egress proxy
+  allows the npm registry and GitHub and refuses `ato.gov.au`,
+  `softwaredevelopers.ato.gov.au` and `data.act.gov.au`. Web *search* returns
+  snippets but pages cannot be fetched, so §3.8's "source NAT 1004 from the
+  ATO" is a local-machine task. Never transcribe tax coefficients out of a
+  search snippet.
 
 ## Reference data
 
