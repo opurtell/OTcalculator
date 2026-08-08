@@ -4,8 +4,10 @@ A static single-page app for ACTAS paramedics: enter a fortnight's overtime shif
 
 ## Status
 
-**Phases 0–4 complete — the engine and persistence are done. Phase 5 (the app
-shell) is next, and it is the first phase that puts a real figure on screen.**
+**Phases 0–7 complete — the engine, persistence, and both calculator pathways
+are done and wired together. `App.tsx` connects the persistence layer to the
+calculator's choices seam; the §4.5 golden fixture now renders end to end
+through the real UI.**
 
 Phases against `IMPLEMENTATION_PLAN.md` §6:
 
@@ -16,13 +18,15 @@ Phases against `IMPLEMENTATION_PLAN.md` §6:
 | **2** OT engine | **Done.** `src/engine/` — ratchet, categories, attendance grouping, C9.5 minimum, OT dollars |
 | **3** Money engine | **Done.** `tax.ts`, `packaging.ts`, `fortnight.ts` — PAYG, HELP, pre-tax deductions, the with/without-OT delta. **The §4.5 golden fixture passes end to end** |
 | **4** Persistence | **Done.** `src/storage/preferences.ts` — versioned `localStorage` per §4.4, defensive reads, debounced writes, clear-settings |
-| **5** Shell + setup | **Next.** App frame, pathway switcher, pay band picker, deductions and tax panel, disclaimer |
-| 6–10 | Not started |
+| **5** Shell + setup | **Done.** `src/components/` + `src/app/` — app frame, pathway switcher, pay band picker with editable overrides, deductions and tax panel, disclaimer, clear-settings. `App.tsx` wires the calculator to persistence |
+| **6** Quick pathway | **Done.** One hours field, the §5.1 two-tier split, the low-estimate note. Adds `quickOvertime` and the behaviour-preserving `comparePay` extraction in `src/engine/` |
+| **7** Fortnight pathway | **Done.** Shift list, add/edit sheet with live preview, delete-with-undo, duplicate, and the five non-blocking warnings. A row is an attendance, not an entry |
+| 8–10 | Not started |
 
 `calculateFortnight(shifts, settings)` in `src/engine/fortnight.ts` is the entry
 point — shifts and settings in, take-home and the overtime delta out. It calls
 `calculateOvertime` underneath, which is usable alone if you only want gross OT.
-217 tests. All seven crossover worked examples pass. Three things to know:
+310 tests. All seven crossover worked examples pass. Three things to know:
 
 - **The §4.5 golden total is a cent adrift**, and it is the plan that is out.
   See `src/engine/__tests__/golden.test.ts` — §3.12 says full precision until
@@ -40,8 +44,9 @@ point — shifts and settings in, take-home and the overtime delta out. It calls
   one wrong and the money is still right — only the line items stop matching
   payroll, which is exactly what Phase 10 reconciles.
 
-`src/storage/preferences.ts` is the persistence layer, and Phase 5 should reach
-for it rather than touching `localStorage` directly. Three things it settles:
+`src/storage/preferences.ts` is the persistence layer; `src/App.tsx` is the only
+place that reaches for it rather than touching `localStorage` directly. Three
+things it settles:
 
 - **Reading never throws and never trusts.** Corrupt JSON, an unrecognised
   `schemaVersion`, a `localStorage` that throws on *property access* (Safari
@@ -52,9 +57,10 @@ for it rather than touching `localStorage` directly. Three things it settles:
 - **Shift entries are deliberately not persisted.** Last fortnight's overtime
   reappearing in this fortnight's total is the stale-data trap §4.4 refuses. A
   "keep this fortnight" opt-in is v1.1, not a default.
-- **Writes are debounced, so wire `flush()` to `pagehide`.** Without it the
-  last edit is lost when a tab closes inside the delay window, and `pagehide`
-  is the event that fires on mobile Safari where `beforeunload` does not.
+- **Writes are debounced, and `flush()` is wired to `pagehide` in `App.tsx`.**
+  Without it the last edit is lost when a tab closes inside the delay window,
+  and `pagehide` is the event that fires on mobile Safari where `beforeunload`
+  does not.
 
 Storage validates shape, not meaning: a stored band of `AP9 Step 99` round
 trips, because `payBandFor` already returns `undefined` for stale settings and
