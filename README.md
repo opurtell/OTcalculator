@@ -15,13 +15,14 @@ analytics; every figure stays in your browser's `localStorage`.
 
 ## Status
 
-Phases 0 to 3 of `IMPLEMENTATION_PLAN.md` are complete — **the calculation
+Phases 0 to 4 of `IMPLEMENTATION_PLAN.md` are complete — **the calculation
 engine is done and the §4.5 acceptance fixture passes end to end.**
 `src/engine/` computes overtime (rate categories, the midnight ratchet,
 attendance grouping, the C9.5 four-hour minimum) and then the money (PAYG,
 HELP, pre-tax deductions, and what the overtime added to take-home).
 `src/data/` holds the Annex A pay tables, ACT public holidays, NAT 1004
-coefficients, HELP thresholds and FBT caps. 167 tests.
+coefficients, HELP thresholds and FBT caps. `src/storage/` remembers the
+settings across reloads. 217 tests.
 
 The screen is still the Phase 0 placeholder — nothing is wired up yet.
 
@@ -30,8 +31,8 @@ FY2026-27 NAT 1004 coefficients exist but are not in hand, so the app falls back
 to FY2025-26 and captions it, exactly as §3.8 specifies. Adding the real rows to
 `src/data/tax-scales.ts` is the whole fix.
 
-Phase 4 is next: versioned `localStorage` persistence, then the app shell and
-the two pathways.
+Phase 5 is next: the app shell — pathway switcher, pay band picker, deductions
+and tax panel — and then the two pathways.
 
 ## Working on it
 
@@ -54,6 +55,7 @@ component library in `src/ui/` to `dist-lib/` for the Claude Design sync. See
 | --- | --- |
 | `src/engine/` | Pure calculation. No DOM, no React, no imports from `data/`, `components/` or `storage/` — that boundary is what makes the money math testable, and `__tests__/boundary.test.ts` enforces it |
 | `src/data/` | Every rate, table and threshold, each with a provenance comment. The engine takes these as parameters and holds no figures of its own |
+| `src/storage/` | Versioned `localStorage`. Reads never throw and never trust what they find; shift entries are deliberately not persisted |
 | `src/ui/` | Station Ledger, the 22-component design system |
 | `src/App.tsx` | The app shell |
 | `vite.config.ts` | App build. Carries `base: '/OTcalculator/'` |

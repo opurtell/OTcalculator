@@ -426,8 +426,9 @@ Validation, all non-blocking warnings rather than hard errors:
 
 Each phase ends in a working, deployed state. No phase leaves the app broken.
 
-**Status: Phases 0–3 are complete** — scaffold, reference data, overtime engine
-and money engine, with the §4.5 fixture passing end to end. Phase 4 is next.
+**Status: Phases 0–4 are complete** — scaffold, reference data, overtime engine,
+money engine and persistence, with the §4.5 fixture passing end to end. Phase 5
+is next, and it is the first one that puts a real figure on screen.
 `CLAUDE.md` carries the current detail; this table is the plan, not the record.
 
 | # | Phase | Deliverable | Depends on |

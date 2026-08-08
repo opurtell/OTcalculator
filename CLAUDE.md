@@ -4,7 +4,8 @@ A static single-page app for ACTAS paramedics: enter a fortnight's overtime shif
 
 ## Status
 
-**Phases 0–3 complete — the engine is done. Phase 4 (persistence) is next.**
+**Phases 0–4 complete — the engine and persistence are done. Phase 5 (the app
+shell) is next, and it is the first phase that puts a real figure on screen.**
 
 Phases against `IMPLEMENTATION_PLAN.md` §6:
 
@@ -14,13 +15,14 @@ Phases against `IMPLEMENTATION_PLAN.md` §6:
 | **1** Reference data | **Done, with one caveat.** `src/data/` — Annex A tables, ACT holidays, NAT 1004, HELP, FBT caps. Tax and HELP are FY2025-26 only and fall back per §3.8. See "Reference data" below |
 | **2** OT engine | **Done.** `src/engine/` — ratchet, categories, attendance grouping, C9.5 minimum, OT dollars |
 | **3** Money engine | **Done.** `tax.ts`, `packaging.ts`, `fortnight.ts` — PAYG, HELP, pre-tax deductions, the with/without-OT delta. **The §4.5 golden fixture passes end to end** |
-| **4** Persistence | **Next.** Versioned `localStorage` per §4.4, defensive reads, clear-settings |
-| 5–10 | Not started |
+| **4** Persistence | **Done.** `src/storage/preferences.ts` — versioned `localStorage` per §4.4, defensive reads, debounced writes, clear-settings |
+| **5** Shell + setup | **Next.** App frame, pathway switcher, pay band picker, deductions and tax panel, disclaimer |
+| 6–10 | Not started |
 
 `calculateFortnight(shifts, settings)` in `src/engine/fortnight.ts` is the entry
 point — shifts and settings in, take-home and the overtime delta out. It calls
 `calculateOvertime` underneath, which is usable alone if you only want gross OT.
-167 tests. All seven crossover worked examples pass. Three things to know:
+217 tests. All seven crossover worked examples pass. Three things to know:
 
 - **The §4.5 golden total is a cent adrift**, and it is the plan that is out.
   See `src/engine/__tests__/golden.test.ts` — §3.12 says full precision until
@@ -37,6 +39,26 @@ point — shifts and settings in, take-home and the overtime delta out. It calls
   for all eight hours rather than turning into `mf_2x` partway. Get the second
   one wrong and the money is still right — only the line items stop matching
   payroll, which is exactly what Phase 10 reconciles.
+
+`src/storage/preferences.ts` is the persistence layer, and Phase 5 should reach
+for it rather than touching `localStorage` directly. Three things it settles:
+
+- **Reading never throws and never trusts.** Corrupt JSON, an unrecognised
+  `schemaVersion`, a `localStorage` that throws on *property access* (Safari
+  private browsing does) all yield `DEFAULT_PREFERENCES`. Fields are repaired
+  individually, so a lost deductions key does not discard the pay band the user
+  did enter. `readPreferences` reports `'repaired'` when that happened — worth
+  a quiet line on the settings screen rather than silently resetting a figure.
+- **Shift entries are deliberately not persisted.** Last fortnight's overtime
+  reappearing in this fortnight's total is the stale-data trap §4.4 refuses. A
+  "keep this fortnight" opt-in is v1.1, not a default.
+- **Writes are debounced, so wire `flush()` to `pagehide`.** Without it the
+  last edit is lost when a tab closes inside the delay window, and `pagehide`
+  is the event that fires on mobile Safari where `beforeunload` does not.
+
+Storage validates shape, not meaning: a stored band of `AP9 Step 99` round
+trips, because `payBandFor` already returns `undefined` for stale settings and
+duplicating Annex A behind a browser API would be the worse coupling.
 
 `src/ui/` is the Station Ledger component library — 22 components covering the
 nine screens, React the only runtime dep. It is pushed to the Claude Design
