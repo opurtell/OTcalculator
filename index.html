@@ -21,9 +21,14 @@
          iOS gets its own link because it does not read the manifest. -->
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <!-- The label under the icon on the home screen. Without it iOS uses the
+         document title, and "ACTAS OT Calculator" is truncated to about the
+         first eleven characters there. iOS 16.4+ would take the manifest's
+         short_name; this covers the versions that do not read it. -->
+    <meta name="apple-mobile-web-app-title" content="OT Calc" />
     <!-- Inlined as a data URI: no extra request, no 404 on the Pages subpath,
          and nothing in public/ to keep in step with the base path. -->
-    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%226%22%20fill%3D%22%23176b6b%22%2F%3E%3Cg%20stroke%3D%22%23f7f5f0%22%20stroke-width%3D%222.5%22%20stroke-linecap%3D%22round%22%3E%3Cpath%20d%3D%22M8%2011h16%22%2F%3E%3Cpath%20d%3D%22M8%2017h16%22%2F%3E%3Cpath%20d%3D%22M8%2023h9%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%226%22%20fill%3D%22%23176b6b%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23f5f7f5%22%20stroke-width%3D%222.3%22%20stroke-linecap%3D%22round%22%3E%3Ccircle%20cx%3D%2213.2%22%20cy%3D%2213.2%22%20r%3D%229.8%22%2F%3E%3Cpath%20d%3D%22M13.2%2013.2V7.6%22%2F%3E%3Cpath%20d%3D%22M13.2%2013.2%2018.4%2015.4%22%2F%3E%3C%2Fg%3E%3Ccircle%20cx%3D%2223%22%20cy%3D%2223%22%20r%3D%229%22%20fill%3D%22none%22%20stroke%3D%22%23176b6b%22%20stroke-width%3D%222.9%22%2F%3E%3Ccircle%20cx%3D%2223%22%20cy%3D%2223%22%20r%3D%227.6%22%20fill%3D%22%23f5f7f5%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23176b6b%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%3E%3Cpath%20d%3D%22M23%2017.4V28.6%22%2F%3E%3Cpath%20d%3D%22M25.1%2020.9A2.1%202.1%200%201%200%2023%2023A2.1%202.1%200%201%201%2020.9%2025.1%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E" />
   </head>
   <body>
     <div id="root"></div>
