@@ -226,6 +226,34 @@ on the next load rather than swapping assets under a session mid-calculation.
 Icons are drawn by `scripts/make-icons.mjs` (no image dependency — it encodes
 the PNGs itself) and committed to `public/`; rerun it only if the mark changes.
 
+**The mark is a clock with a dollar badge** — the hours, and what they are
+worth. It replaced three abstract ledger rules that said "a document" and
+nothing about pay or overtime, so the design language is still Station Ledger
+but the icon no longer depicts a ledger page. Three things about it:
+
+- **It is signed distance fields, not paths**, because that is what rasterises
+  without a font or an image library. The `$` is two 270° arcs and a stroke,
+  which is how a geometric dollar sign is drawn anyway. Any change to the mark
+  has to stay inside that vocabulary — circles, arcs, capsules — or the script
+  needs a new primitive first.
+- **The badge is load-bearing at small sizes.** A clock and a `$` overlaid, or
+  a `$` inside the clock ring, both turn to mush at 32px; a `$` on its own disc
+  keeps a separate silhouette. A bare ring around a `$` also reads as a *coin*
+  rather than a clock, which is why the hands are there and the tick marks
+  are not.
+- **The favicon in `index.html` is the same geometry by hand**, as an SVG data
+  URI. Its numbers must match the constants at the top of the script — clock at
+  (13.2, 13.2) r 9.8, badge at (23, 23) r 7.6 — or the tab and the home screen
+  drift apart.
+
+`src/ui/__tests__/icons.test.ts` decodes the committed PNGs and holds them to
+what each platform does with them. The two rules are genuinely different and
+the test keeps them apart: **Android's maskable icons** must keep their mark
+inside the middle 80% (a launcher crops to its own shape), while
+**apple-touch-icon** only has its corners trimmed, so holding it to Android's
+safe circle would shrink it on the platform that never needed it shrunk. All
+three are opaque edge to edge, which is the one rule they share.
+
 ## Read these first
 
 | Document | What it covers |
