@@ -31,7 +31,7 @@ How to work it:
 2. **Re-enter each OT fortnight into the app** (or straight into
    `calculateFortnight` as a test fixture — faster, and it lands as a
    regression test either way).
-3. **Compare four things, in this order**, because they fail differently:
+3. **Compare five things, in this order**, because they fail differently:
    - **The OT hourly rate.** Wrong here means the base-vs-composite trap
      (gotcha 1) and everything downstream is ~34% out.
    - **The per-line categories.** Right total, wrong split means the ratchet's
@@ -40,19 +40,34 @@ How to work it:
      least visible.
    - **The four-hour minimum.** Whether payroll topped up a short standalone
      shift, and whether it ever topped up an overrun (it should not).
+   - **The `MEAL ALLOWANCE` line.** How many occasions payroll paid, against
+     what the app counted, and at what rate. This is the cheapest check on the
+     list and it settles the one open interpretation in `meals.ts` — see step 5.
    - **PAYG.** A cent or two is rounding convention; more than that is a wrong
-     scale or a stale coefficient set.
+     scale or a stale coefficient set. The meal allowance must **not** appear in
+     the figure PAYG was withheld on; if payroll taxed it, the app's whole
+     treatment of it is wrong and not just its count.
 4. **Settle the rounding question.** §4.5 prints $1,110.34 by summing two
    already-rounded lines; the engine carries full precision to display per
-   §3.12 and gets $1,110.33. If a real payslip sums rounded per-line amounts,
-   §3.12 needs an explicit exception for overtime lines — and
+   §3.13 and gets $1,110.33. If a real payslip sums rounded per-line amounts,
+   §3.13 needs an explicit exception for overtime lines — and
    `golden.test.ts` changes with it.
-5. **Anything that diverges gets a fixture, not a patch.** Add the real
+5. **Settle the meal-allowance reading.** `src/engine/meals.ts` implements
+   N36.2 on its own terms — overtime worked to the end of a meal period, no
+   break, one allowance per window — and deliberately does *not* apply Annex C's
+   1.5h/5h/0.5h durations, on the grounds that those hang off a break being
+   taken and N36.2 is the exception that replaces it. The consequence is
+   testable: a short overrun through a window earns an allowance here and would
+   not under a literal Annex C read. Find a fortnight with a short overrun
+   across 18:00–19:00 and see whether payroll paid one. If it did not, the
+   durations go back in and `meals.test.ts` gains the boundary cases.
+6. **Anything that diverges gets a fixture, not a patch.** Add the real
    fortnight as a test case first, watch it fail, then fix the engine.
 
-Two things Phase 10 may also settle, both flagged in the plan's §8: whether
-the meal allowance (N36) shows up often enough on OT lines to belong in v1, and
-whether "current rates only" is the right v1 answer for historical fortnights.
+One thing Phase 10 may also settle, flagged in the plan's §8: whether "current
+rates only" is the right v1 answer for historical fortnights. (The other item
+that used to sit here — whether the meal allowance belongs in v1 — is closed: it
+is built. See `IMPLEMENTATION_PLAN.md` §3.11.)
 
 ---
 
@@ -176,6 +191,14 @@ anyone. If the golden fixture moves, the preview cards need re-capturing.
 
 One figure has already moved by a cent: the overtime delta is **$1,110.33 →
 $698.33**, not the `$1,110.34 → $698.34` printed in §4.5. The engine carries
-full precision to display per §3.12; the plan's figure sums two already-rounded
+full precision to display per §3.13; the plan's figure sums two already-rounded
 line items. Do not "fix" a preview or a test back to the plan's number — which
 convention is right is a question for A, not a typo.
+
+The fixture has also **gained a figure §4.5 never had**: two N36 meal allowances
+on the Saturday, $70.76 untaxed, taking the fortnight to $4,469.42 and the
+overtime's worth to $769.09 of $1,181.09 (65.1% kept). Any preview or mockup
+showing the populated fortnight now needs the `Meal allowance` and `Total in the
+hand` rows, and the headline reads $804.47 on the pathway test's shift pair
+(which uses an 18:00–20:00 Wednesday rather than the engine test's 09:00–11:00,
+and so earns a third occasion). §3.11 has the rule.

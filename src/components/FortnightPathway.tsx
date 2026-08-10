@@ -1,4 +1,5 @@
 import type { Attendance } from '../engine/attendance'
+import type { MealOccasion } from '../engine/meals'
 import type { OtShift } from '../engine/types'
 import { describeAttendance } from '../app/shifts'
 import { formatShortDate, formatTimeRange } from '../app/dates'
@@ -10,11 +11,20 @@ import {
   ShiftList,
   ShiftRow,
   UndoRow,
+  formatMoney,
 } from '../ui/index'
 
 export interface FortnightPathwayProps {
   /** Priced attendances, in the order the engine grouped them. */
   attendances: readonly Attendance[]
+  /**
+   * The fortnight's N36 meal allowance occasions, matched back to rows by
+   * `shiftIds`. Not part of a row's `amount`: the allowance is not overtime pay
+   * and is not taxed with it, so it is named on the breakdown line instead of
+   * being folded into a figure that would then disagree with the payslip's
+   * overtime lines.
+   */
+  mealOccasions?: readonly MealOccasion[]
   /** The entered shifts, for resolving an attendance back to what to edit. */
   shifts: readonly OtShift[]
   warnings: readonly Warning[]
@@ -60,6 +70,7 @@ export interface FortnightPathwayProps {
  */
 export function FortnightPathway({
   attendances,
+  mealOccasions = [],
   shifts,
   warnings,
   storageNote,
@@ -82,6 +93,7 @@ export function FortnightPathway({
             <AttendanceRow
               key={attendance.shiftIds.join('+')}
               attendance={attendance}
+              mealAllowance={mealAllowanceOn(attendance, mealOccasions)}
               onEdit={onEdit}
               onDuplicate={onDuplicate}
               onDelete={onDelete}
@@ -141,13 +153,32 @@ export function FortnightPathway({
   )
 }
 
+/**
+ * What this attendance earned in meal allowance, in dollars. Zero when none.
+ *
+ * Matched on the joined shift ids, which is the same key the row itself uses —
+ * an attendance is the unit the N36 test runs against, so an occasion belongs
+ * to a whole row rather than to one entry inside it.
+ */
+function mealAllowanceOn(
+  attendance: Attendance,
+  occasions: readonly MealOccasion[],
+): number {
+  const key = attendance.shiftIds.join('+')
+  return occasions
+    .filter((occasion) => occasion.shiftIds.join('+') === key)
+    .reduce((sum, occasion) => sum + occasion.amount, 0)
+}
+
 function AttendanceRow({
   attendance,
+  mealAllowance,
   onEdit,
   onDuplicate,
   onDelete,
 }: {
   attendance: Attendance
+  mealAllowance: number
   onEdit: (shiftId: string) => void
   onDuplicate: (shiftId: string) => void
   onDelete: (shiftIds: readonly string[]) => void
@@ -156,15 +187,19 @@ function AttendanceRow({
   const joined = attendance.shiftIds.length > 1
   const first = attendance.shiftIds[0]
 
+  const parts = [breakdown]
+  if (mealAllowance > 0) {
+    parts.push(`+ ${formatMoney(mealAllowance)} meal allowance`)
+  }
+  if (joined) {
+    parts.push(`${attendance.shiftIds.length} entries joined`)
+  }
+
   return (
     <ShiftRow
       date={formatShortDate(attendance.startDate)}
       timeRange={formatTimeRange(attendance.startMin, attendance.endMin)}
-      breakdown={
-        joined
-          ? `${breakdown} · ${attendance.shiftIds.length} entries joined`
-          : breakdown
-      }
+      breakdown={parts.join(' · ')}
       kind={attendance.kind}
       amount={attendance.pay}
       assumption={assumption || joined}

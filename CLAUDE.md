@@ -1,6 +1,6 @@
 # ACTAS OT Calculator
 
-A static single-page app for ACTAS paramedics: enter a fortnight's overtime shifts, get pre-tax income, PAYG tax, and net income — plus what the OT actually added to take-home. Deployed to GitHub Pages. No backend, no account; settings and the current pay
+A static single-page app for ACTAS paramedics: enter a fortnight's overtime shifts, get pre-tax income, PAYG tax, net income, and the tax-free N36 meal allowance — plus what the OT actually added to take-home. Deployed to GitHub Pages. No backend, no account; settings and the current pay
 fortnight's shifts in `localStorage`.
 
 ## Status
@@ -30,17 +30,24 @@ Phases against `IMPLEMENTATION_PLAN.md` §6:
 | **5** Shell + setup | **Done.** `src/components/` + `src/app/` — app frame, pathway switcher, pay band picker with editable overrides, deductions and tax panel, disclaimer, clear-settings. `App.tsx` wires the calculator to persistence |
 | **6** Quick pathway | **Done.** One hours field, the §5.1 two-tier split, the low-estimate note. Adds `quickOvertime` and the behaviour-preserving `comparePay` extraction in `src/engine/` |
 | **7** Fortnight pathway | **Done.** Shift list, add/edit sheet with live preview, delete-with-undo, duplicate, the roster quick-fill, and the five non-blocking warnings. A row is an attendance, not an entry |
-| **8** Results | **Done.** The with/without comparison table, an inspectable per-shift Overtime breakdown, and the §5.7 "how this was worked out" disclosure. Row logic lives in `src/app/breakdown.ts`; `HowItWasWorkedOut.tsx` wraps the §5.7 derivation |
+| **8** Results | **Done.** The with/without comparison table, an inspectable per-shift Overtime breakdown, the tax-free meal allowance line and its per-occasion derivation, and the §5.7 "how this was worked out" disclosure. Row logic lives in `src/app/breakdown.ts`; `HowItWasWorkedOut.tsx` wraps the §5.7 derivation |
 | **9** Polish | **Done; verified in a browser at desktop width only.** Keyboard operation of the tabs and segmented control, the tab panel, a narrowed live region, Escape and focus return on the sheet and row menu; 44px targets, 16px inputs, a capped sticky result on desktop, safe areas; PWA with a hand-rolled service worker; print stylesheet and a shareable text summary; an error boundary and the settings-repair notice; a copy sweep against the §6 deck |
 | **10** Validation | **Not started, and it is the gate.** Reconcile against the 35 payslips in the sibling repo. Needs the local machine — they are deliberately not on GitHub. Method in `NEXT_SESSION.md` |
 
 `calculateFortnight(shifts, settings)` in `src/engine/fortnight.ts` is the entry
 point — shifts and settings in, take-home and the overtime delta out. It calls
 `calculateOvertime` underneath, which is usable alone if you only want gross OT.
-472 tests. All seven crossover worked examples pass. Three things to know:
+515 tests. All seven crossover worked examples pass. Four things to know:
 
+- **The meal allowance is the one untaxed figure, and it sits outside
+  `PayComparison` deliberately.** `src/engine/meals.ts` prices EBA N36 — $35.38
+  per occasion from Annex C, one occasion per N36.3 meal period the overtime
+  worked through — and `calculateFortnight` adds it *after* PAYG. It is never in
+  `gross`, `taxableGross` or `net`; `netTotal`, `otEarnedTotal` and `otNetTotal`
+  are where it lands. Folding it into gross would have tax withheld on it, which
+  is the one thing that must not happen. See "The meal allowance" below.
 - **The §4.5 golden total is a cent adrift**, and it is the plan that is out.
-  See `src/engine/__tests__/golden.test.ts` — §3.12 says full precision until
+  See `src/engine/__tests__/golden.test.ts` — §3.13 says full precision until
   display, which gives $1,110.33; §4.5 prints $1,110.34, the sum of the two
   already-rounded lines. Both line items are exact. Oscar has accepted the
   divergence; Phase 10 settles which one payroll does.
@@ -83,6 +90,60 @@ things it settles:
 Storage validates shape, not meaning: a stored band of `AP9 Step 99` round
 trips, because `payBandFor` already returns `undefined` for stale settings and
 duplicating Annex A behind a browser API would be the worse coupling.
+
+## The meal allowance
+
+`src/engine/meals.ts` prices the overtime meal allowance. **$35.38 per occasion**
+(Annex C, the 1.93% column effective 4 December 2025), with the whole C20.2
+progression in `src/data/allowances.ts` and looked up by pay date. Whether one is
+owed is **N36**, not Annex C: N36.1 sends the rate to Annex C "with the following
+exception", and N36.2 is that exception. The test, per attendance per N36.3
+window (midnight–01:00, 07:00–09:00, 12:00–14:00, 18:00–19:00):
+
+1. some overtime was worked inside the window, **and**
+2. it ran to the end of the window or past it, **and**
+3. no unpaid break inside the attendance fell in the window.
+
+Six things about it, and five of them are easy to break:
+
+- **The Annex C durations are deliberately not applied.** Annex C's three
+  circumstances each want 1.5 hours of overtime (5 on a Saturday, Sunday or
+  public holiday) *before an unpaid meal break is taken*, then half an hour
+  after. Those hang off a break being taken, which is the thing N36.2 replaces —
+  reading them back in leaves the exception with nothing to except. The
+  consequence is real: a short overrun through a window qualifies here and would
+  not under a literal Annex C read. **This is the second thing Phase 10
+  reconciles**, and the cheaper one — a payslip either has a `MEAL ALLOWANCE`
+  line beside that fortnight or it does not.
+- **It is added after tax, and that is the whole point.** `mealAllowance` sits
+  outside `PayComparison` so nothing in the tax path can see it. If you find
+  yourself adding it to `gross` to make a total balance, the total is wrong, not
+  the structure.
+- **"and any subsequent meal period" means one per window, not one per
+  attendance.** A 06:00–20:00 pickup crosses three and earns three. The §4.5
+  fixture's Saturday earns two.
+- **The C9.5 top-up is money, not time on the road.** A 17:30–18:15 call-in pays
+  four hours and earns nothing here, because the overtime *worked* stopped inside
+  the dinner window. Pricing this off `paidMinutes` rather than the segments
+  would invent an allowance out of a minimum payment.
+- **Both shift kinds qualify.** N36.2's "after the end of ordinary duty" is the
+  overrun; N37.2 lets a full overtime shift claim the same entitlement. So unlike
+  C9.5, `kind` is not consulted — do not add a gate on it.
+- **Late meal (O13/P15) and spoilt meal (O14/P16) do not apply to this cohort.**
+  They are Sections O and P; N43.1 lists what the 44-hour roster substitutes, and
+  the word "spoilt" appears nowhere in Section N. The note at the bottom of
+  `src/data/allowances.ts` exists so nobody adds them from a table of contents.
+
+One transcription trap in the rate table: **the C20.2 increases compound on the
+unrounded figure, not the printed one.** Applying the percentages to each
+published dollar amount in turn gives $33.06 where Annex C prints $33.05, and the
+cent carries forward. `reference-data.test.ts` holds the whole chain to the right
+rule, which is what a future row should be checked against.
+
+The engine local is named `mealWindow` rather than `window` on purpose:
+`boundary.test.ts` greps the engine sources for `window.` to prove nothing there
+reached for the browser, and a local of that name is indistinguishable from the
+global to a regex.
 
 ## The pay fortnight
 
@@ -340,9 +401,9 @@ comment naming its source. Nothing in there should ever acquire a figure
 without one.
 
 The engine takes every figure it uses as a **parameter** — `PayBand`,
-`TaxScale`, `HolidayCalendar` — and holds none of its own beyond the EBA's
-structural constants (76 fortnightly hours, the `12/313` divisor, the rate
-multipliers). The arrow runs one way, `data/` → `engine/` types only, and
+`TaxScale`, `HolidayCalendar`, the meal-allowance rate — and holds none of its own
+beyond the EBA's structural constants (76 fortnightly hours, the `12/313`
+divisor, the rate multipliers, the N36.3 meal windows). The arrow runs one way, `data/` → `engine/` types only, and
 `src/engine/__tests__/boundary.test.ts` enforces it. That is what lets a
 fortnight from an earlier financial year keep computing against the figures
 that were current when it was worked.
@@ -352,6 +413,11 @@ than rot: `packaging.ts` (see the FBT note below), `roster-shifts.ts`, which the
 shift sheet reads, and `pay-periods.ts`, which only storage's expiry cares
 about. A figure being *in* `data/` does not mean the money depends on it.
 
+`allowances.ts` is the exception that proves the rule: it holds the Annex C
+overtime meal rate, which the money *does* depend on — but the engine still takes
+it as a number. `src/app/settings.ts` looks it up by pay date, which is what keeps
+an older fortnight priced at the rate in force when it was worked (C20.2).
+
 **Tax and HELP are FY2025-26 only.** The ATO reissued Schedule 1 for FY2026-27
 (second bracket 16% → 15%) but those coefficients are not in the sibling repo
 and cannot be fetched from a web session. `taxScaleFor` and `helpScheduleFor`
@@ -360,10 +426,11 @@ it. Adding the real rows to `src/data/tax-scales.ts` is the entire fix — no
 engine change. Remove the caption, never the fallback.
 
 Confirmed against source while porting: AP1 Step 2 is $95,698 base / $125,920
-Annex A total, and the FY2025-26 Scale 2 coefficients reproduce the §4.5 PAYG
-figures ($1,208 and $1,620) exactly.
+Annex A total, the FY2025-26 Scale 2 coefficients reproduce the §4.5 PAYG figures
+($1,208 and $1,620) exactly, and the Annex C overtime meal rate is $35.38 per
+occasion from 4 December 2025.
 
-## Six things that will bite
+## Seven things that will bite
 
 1. **Overtime is calculated on base salary only** — EBA N34.1, never the composite-inclusive Annex A total. AP1 Step 2 is $95,698, not $125,920. Getting this wrong overstates every result by ~34%. Needs a named constant and an explicit test.
 
@@ -399,6 +466,14 @@ figures ($1,208 and $1,620) exactly.
    data with nothing reading it; `packagingFlags` carries the note. If a future
    version wants the check, it needs the field split by purpose first.
 
+7. **The meal allowance is not taxed, so it must not touch `gross`.** EBA N36 is
+   paid per occasion and reaches take-home whole. `calculateFortnight` adds it
+   after PAYG and HELP, and it is deliberately outside `PayComparison` so nothing
+   in the tax path can reach it. Two ways to get this wrong: adding it to gross
+   (which withholds tax on it) and pricing it off `paidMinutes` instead of the
+   segments (which invents an allowance out of the C9.5 four-hour top-up). Full
+   rule in "The meal allowance" above.
+
 ## EBA status
 
 The ACTAS Enterprise Agreement 2023–2026 **remains in effect**. Its 31 March 2026 nominal expiry has passed but no successor exists — negotiations ongoing as at August 2026. The 4 December 2025 rates are current and authoritative. Build against them without hedging about currency. Oscar will say when a successor is signed.
@@ -417,6 +492,13 @@ The golden fixture in `IMPLEMENTATION_PLAN.md` §4.5 — AP1 Step 2, one Saturda
 `src/engine/__tests__/golden.test.ts`. Ordinary gross $4,908.32, with-OT gross
 $6,018.66, PAYG $1,208 → $1,620, net $3,700.32 → $4,398.66, and $1,110.33 of
 overtime worth $698.33 in the hand at 62.9% retained.
+
+The same two shifts also earn **two N36 meal allowances**, both on the Saturday —
+the 12:00–14:00 window and the close of the 18:00–19:00 one. At $35.38 that is
+$70.76 untaxed, so PAYG is unchanged and the fortnight lands at $4,469.42: the
+overtime is worth **$769.09 of $1,181.09, 65.1% retained**. §4.5 predates the
+allowance and names none, so this is an addition to the fixture rather than a
+disagreement with it.
 
 It is computed from the EBA tables and the FY2025-26 coefficients, and is
 **not yet verified against a real payslip** — that is Phase 10, and it gates

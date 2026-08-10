@@ -70,7 +70,7 @@ export function FortnightResultPanel({
               and the pay band are edited, and the whole point of having no
               Calculate button is that the figure is always the current one. */}
           <p className="sl-summary__figure" aria-live="polite">
-            <Money value={result.withOt.net} tone="net" />
+            <Money value={result.netTotal} tone="net" />
             <span className="sl-summary__unit">take-home</span>
           </p>
           <FigureTable
@@ -94,8 +94,17 @@ export function FortnightResultPanel({
   return (
     <ResultPanel
       label="Your OT adds"
-      amount={result.otNetDelta}
-      beforeTax={result.otGrossDelta}
+      // The totals, so the tax-free N36 allowance is in the headline rather
+      // than only in the table. It is money the overtime added, and the app's
+      // one loud figure is "what did that shift add to my take-home".
+      //
+      // The allowance is in `beforeTax` as well, and that is arithmetic rather
+      // than sloppiness: an untaxed dollar is the same dollar on both sides, so
+      // leaving it out of the support line would make "63% kept" a percentage
+      // of the wrong number. The comparison table below is where the split
+      // between taxed pay and untaxed allowance is shown.
+      amount={result.otNetTotal}
+      beforeTax={result.otEarnedTotal}
     >
       <FigureTable
         caption="Your fortnight with and without overtime"

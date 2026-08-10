@@ -8,7 +8,7 @@
  *    owns are the EBA's structural constants below — the ones that are part of
  *    the *formula* rather than part of a table that gets reissued each year.
  * 2. **Full precision throughout.** Nothing rounds until it reaches a screen.
- *    See `IMPLEMENTATION_PLAN.md` §3.12.
+ *    See `IMPLEMENTATION_PLAN.md` §3.13.
  */
 
 /** `'YYYY-MM-DD'`, ACT wall-clock, lexicographically sortable. */
@@ -186,7 +186,7 @@ export type AttendanceFlag =
   | { kind: 'grouping-uncertain'; gapMinutes: number }
   /** A date falls past `HolidayCalendar.coversThrough` (§3.7). */
   | { kind: 'beyond-holiday-data'; date: IsoDate }
-  /** A date is a daylight-saving transition, so wall-clock hours mislead (§3.13). */
+  /** A date is a daylight-saving transition, so wall-clock hours mislead (§3.14). */
   | { kind: 'dst-transition'; date: IsoDate }
 
 // ---------------------------------------------------------------------------

@@ -131,7 +131,7 @@ function firstSundayIn(year: number, month: number): IsoDate {
  * ends the first Sunday in April.
  *
  * The engine does no timezone arithmetic, so a shift spanning 02:00 on one of
- * these two days is off by an hour (§3.13). It is flagged for the user to
+ * these two days is off by an hour (§3.14). It is flagged for the user to
  * confirm rather than silently adjusted — C12 pays overtime by hours actually
  * worked, and only the person who worked them knows what that was.
  */

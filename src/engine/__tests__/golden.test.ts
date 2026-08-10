@@ -16,7 +16,13 @@ import { calculateFortnight } from '../fortnight'
 import { NO_DEDUCTIONS } from '../packaging'
 import { ordinaryFortnightlyGross } from '../tax'
 import { taxScaleFor } from '../../data/tax-scales'
-import { AP1_STEP_2, HOLIDAYS_2026, cents, shift } from './fixtures'
+import {
+  AP1_STEP_2,
+  HOLIDAYS_2026,
+  OT_MEAL_ALLOWANCE,
+  cents,
+  shift,
+} from './fixtures'
 
 // 15 August 2026 is a Saturday and 19 August 2026 a Wednesday. §4.5 names the
 // days rather than the dates; these are the first pair in the fortnight the
@@ -60,14 +66,14 @@ describe('golden fixture — overtime', () => {
   it('grosses $1,110.33 — one cent under the figure printed in §4.5', () => {
     // ⚠️ Known divergence, and it is the plan that is out rather than the code.
     //
-    // §3.12 says to carry full precision and round only at display. Doing that
+    // §3.13 says to carry full precision and round only at display. Doing that
     // gives 1110.3349…, which displays as $1,110.33. The §4.5 headline of
     // $1,110.34 is the sum of the two *already-rounded* line items
     // (965.51 + 144.83), which is a different rule applied one step earlier.
     //
     // Both line items are exact, so the disagreement is purely about where
     // rounding happens. Which one payroll actually does is a Phase 10 question
-    // — if a real payslip sums rounded lines, §3.12 needs an exception for
+    // — if a real payslip sums rounded lines, §3.13 needs an exception for
     // per-line overtime and this expectation changes to 1110.34.
     expect(cents(result.gross)).toBe(1110.33)
     expect(cents(saturday.pay) + cents(wednesday.pay)).toBe(1110.34)
@@ -97,6 +103,7 @@ describe('golden fixture — the whole fortnight', () => {
     helpSchedule: null,
     deductions: NO_DEDUCTIONS,
     holidays: HOLIDAYS_2026,
+    mealAllowancePerOccasion: OT_MEAL_ALLOWANCE,
   })
 
   it('derives ordinary fortnightly gross of $4,908.32', () => {
@@ -123,11 +130,42 @@ describe('golden fixture — the whole fortnight', () => {
 
   it('turns $1,110.33 of overtime into $698.33 of take-home, 62.9% kept', () => {
     // §4.5 prints $1,110.34 → $698.34. Both are a cent higher because the plan
-    // sums already-rounded line items; §3.12 says full precision until display.
+    // sums already-rounded line items; §3.13 says full precision until display.
     // Oscar has accepted the divergence — see the note in the overtime block.
     expect(cents(result.otGrossDelta)).toBe(1110.33)
     expect(cents(result.otNetDelta)).toBe(698.33)
     expect(Math.round(result.retention * 1000) / 10).toBe(62.9)
+  })
+
+  it('earns two meal allowances on the Saturday and none on the Wednesday', () => {
+    // §4.5 predates the N36 work and names no allowance, so this is added
+    // rather than reconciled. The Saturday pickup runs 09:00–19:00, through
+    // both the 12:00–14:00 and the 18:00–19:00 windows; the Wednesday overrun
+    // is 09:00–11:00, which reaches neither.
+    const { occasions, total, ratePerOccasion } = result.mealAllowance
+    expect(occasions.map((o) => [o.date, o.startMin, o.endMin])).toEqual([
+      ['2026-08-15', 720, 840],
+      ['2026-08-15', 1080, 1140],
+    ])
+    expect(ratePerOccasion).toBe(35.38)
+    expect(cents(total)).toBe(70.76)
+  })
+
+  it('adds the allowance after tax, not before it', () => {
+    // The whole point of the N36 line: PAYG is withheld on $6,018.66 either
+    // way, so the allowance reaches take-home undiminished.
+    expect(cents(result.withOt.taxableGross)).toBe(6018.66)
+    expect(result.withOt.payg).toBe(1620)
+    expect(cents(result.netTotal)).toBe(4469.42)
+    expect(cents(result.netTotal - result.withOt.net)).toBe(70.76)
+  })
+
+  it('reports the overtime as worth $769.09 once the allowance is counted', () => {
+    // $698.33 of taxed overtime plus $70.76 untaxed. Retention rises because a
+    // tax-free dollar is kept whole — 62.9% on the pay alone, 65.1% with it.
+    expect(cents(result.otEarnedTotal)).toBe(1181.09)
+    expect(cents(result.otNetTotal)).toBe(769.09)
+    expect(Math.round((result.otNetTotal / result.otEarnedTotal) * 1000) / 10).toBe(65.1)
   })
 
   it('withholds no HELP when there is no study debt', () => {

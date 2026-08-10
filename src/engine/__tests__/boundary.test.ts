@@ -62,6 +62,7 @@ describe('engine boundary', () => {
       'calendar.ts',
       'fortnight.ts',
       'index.ts',
+      'meals.ts',
       'overtime.ts',
       'packaging.ts',
       'tax.ts',

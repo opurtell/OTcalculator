@@ -40,6 +40,18 @@ function resolveGolden(overrides: Partial<CalculatorChoices> = {}) {
 }
 
 describe('resolveSettings', () => {
+  it('prices the meal allowance from the pay date, not from today', () => {
+    // The seam's job: `data/` knows the Annex C progression, the engine takes a
+    // number. Pinning "current" here is what would stop an older fortnight
+    // computing against the rate that was in force when it was worked.
+    const { settings, mealAllowanceRate } = resolveGolden()
+    expect(settings.mealAllowancePerOccasion).toBe(35.38)
+    expect(mealAllowanceRate.effectiveFrom).toBe('2025-12-04')
+
+    const earlier = resolveSettings(GOLDEN, '2025-11-01')
+    expect(earlier?.settings.mealAllowancePerOccasion).toBe(34.71)
+  })
+
   it('resolves the golden band to its Annex A row', () => {
     const { tableBand, settings } = resolveGolden()
 

@@ -16,6 +16,9 @@ import type { OtShift } from '../../engine/types'
 import {
   breakdownRows,
   comparisonRows,
+  mealAllowanceRows,
+  mealDerivationRows,
+  mealPeriodsSentence,
   ordinaryPayRows,
   overtimeDerivationRows,
   overtimeRateRows,
@@ -82,17 +85,93 @@ describe('comparisonRows', () => {
     expect(cents(payg.values[1] as number)).toBe(1620.0)
   })
 
-  it('totals take-home both ways', () => {
+  it('carries take-home both ways, as the sub-total it now is', () => {
     const net = by('Take-home')
-    expect(net.total).toBe(true)
+    // Not the table's total row any more: a tax-free meal allowance sits below
+    // it, so the rule and the heavier weight belong to the line under that.
+    expect(net.total).toBe(false)
     expect(net.tone).toBe('net')
     expect(cents(net.values[0] as number)).toBe(3700.32)
     expect(cents(net.values[1] as number)).toBe(4398.66)
   })
 
+  it('puts the tax-free meal allowance below the tax lines, not above them', () => {
+    // Above PAYG it would read as an amount PAYG took a cut of. The Saturday
+    // ran through the 12:00–14:00 and 18:00–19:00 windows; the two-hour
+    // Wednesday overrun reached neither.
+    const meal = by('Meal allowance')
+    expect(meal.values[0]).toBe('—')
+    expect(cents(meal.values[1] as number)).toBe(70.76)
+    expect(meal.note).toContain('Tax free')
+    expect(meal.note).toContain('EBA N36')
+    expect(meal.derivation).toHaveLength(2)
+
+    const order = rows.map((r) => r.label)
+    expect(order.indexOf('Meal allowance')).toBeGreaterThan(order.indexOf('PAYG tax'))
+    expect(order.indexOf('Meal allowance')).toBeGreaterThan(order.indexOf('Take-home'))
+  })
+
+  it('ends on what actually reaches the account', () => {
+    const total = rows[rows.length - 1]
+    expect(total.label).toBe('Total in the hand')
+    expect(total.total).toBe(true)
+    // Untaxed, so the without-OT column is unchanged: no overtime, no N36.
+    expect(cents(total.values[0] as number)).toBe(3700.32)
+    expect(cents(total.values[1] as number)).toBe(4469.42)
+  })
+
   it('leaves out the rows that did not move the figure', () => {
     expect(rows.some((r) => r.label === 'Pre-tax deductions')).toBe(false)
     expect(rows.some((r) => r.label === 'Study loan')).toBe(false)
+  })
+})
+
+describe('mealDerivationRows', () => {
+  const rows = mealDerivationRows(result.mealAllowance.occasions)
+
+  it('names the window as well as the date, so two on one day are distinct', () => {
+    expect(rows.map((r) => r.label)).toEqual([
+      'Sat 15 Aug 12:00–14:00',
+      'Sat 15 Aug 18:00–19:00',
+    ])
+    // `FigureTable` keys its rows on the label, so a collision here would drop
+    // a row rather than merely reading badly.
+    expect(new Set(rows.map((r) => r.label)).size).toBe(rows.length)
+  })
+
+  it('says why each one was earned', () => {
+    for (const row of rows) {
+      expect(row.note).toContain('N36.2')
+      expect(cents(row.values[0] as number)).toBe(35.38)
+    }
+  })
+})
+
+describe('mealAllowanceRows', () => {
+  it('names the rate, the count and the fact that it is not taxed', () => {
+    const rows = mealAllowanceRows(result)
+    expect(cents(rows[0].values[0] as number)).toBe(35.38)
+    expect(rows[0].note).toContain('Annex C')
+    expect(rows[1].values[0]).toBe('2')
+    expect(cents(rows[2].values[0] as number)).toBe(70.76)
+    expect(rows[2].note).toContain('after tax')
+  })
+
+  it('reports zero occasions rather than disappearing', () => {
+    // The §5.7 section is how someone checks whether payroll owed them one, and
+    // a working that only appears once the app already agrees is no use for it.
+    const rows = mealAllowanceRows(calculateFortnight([], settings))
+    expect(rows[1].values[0]).toBe('0')
+    expect(rows[1].note).toContain('No overtime')
+    expect(rows[2].values[0]).toBe(0)
+  })
+})
+
+describe('mealPeriodsSentence', () => {
+  it('lists all four N36.3 windows in clock order', () => {
+    expect(mealPeriodsSentence()).toBe(
+      '00:00–01:00 · 07:00–09:00 · 12:00–14:00 · 18:00–19:00',
+    )
   })
 })
 

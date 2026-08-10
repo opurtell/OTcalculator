@@ -51,8 +51,9 @@ const summary = summaryText({
 
 describe('summaryText', () => {
   it('leads with what the overtime is worth', () => {
-    expect(summary).toContain('Your OT adds $698.33 take-home')
-    expect(summary).toContain('from $1,110.33 before tax · 63% kept')
+    // $698.33 of taxed overtime plus 3 × $35.38 of tax-free meal allowance.
+    expect(summary).toContain('Your OT adds $804.47 take-home')
+    expect(summary).toContain('from $1,216.47 before tax · 66% kept')
   })
 
   it('carries the shifts that produced the figure', () => {
@@ -68,6 +69,37 @@ describe('summaryText', () => {
     expect(summary).toContain('1,620.00')
     expect(summary).toContain('3,700.32')
     expect(summary).toContain('4,398.66')
+  })
+
+  it('carries the meal allowance with its clause and its windows', () => {
+    // What leaves the device is read beside a payslip. "$106.14" on its own
+    // would be the screenshot problem again, so each occasion names the window
+    // it was earned in and the section names the clause.
+    expect(summary).toContain('Meal allowance (tax free, EBA N36)')
+    expect(summary).toContain('Sat 15 Aug 12:00–14:00 worked through')
+    expect(summary).toContain('Sat 15 Aug 18:00–19:00 worked through')
+    expect(summary).toContain('Wed 19 Aug 18:00–19:00 worked through')
+    expect(summary).toContain('$35.38')
+  })
+
+  it('shows the allowance below the tax lines in the comparison', () => {
+    // Above PAYG it would read as an amount tax was taken from.
+    expect(summary.indexOf('Meal allowance     ')).toBeGreaterThan(
+      summary.indexOf('PAYG tax'),
+    )
+    expect(summary).toContain('106.14')
+    expect(summary).toContain('4,504.80')
+  })
+
+  it('leaves the allowance out when no shift earned one', () => {
+    const noMeal = summaryText({
+      result: calculateFortnight(
+        [{ ...WEDNESDAY, startMin: 9 * 60, endMin: 11 * 60 }],
+        settings,
+      ),
+      bandSummary: 'AP1 Step 2',
+    })
+    expect(noMeal).not.toContain('Meal allowance')
   })
 
   it('never leaves without the disclaimer', () => {

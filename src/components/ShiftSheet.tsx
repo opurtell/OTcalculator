@@ -1,4 +1,5 @@
 import { calculateOvertime } from '../engine/attendance'
+import { mealOccasionsFor } from '../engine/meals'
 import type { HolidayCalendar, PayBand } from '../engine/types'
 import {
   applyRosterShift,
@@ -21,6 +22,7 @@ import {
   SegmentedControl,
   Sheet,
   TextField,
+  formatMoney,
 } from '../ui/index'
 import type { ShiftKind } from '../ui/index'
 
@@ -31,6 +33,8 @@ export interface ShiftSheetProps {
   onClose: () => void
   band: PayBand
   holidays: HolidayCalendar
+  /** Annex C's per-occasion figure, so the preview can price EBA N36. */
+  mealAllowancePerOccasion: number
 }
 
 /**
@@ -59,6 +63,7 @@ export function ShiftSheet({
   onClose,
   band,
   holidays,
+  mealAllowancePerOccasion,
 }: ShiftSheetProps) {
   const editing = draft.id !== null
   const shift = toShift(draft)
@@ -67,6 +72,12 @@ export function ShiftSheet({
   const preview =
     shift === null ? null : calculateOvertime([shift], band, holidays).attendances[0]
   const description = preview === null ? null : describeAttendance(preview)
+  // Priced by the same function the fortnight uses, on this shift alone — the
+  // same reason the pay preview calls `calculateOvertime` rather than doing its
+  // own arithmetic. A shift that earns a meal allowance should say so here,
+  // where the times are still being chosen.
+  const meals =
+    preview === null ? [] : mealOccasionsFor(preview, mealAllowancePerOccasion)
 
   /** Times drive the C9.5 default until the user overrules it (§3.6). */
   function updateTime(patch: Partial<ShiftDraft>) {
@@ -159,6 +170,17 @@ export function ShiftSheet({
               : 'Those times do not make a shift yet.'}
           </p>
         )}
+
+        {meals.length > 0 ? (
+          <p className="sl-hint">
+            + {formatMoney(meals.reduce((sum, meal) => sum + meal.amount, 0))} meal
+            allowance ·{' '}
+            {meals.length === 1
+              ? 'one meal period worked through'
+              : `${meals.length} meal periods worked through`}{' '}
+            (EBA N36) · not taxed
+          </p>
+        ) : null}
 
         {preview?.minimumApplied ? (
           <AssumptionNote>

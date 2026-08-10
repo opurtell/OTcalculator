@@ -1,7 +1,7 @@
 import type { Attendance } from '../engine/attendance'
 import type { FortnightResult } from '../engine/fortnight'
 import { formatKept, formatMoney } from '../ui/index'
-import { formatShortDate, formatTimeRange } from './dates'
+import { clockTime, formatShortDate, formatTimeRange } from './dates'
 import { describeAttendance } from './shifts'
 
 /** The copy deck's disclaimer, as one line. See `ui/Disclaimer.tsx`. */
@@ -35,10 +35,10 @@ export function summaryText({ result, bandSummary, captions = [] }: SummaryInput
 
   if (result.overtimeGross > 0) {
     lines.push(
-      `Your OT adds ${formatMoney(result.otNetDelta)} take-home`,
-      `from ${formatMoney(result.otGrossDelta)} before tax · ${formatKept(
-        result.otNetDelta,
-        result.otGrossDelta,
+      `Your OT adds ${formatMoney(result.otNetTotal)} take-home`,
+      `from ${formatMoney(result.otEarnedTotal)} before tax · ${formatKept(
+        result.otNetTotal,
+        result.otEarnedTotal,
       )}`,
       '',
       'Overtime shifts',
@@ -47,6 +47,13 @@ export function summaryText({ result, bandSummary, captions = [] }: SummaryInput
       'Fortnight            Without OT      With OT',
       ...comparisonLines(result),
     )
+    // The meal periods are named rather than just the total, because this text
+    // is read away from the app — often beside a payslip — and "$35.38" with no
+    // clause and no window behind it is exactly the unexplained figure §5.7
+    // exists to prevent.
+    if (result.mealAllowance.total > 0) {
+      lines.push('', 'Meal allowance (tax free, EBA N36)', ...mealLines(result))
+    }
   } else {
     // No overtime is still a fortnight worth sharing — it is the baseline the
     // question "was that shift worth it" is asked against.
@@ -69,6 +76,18 @@ export function summaryText({ result, bandSummary, captions = [] }: SummaryInput
     .filter((line, at) => line !== '' || lines[at - 1] !== '')
     .join('\n')
     .trim()
+}
+
+/** `Sat 15 Aug 12:00–14:00 worked through   $35.38`, one per occasion. */
+function mealLines(result: FortnightResult): string[] {
+  return result.mealAllowance.occasions.map((occasion) =>
+    [
+      `${formatShortDate(occasion.date)} ${clockTime(
+        occasion.startMin,
+      )}–${clockTime(occasion.endMin)} worked through`.padEnd(38),
+      formatMoney(occasion.amount).padStart(9),
+    ].join(''),
+  )
 }
 
 /** `Sat 15 Aug 09:00–19:00 · 10h · all at 2× (Saturday) · $982.98`. */
@@ -112,6 +131,13 @@ function comparisonLines(result: FortnightResult): string[] {
   }
 
   rows.push(['Take-home', result.withoutOt.net, result.withOt.net])
+
+  // Below the tax lines, for the same reason it sits there on screen: an
+  // untaxed amount printed above PAYG reads as though PAYG took a cut of it.
+  if (result.mealAllowance.total > 0) {
+    rows.push(['Meal allowance', 0, result.mealAllowance.total])
+    rows.push(['Total in the hand', result.withoutOt.net, result.netTotal])
+  }
 
   return rows.map(([label, without, with_]) =>
     [

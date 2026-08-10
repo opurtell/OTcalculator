@@ -6,6 +6,7 @@
  * to exercise the rules without waiting on Phase 1.
  */
 
+import { otMealAllowanceFor } from '../../data/allowances'
 import { ACT_HOLIDAY_CALENDAR } from '../../data/public-holidays'
 import type { HolidayCalendar, OtShift, PayBand, ShiftKind } from '../types'
 
@@ -34,6 +35,16 @@ export const AP1_STEP_2: PayBand = {
  * rather than quietly pay a weekday rate.
  */
 export const HOLIDAYS_2026: HolidayCalendar = ACT_HOLIDAY_CALENDAR
+
+/**
+ * The Annex C overtime meal allowance in force on the fixture dates — $35.38
+ * per occasion from 4 December 2025 (EBA N36.1).
+ *
+ * Taken from `src/data/allowances.ts` rather than written out, on the same
+ * principle as the holiday calendar above: a fixture that invents a rate proves
+ * only that the engine agrees with the fixture.
+ */
+export const OT_MEAL_ALLOWANCE = otMealAllowanceFor('2026-08-15').amount
 
 /** No public holidays at all — isolates the weekday and weekend rules. */
 export const NO_HOLIDAYS: HolidayCalendar = {

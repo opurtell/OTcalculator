@@ -5,9 +5,12 @@ import {
   ACT_PUBLIC_HOLIDAYS,
   CLASSIFICATION_LABEL,
   COVERS_THROUGH,
+  OT_MEAL_ALLOWANCE_RATES,
   PACKAGING_CAPS,
   PAY_BANDS,
+  RATES_EFFECTIVE_FROM,
   holidayNameFor,
+  otMealAllowanceFor,
   payBandFor,
   stepsFor,
 } from '..'
@@ -168,6 +171,60 @@ describe('HELP thresholds', () => {
       expect(brackets[i].incomeFrom).toBe(brackets[i - 1].incomeTo)
     }
     expect(brackets[brackets.length - 1].incomeTo).toBeNull()
+  })
+})
+
+describe('overtime meal allowance', () => {
+  it('carries the current Annex C figure — $35.38 per occasion', () => {
+    // Annex C "Overtime Meal", Rate/Frequency "Per occasion", the 1.93% column
+    // effective 04/12/2025. The same increase that produced the current Annex A
+    // rates (C20.2.7), which is why this date matches `RATES_EFFECTIVE_FROM`.
+    expect(otMealAllowanceFor('2026-08-15').amount).toBe(35.38)
+    expect(otMealAllowanceFor('2026-08-15').effectiveFrom).toBe(RATES_EFFECTIVE_FROM)
+  })
+
+  it('prices a date by the rate that was in force then, not the latest', () => {
+    // C20.2's increases apply from the first full pay period on or after each
+    // date, so a fortnight worked before an increase keeps the older figure.
+    expect(otMealAllowanceFor('2025-12-03').amount).toBe(34.71)
+    expect(otMealAllowanceFor('2025-12-04').amount).toBe(35.38)
+    expect(otMealAllowanceFor('2024-12-05').amount).toBe(34.37)
+  })
+
+  it('falls back to the earliest row rather than paying nothing', () => {
+    expect(otMealAllowanceFor('2020-01-01').amount).toBe(31.6)
+  })
+
+  it('rises monotonically, in the order C20.2 lists the increases', () => {
+    for (let i = 1; i < OT_MEAL_ALLOWANCE_RATES.length; i += 1) {
+      const previous = OT_MEAL_ALLOWANCE_RATES[i - 1]
+      const current = OT_MEAL_ALLOWANCE_RATES[i]
+      expect(current.effectiveFrom > previous.effectiveFrom).toBe(true)
+      expect(current.amount).toBeGreaterThan(previous.amount)
+    }
+    // Eight columns in Annex C: the rate at 9/6/22 plus C20.2's seven steps.
+    expect(OT_MEAL_ALLOWANCE_RATES).toHaveLength(8)
+  })
+
+  it('matches the percentage increases C20.2 prescribes, compounded unrounded', () => {
+    // The one checkable property of the transcription: Annex C prints rounded
+    // dollars and C20.2 prints the percentages behind them, so a mistyped cent
+    // shows up as a step that does not follow its own rule.
+    //
+    // **Each increase compounds on the previous *unrounded* figure, not on the
+    // printed one.** Rounding at every step gives $33.06 where Annex C prints
+    // $33.05, and the error carries forward. This matters to whoever adds the
+    // next row: apply the percentage to the running figure below, then round
+    // once, and check the result against Annex C rather than trusting it.
+    const increases = [0.0179, 0.01, 0.0174, 0.015, 0.0244, 0.01, 0.0193]
+    let exact = OT_MEAL_ALLOWANCE_RATES[0].amount
+
+    increases.forEach((rate, i) => {
+      exact *= 1 + rate
+      expect(OT_MEAL_ALLOWANCE_RATES[i + 1].amount).toBe(
+        Math.round(exact * 100) / 100,
+      )
+    })
   })
 })
 
