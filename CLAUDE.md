@@ -1,6 +1,7 @@
 # ACTAS OT Calculator
 
-A static single-page app for ACTAS paramedics: enter a fortnight's overtime shifts, get pre-tax income, PAYG tax, and net income — plus what the OT actually added to take-home. Deployed to GitHub Pages. No backend, no account, settings in `localStorage`.
+A static single-page app for ACTAS paramedics: enter a fortnight's overtime shifts, get pre-tax income, PAYG tax, and net income — plus what the OT actually added to take-home. Deployed to GitHub Pages. No backend, no account; settings and the current pay
+fortnight's shifts in `localStorage`.
 
 ## Status
 
@@ -25,7 +26,7 @@ Phases against `IMPLEMENTATION_PLAN.md` §6:
 | **1** Reference data | **Done, with one caveat.** `src/data/` — Annex A tables, ACT holidays, NAT 1004, HELP, FBT caps, the 44-hour roster patterns. Tax and HELP are FY2025-26 only and fall back per §3.8. See "Reference data" below |
 | **2** OT engine | **Done.** `src/engine/` — ratchet, categories, attendance grouping, C9.5 minimum, OT dollars |
 | **3** Money engine | **Done.** `tax.ts`, `packaging.ts`, `fortnight.ts` — PAYG, HELP, pre-tax deductions, the with/without-OT delta. **The §4.5 golden fixture passes end to end** |
-| **4** Persistence | **Done.** `src/storage/preferences.ts` — versioned `localStorage` per §4.4, defensive reads, debounced writes, clear-settings |
+| **4** Persistence | **Done.** `src/storage/` — versioned `localStorage` per §4.4, defensive reads, debounced writes, clear-settings. `preferences.ts` holds the settings; `shifts.ts` holds this pay fortnight's shifts and lets go of them when it ends |
 | **5** Shell + setup | **Done.** `src/components/` + `src/app/` — app frame, pathway switcher, pay band picker with editable overrides, deductions and tax panel, disclaimer, clear-settings. `App.tsx` wires the calculator to persistence |
 | **6** Quick pathway | **Done.** One hours field, the §5.1 two-tier split, the low-estimate note. Adds `quickOvertime` and the behaviour-preserving `comparePay` extraction in `src/engine/` |
 | **7** Fortnight pathway | **Done.** Shift list, add/edit sheet with live preview, delete-with-undo, duplicate, the roster quick-fill, and the five non-blocking warnings. A row is an attendance, not an entry |
@@ -36,7 +37,7 @@ Phases against `IMPLEMENTATION_PLAN.md` §6:
 `calculateFortnight(shifts, settings)` in `src/engine/fortnight.ts` is the entry
 point — shifts and settings in, take-home and the overtime delta out. It calls
 `calculateOvertime` underneath, which is usable alone if you only want gross OT.
-413 tests. All seven crossover worked examples pass. Three things to know:
+472 tests. All seven crossover worked examples pass. Three things to know:
 
 - **The §4.5 golden total is a cent adrift**, and it is the plan that is out.
   See `src/engine/__tests__/golden.test.ts` — §3.12 says full precision until
@@ -65,9 +66,15 @@ things it settles:
   did enter. `readPreferences` reports `'repaired'` when that happened, and
   Phase 9 wired it: `readNotice` in `Calculator.tsx` turns it into a line
   inside the Pay band panel rather than silently resetting a figure.
-- **Shift entries are deliberately not persisted.** Last fortnight's overtime
-  reappearing in this fortnight's total is the stale-data trap §4.4 refuses. A
-  "keep this fortnight" opt-in is v1.1, not a default.
+- **Shift entries are kept for their pay fortnight, and no longer.** They live
+  in their own key — `src/storage/shifts.ts` — stamped with the pay period they
+  belong to, and a read for any other period discards them and removes the
+  record from the device. That expiry is the whole reason saving them is safe:
+  the stale-data trap §4.4 refused to open is specifically last fortnight's
+  overtime reappearing in this fortnight's total, not a shift surviving a
+  reload. Two keys rather than one field, because a shared key would need a
+  schema bump and a bump discards the record wholesale — every existing user
+  would lose the pay band they set. See "The pay fortnight" below.
 - **Writes are debounced, and `flush()` is wired to `pagehide` in `App.tsx`.**
   Without it the last edit is lost when a tab closes inside the delay window,
   and `pagehide` is the event that fires on mobile Safari where `beforeunload`
@@ -76,6 +83,42 @@ things it settles:
 Storage validates shape, not meaning: a stored band of `AP9 Step 99` round
 trips, because `payBandFor` already returns `undefined` for stale settings and
 duplicating Annex A behind a browser API would be the worse coupling.
+
+## The pay fortnight
+
+Pay fortnights run **Thursday to Wednesday**. The anchor — the period ending
+Wednesday 29 July 2026 — is in `src/data/pay-periods.ts`; every other period is
+counted off it by `payFortnightFor` in `src/app/pay-period.ts`. It decides one
+thing only: how long the app holds on to the shifts someone typed. Nothing in
+`src/engine/` reads it, because a pay period does not change what overtime is
+worth.
+
+Four things about it are load-bearing:
+
+- **The period's end date is its identity in storage.** A date rather than an
+  index, so a stored record still says which fortnight it came from if the
+  anchor is ever corrected — and any period that is not the one being asked
+  about is expired, including a *later* one, which is what a device with a
+  wrong clock produces.
+- **`endsNextDay` is derived on read, never trusted.** It is a function of the
+  two times, so a stored disagreement is corruption rather than a second
+  opinion, and a hand-edited `localStorage` cannot talk the engine into pricing
+  a negative-length attendance.
+- **Restored shifts must reserve their ids before anything is added.**
+  `newShiftId()` counts from zero on every load, and `upsertShift` matches on
+  id — so without `reserveShiftIds` (called in `App.tsx`'s boot initialiser) the
+  first shift a user adds silently overwrites a restored one. This is the one
+  part of the feature that fails quietly.
+- **The app says what it is holding.** A restored list names its fortnight; a
+  list that expired between visits says so rather than presenting itself as a
+  fresh start. Same principle as never showing an unexplained figure — an empty
+  list the user did not empty needs an explanation as much as a number does.
+
+Clearing is two controls with different manners. **"Clear shifts"** is one tap
+beside the list and goes through the ordinary deletion path, so the undo row
+puts the whole list back. **"Clear saved settings"** asks first, because
+nothing survives it — and it drops the shifts too, which is why its question
+names them.
 
 `src/ui/` is the Station Ledger component library — 22 components covering the
 nine screens, React the only runtime dep. It is pushed to the Claude Design
@@ -304,10 +347,10 @@ multipliers). The arrow runs one way, `data/` → `engine/` types only, and
 fortnight from an earlier financial year keep computing against the figures
 that were current when it was worked.
 
-Two tables in there are read by nobody, which is deliberate rather than rot:
-`packaging.ts` (see the FBT note below) and `roster-shifts.ts`, which the shift
-sheet reads and the engine never does. A figure being *in* `data/` does not mean
-the money depends on it.
+Three tables in there are read by no engine code, which is deliberate rather
+than rot: `packaging.ts` (see the FBT note below), `roster-shifts.ts`, which the
+shift sheet reads, and `pay-periods.ts`, which only storage's expiry cares
+about. A figure being *in* `data/` does not mean the money depends on it.
 
 **Tax and HELP are FY2025-26 only.** The ATO reissued Schedule 1 for FY2026-27
 (second bracket 16% → 15%) but those coefficients are not in the sibling repo

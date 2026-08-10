@@ -17,6 +17,8 @@ import {
 } from '../app/shifts'
 import type { ShiftDraft } from '../app/shifts'
 import { formatShortDate } from '../app/dates'
+import { formatPayFortnight, payFortnightFor } from '../app/pay-period'
+import type { PayFortnight } from '../app/pay-period'
 import { fortnightWarnings } from '../app/warnings'
 import { payBandFor } from '../data'
 import type { Classification } from '../data'
@@ -51,6 +53,19 @@ export interface CalculatorProps {
    */
   onChoicesChange?: (choices: CalculatorChoices) => void
   onClearSettings?: () => void
+  /**
+   * This pay fortnight's shifts, restored from the device. Empty on a fresh
+   * visit, and empty after a fortnight has rolled over — see `shiftsExpired`.
+   */
+  initialShifts?: readonly OtShift[]
+  /**
+   * True when the device was holding shifts from an *earlier* pay fortnight,
+   * which the read let go of. The user is looking at an empty list they did
+   * not empty, so the app says why.
+   */
+  shiftsExpired?: boolean
+  /** Fired whenever the shift list changes, including on the first render. */
+  onShiftsChange?: (shifts: readonly OtShift[]) => void
   /** The pay date, which selects the financial year (§3.8). Injected in tests. */
   payDate?: IsoDate
   /**
@@ -76,6 +91,9 @@ export function Calculator({
   canRemember = true,
   onChoicesChange,
   onClearSettings,
+  initialShifts = [],
+  shiftsExpired = false,
+  onShiftsChange,
   payDate,
   readStatus,
 }: CalculatorProps) {
@@ -87,9 +105,16 @@ export function Calculator({
   // makes. It does not survive a reload, and should not — §4.4.
   const [quickHoursInput, setQuickHoursInput] = useState('')
 
-  // Shifts are transient by design (§4.4): persisting them creates a stale-data
-  // trap where last fortnight's pickups quietly inflate this fortnight.
-  const [shifts, setShifts] = useState<OtShift[]>([])
+  // Shifts are kept on the device for the pay fortnight they belong to, and no
+  // longer (§4.4). The stale-data trap that argued against saving them at all
+  // is specifically last fortnight's pickups inflating this one, and the
+  // expiry in `storage/shifts.ts` is what closes it.
+  const [shifts, setShifts] = useState<OtShift[]>(() => [...initialShifts])
+  // Whether the list has been touched this session. It gates one line of copy:
+  // "last fortnight's shifts were cleared" is a fact about the boot read, and
+  // left alone it would reappear the moment a user cleared the list themselves
+  // — where it reads as an explanation of the tap they just made.
+  const [listTouched, setListTouched] = useState(false)
   // The sheet is open exactly when there is a draft.
   const [draft, setDraft] = useState<ShiftDraft | null>(null)
   // A deletion happens immediately and is taken back from the undo row, rather
@@ -102,6 +127,10 @@ export function Calculator({
 
   const choices = choicesFrom(fields)
   const date = payDate ?? todayIso()
+  // Which pay fortnight the app is holding shifts for. Only the copy uses it —
+  // the entered dates are the user's business, and a shift dated outside the
+  // period is still priced (the §7 span warning is what says so).
+  const fortnight = payFortnightFor(date)
 
   // The sanitising in `fieldsFrom` guarantees a classification and step that
   // name a real Annex A row, so this cannot be null in practice. Keeping the
@@ -115,6 +144,15 @@ export function Calculator({
     if (inSetup) return
     notify.current?.(choicesFrom(fields))
   }, [fields, inSetup])
+
+  // Unlike the choices, this fires during setup too. The list is empty there,
+  // and an empty list is what tells storage to let go of its record — which is
+  // exactly what clearing the settings should do to the shifts as well.
+  const notifyShifts = useRef(onShiftsChange)
+  notifyShifts.current = onShiftsChange
+  useEffect(() => {
+    notifyShifts.current?.(shifts)
+  }, [shifts])
 
   function update(patch: Partial<Fields>) {
     setFields((current) => ({ ...current, ...patch }))
@@ -142,6 +180,7 @@ export function Calculator({
     if (shift === null) return
 
     setShifts((current) => upsertShift(current, shift))
+    setListTouched(true)
     closeDraft()
   }
 
@@ -151,12 +190,25 @@ export function Calculator({
     openDraft(copy ? duplicateDraft(shift) : draftFrom(shift))
   }
 
+  /**
+   * "Clear shifts" — one tap, no confirmation.
+   *
+   * It goes through the same path a single deletion does, which is what makes
+   * one tap safe: the undo row appears and the whole list comes back. That is
+   * the difference from "Clear saved settings", which asks first because
+   * nothing survives it to be restored from.
+   */
+  function clearAllShifts() {
+    deleteShifts(shifts.map((shift) => shift.id))
+  }
+
   /** Delete now, restore from the undo row (§7). */
   function deleteShifts(shiftIds: readonly string[]) {
     const { kept, removed } = removeShifts(shifts, shiftIds)
     if (removed.length === 0) return
 
     setShifts(kept)
+    setListTouched(true)
     setPendingDelete(removed)
     // Editing a shift that is no longer there would commit it back on save.
     if (draft !== null && draft.id !== null && shiftIds.includes(draft.id)) {
@@ -274,6 +326,12 @@ export function Calculator({
       onClearSettings={() => {
         setFields(fieldsFrom(DEFAULT_CHOICES))
         setInSetup(true)
+        // The shifts go too, and the control says so. Leaving a fortnight of
+        // entered shifts on a device whose owner just asked to be forgotten
+        // would make the copy a lie, and the empty list is what tells storage
+        // to drop its record.
+        setShifts([])
+        setPendingDelete(null)
         onClearSettings?.()
       }}
     >
@@ -299,7 +357,14 @@ export function Calculator({
             attendances={result.attendances}
             shifts={shifts}
             warnings={warnings}
+            storageNote={shiftStorageNote({
+              hasShifts: shifts.length > 0,
+              canRemember,
+              expired: shiftsExpired && !listTouched,
+              fortnight,
+            })}
             onAdd={() => openDraft(emptyDraft())}
+            onClearAll={clearAllShifts}
             onEdit={(shiftId) => openDraftFor(shiftId, false)}
             onDuplicate={(shiftId) => openDraftFor(shiftId, true)}
             onDelete={deleteShifts}
@@ -420,6 +485,43 @@ export function readNotice(status: ReadStatus | undefined): string | undefined {
   }
   if (status === 'unreadable') {
     return "Your saved settings couldn't be read, so we've started fresh. Setting your pay band again is all it takes."
+  }
+  return undefined
+}
+
+/**
+ * What to say about shifts being held on the device, or nothing.
+ *
+ * Two cases, and both are the same principle as never showing an unexplained
+ * figure: a list that survived a reload should say why it did, and a list that
+ * emptied itself between one visit and the next should say why it did that.
+ *
+ * Nothing is said when the browser has no storage — the setup screen has
+ * already told that user they will be setting things each visit — and nothing
+ * is said on an ordinary empty list, because a first visit is not an event.
+ */
+export function shiftStorageNote({
+  hasShifts,
+  canRemember,
+  expired,
+  fortnight,
+}: {
+  hasShifts: boolean
+  canRemember: boolean
+  expired: boolean
+  fortnight: PayFortnight
+}): string | undefined {
+  if (!canRemember) return undefined
+
+  if (hasShifts) {
+    return `Saved on this device for the pay fortnight ${formatPayFortnight(
+      fortnight,
+    )}. They clear themselves when the next one starts.`
+  }
+  if (expired) {
+    return `Shifts from the last pay fortnight were cleared when this one started on ${formatShortDate(
+      fortnight.start,
+    )}.`
   }
   return undefined
 }

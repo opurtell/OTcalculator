@@ -9,9 +9,15 @@
 
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
+import { payFortnightFor } from '../../app/pay-period'
 import { DEFAULT_CHOICES } from '../../app/settings'
 import type { CalculatorChoices } from '../../app/settings'
-import { Calculator, choicesFrom, fieldsFrom } from '../Calculator'
+import {
+  Calculator,
+  choicesFrom,
+  fieldsFrom,
+  shiftStorageNote,
+} from '../Calculator'
 
 /** AP1 Step 2, Scale 2, nothing packaged — the §4.5 golden fixture's setup. */
 const GOLDEN: CalculatorChoices = {
@@ -243,5 +249,62 @@ describe('choices round trip', () => {
       band: { ...DEFAULT_CHOICES.band, classification: 'AM1', step: 1 },
     }
     expect(choicesFrom(fieldsFrom(stale)).band.classification).toBe('AP1')
+  })
+})
+
+describe('what the app says about saved shifts', () => {
+  const FORTNIGHT = payFortnightFor('2026-08-10')
+
+  it('names the fortnight the list is being kept for', () => {
+    // Never an unexplained figure, and by the same token never a silent
+    // persistence: a list that survived a reload says why it did.
+    expect(
+      shiftStorageNote({
+        hasShifts: true,
+        canRemember: true,
+        expired: false,
+        fortnight: FORTNIGHT,
+      }),
+    ).toBe(
+      'Saved on this device for the pay fortnight Thu 30 Jul – Wed 12 Aug. ' +
+        'They clear themselves when the next one starts.',
+    )
+  })
+
+  it('explains a list that emptied itself between visits', () => {
+    const note = shiftStorageNote({
+      hasShifts: false,
+      canRemember: true,
+      expired: true,
+      fortnight: FORTNIGHT,
+    })
+    expect(note).toContain('last pay fortnight were cleared')
+    expect(note).toContain('Thu 30 Jul')
+  })
+
+  it('says nothing on an ordinary empty list', () => {
+    // A first visit is not an event.
+    expect(
+      shiftStorageNote({
+        hasShifts: false,
+        canRemember: true,
+        expired: false,
+        fortnight: FORTNIGHT,
+      }),
+    ).toBeUndefined()
+  })
+
+  it('claims nothing when the browser has no storage', () => {
+    // Nothing is being saved, so nothing is promised — in either state.
+    for (const expired of [false, true]) {
+      expect(
+        shiftStorageNote({
+          hasShifts: true,
+          canRemember: false,
+          expired,
+          fortnight: FORTNIGHT,
+        }),
+      ).toBeUndefined()
+    }
   })
 })

@@ -11,7 +11,9 @@ import {
   duplicateDraft,
   emptyDraft,
   inferKind,
+  newShiftId,
   removeShifts,
+  reserveShiftIds,
   rosterShiftFor,
   toShift,
   upsertShift,
@@ -273,5 +275,59 @@ describe('the shift list', () => {
     const { kept, removed } = removeShifts([saturday], ['gone'])
     expect(kept).toEqual([saturday])
     expect(removed).toEqual([])
+  })
+})
+
+describe('reserving restored ids', () => {
+  // The counter is module state shared by every test in this file, so these
+  // assert relationships between ids rather than particular strings.
+  function idNumber(id: string): number {
+    const match = /^shift-(\d+)$/.exec(id)
+    if (match === null) throw new Error(`Not a minted id: ${id}`)
+    return Number(match[1])
+  }
+
+  // Built once: `toShift` mints an id, so a helper that called it per shift
+  // would move the very counter these tests are measuring.
+  const shape = toShift(draft())!
+
+  function restored(ids: string[]): OtShift[] {
+    return ids.map((id) => ({ ...shape, id }))
+  }
+
+  it('mints ids past the highest one restored', () => {
+    // Without this the counter starts at zero on every load, a restored
+    // `shift-1` collides with the next shift added, and `upsertShift` matches
+    // on id — so adding a shift would overwrite the one already in the list.
+    const high = idNumber(newShiftId()) + 500
+    reserveShiftIds(restored([`shift-${high}`, `shift-${high - 3}`]))
+
+    expect(idNumber(newShiftId())).toBe(high + 1)
+  })
+
+  it('never hands back an id already in the restored list', () => {
+    const base = idNumber(newShiftId())
+    const ids = [`shift-${base + 1}`, `shift-${base + 2}`, `shift-${base + 3}`]
+    reserveShiftIds(restored(ids))
+
+    const minted = [newShiftId(), newShiftId()]
+    expect(ids.some((id) => minted.includes(id))).toBe(false)
+    // And the list they join stays addressable, one id per shift.
+    expect(new Set([...ids, ...minted]).size).toBe(5)
+  })
+
+  it('leaves the counter alone for ids it did not mint', () => {
+    // Ids are opaque handles. A record whose ids came from somewhere else
+    // still works, as long as nothing new collides with them.
+    const before = idNumber(newShiftId())
+    reserveShiftIds(restored(['imported-9', 'shift-', 'shift-2x']))
+
+    expect(idNumber(newShiftId())).toBe(before + 1)
+  })
+
+  it('does nothing with an empty list', () => {
+    const before = idNumber(newShiftId())
+    reserveShiftIds([])
+    expect(idNumber(newShiftId())).toBe(before + 1)
   })
 })
