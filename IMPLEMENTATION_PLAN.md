@@ -205,23 +205,55 @@ Post-tax deductions are out of scope for v1; the user asked for pre-tax specific
 
 **Rate: $35.38 per occasion**, from Annex C ("Overtime Meal", Rate/Frequency "Per occasion", the 1.93% column effective 4 December 2025). The whole C20.2 progression is in `src/data/allowances.ts` and is looked up by pay date, so an older fortnight prices against the rate that was in force when it was worked.
 
-**Whether it is owed is EBA N36, not Annex C.** N36.1 sends the rate to Annex C "with the following exception", and N36.2 is that exception — written for a cohort that cannot reliably stop for a meal:
+**Whether it is owed is EBA N36, not Annex C.** N36.1 sends the rate to Annex C "with the following exception", and N36.2 is that exception:
 
-> An employee who works overtime is entitled to payment of overtime meal allowance where the overtime is worked after the end of ordinary duty for the day, to the completion of or beyond a meal period, and any subsequent meal period, without a break for a meal.
+> An employee who works overtime is entitled to payment of overtime meal allowance where the overtime is worked **after the end of ordinary duty for the day**, **to the completion of or beyond a meal period**, and any subsequent meal period, without a break for a meal.
 
-N36.3 defines a meal period as **midnight–1:00 am, 7:00–9:00 am, 12 noon–2:00 pm, or 6:00–7:00 pm**. So the test, applied per attendance per window:
+N36.3 defines a meal period as **midnight–1:00 am, 7:00–9:00 am, 12 noon–2:00 pm, or 6:00–7:00 pm**. Those are **not** N35.7's Windows of Opportunity (AM 0930–1130; D 1200–1400 & 1700–1900; PM 1400–1600 & 1900–2200; N 0000–0200), which are when a break is *scheduled*. Two time sets, two jobs; conflating them is the easiest mistake available here.
 
-1. Some overtime was worked inside the window, **and**
-2. the overtime ran to the end of the window or past it — knocking off at 13:00 leaves an hour of the lunch window to eat in, **and**
-3. no unpaid break inside the attendance fell in the window.
+Both bold phrases are load-bearing:
 
-One allowance per window that passes. "and any subsequent meal period" is what makes it per occasion: a 06:00–20:00 pickup crosses three windows and earns three. Both shift kinds qualify — N36.2's "after the end of ordinary duty" is the overrun, and N37.2 lets a full overtime shift claim the same entitlement, so unlike C9.5 the kind is not consulted.
+**1. "after the end of ordinary duty for the day" is a gate.** The overtime has to sit past the end of a shift. A shift worked and knocked off on time earns nothing — it is not overtime *after* ordinary duty. This is what makes a bare pickup pay no allowance.
 
-**The Annex C durations are deliberately not applied.** Annex C's own three circumstances each require 1.5 hours of overtime (5 on a Saturday, Sunday or public holiday) *before an unpaid meal break is taken*, then half an hour after it. Those hang off a break actually being taken, which is the thing N36.2 replaces; reading them back in leaves the exception with nothing to except. The consequence is that a short overrun through a window qualifies here and would not under a literal Annex C read. **Phase 10 settles it** — a payslip's `MEAL ALLOWANCE` line beside a known fortnight answers it in one look.
+**2. "to the completion of or beyond a meal period" describes the duty, not the overtime alone.** You worked through a meal period without getting a break, and then you did not get to go home on time either — so you had to buy food. Attaching it to the overtime alone makes the clause fire only on 2–4 hour overruns, which is not the case it was written for.
 
-**It is tax free, so it is added after tax.** Not in `gross`, not in `taxableGross`, not in `net`; PAYG and HELP never see it. The fortnight therefore has two bottom lines — the take-home the schedules produce, and `netTotal`, which is that plus the allowance. In every table the allowance line sits *below* the tax lines: printed above PAYG it would read as an amount tax took a cut of.
+So the test, per attendance:
 
-Three other meal allowances exist in the agreement and none of them reaches this cohort — **late meal** (O13/P15) and **spoilt meal** (O14/P16) are Section O and P, and N43.1 lists what the 44-hour roster substitutes. The word "spoilt" does not appear in Section N at all. `src/data/allowances.ts` records that so nobody adds them from a table of contents.
+- Place the **rostered end** — the N36.2 boundary — from the roster patterns in `src/data/roster-shifts.ts`:
+  - `overrun` → the pattern whose **end** time is the overtime's start. The shift itself was never entered, so it is reconstructed backwards from the boundary. That is what puts the shift's own meal periods inside the duty.
+  - `separate` → the pattern whose **start** time is the attendance's start, i.e. a picked-up shift entered as one period. The boundary is that pattern's end.
+  - Neither → **no allowance is worked out, in silence.** Guessing a boundary from times that match no pattern would be inventing the one fact the clause turns on. The §5.7 working states the rule so it stays discoverable; there is deliberately no per-shift warning.
+- Require worked time **past** that boundary. `06:30–16:30` earns nothing; `06:30–16:31` earns.
+- Then for each N36.3 window the duty touched: worked inside it, still running when it closed, and no unpaid break in it.
+
+The C9.5 kind does double duty here, which is why 21:00 is unambiguous — it is both the D shift's end and the N shift's start, and it is the only collision in the table.
+
+**Two assumptions, both stated on screen** (§5.7):
+
+- **No meal break was taken during the rostered shift.** On an overrun the shift is never entered, so there is no break information for it, and the missed break is the case N36 exists for. A crew who did get their break inside a meal period is over-counted. Breaks the app *can* see — an unpaid gap between two entered shifts in one attendance, C9.7 — do suppress the window they fall in.
+- **The count is one per meal period the duty covered.** "and any subsequent meal period" is what makes it per occasion rather than per attendance, so any overrun on an AM, D or PM shift earns two and on an N shift one. **This is the least certain part of the reading** and the sharpest Phase 10 question: a 30-minute overrun earning $70.76 is generous, and payroll may pay one per occurrence, or require a minimum overrun.
+
+**It is tax free, so it is added after tax.** Not in `gross`, not in `taxableGross`, not in `net`; PAYG and HELP never see it. The fortnight therefore has two bottom lines — the take-home the schedules produce, and `netTotal`, which is that plus the allowance. In every table the allowance sits *below* the tax lines: printed above PAYG it would read as an amount tax took a cut of.
+
+**Why Annex C's durations never enter into it.** Annex C's three circumstances each require 1.5 hours of overtime (5 on a Saturday, Sunday or public holiday) **prior to an unpaid meal break being taken**, then half an hour after it. The phrase "unpaid meal break" occurs exactly three times in the agreement and all three are inside that one Annex C table. Section N never characterises the N35 break as unpaid, and O12 is titled "Paid Meal Breaks" for Patient Transport — so for 44-hour roster road staff, whose break sits inside a paid shift, Annex C's conditions cannot be satisfied at all. That is the most likely reason N36 exists as an exception: it substitutes "you worked through the meal period without a break" for "you took an unpaid break".
+
+> **Reading A, superseded 10 August 2026.** The first implementation applied
+> neither gate: it read "to the completion of or beyond a meal period" as
+> attaching to the overtime alone, and treated the shift kind as irrelevant on
+> the strength of N37.2 ("a full overtime shift ... may claim an entitlement
+> under clause N36, and in Annex C if eligible"). It was inverted in both
+> directions — every standalone 10-hour pickup earned two occasions, and no
+> overrun under two hours earned any, with a D-shift overrun needing four.
+>
+> **N37's cross-references are off by one**, which is what made N37.2 look like
+> an extension. The 10/14 section is the same text at a +23 offset (N12↔N35,
+> N13↔N36, N14↔N37): N14.1 cites N12.3, the meal-break entitlement, so N37.1
+> should cite N35.3 and says N36.3, the meal-period definition; N14.2 cites N12,
+> Meal Breaks, so N37.2 should cite N35 and says N36. Read as written, N37.2 is
+> nearly tautological — N36.1 already routes to Annex C. Either way, "if
+> eligible" points at N36.2's conditions rather than waiving them.
+
+Three other meal allowances exist in the agreement and none reaches this cohort — **late meal** (O13/P15) and **spoilt meal** (O14/P16) are Sections O and P, and N43.1 lists what the 44-hour roster substitutes. The word "spoilt" does not appear in Section N at all. **N37** is Section N but is not a separate allowance; it obliges ACTAS to try to provide a break on a short-notice recall. `src/data/allowances.ts` records all three so nobody adds them from a table of contents.
 
 ### 3.12 The OT delta
 
@@ -427,23 +459,17 @@ Add one Saturday 09:00–19:00 pickup (10 h @ 2× = $965.51) and one Wednesday 2
 > question: if a real payslip sums rounded lines, §3.13 needs an exception for
 > per-line overtime.
 
-> **Added after the fixture was written: the meal allowance.** These two shifts
-> also earn **two N36 occasions**, both on the Saturday — the pickup runs
-> 09:00–19:00, through the 12:00–14:00 window and to the close of the
-> 18:00–19:00 one. The Wednesday overrun (09:00–11:00) reaches neither. At
-> $35.38 that is **$70.76, untaxed**, so PAYG is unchanged at $1,620 and the
-> figures above still hold line for line:
+> **The meal allowance does not touch this fixture, and that is the answer
+> rather than an omission.** The Saturday is a 09:00–19:00 pickup: it matches the
+> D shift's start but knocks off two hours before its 21:00 end, so there is no
+> overtime after the end of ordinary duty (§3.11). The Wednesday overrun starts
+> at 09:00, which is no roster shift's end, so the boundary cannot be placed and
+> the calculation is skipped. Every figure above stands unchanged.
 >
-> | | Without OT | With OT |
-> | --- | --- | --- |
-> | Take-home (as above) | $3,700.32 | $4,398.66 |
-> | Meal allowance | — | $70.76 |
-> | **Total in the hand** | **$3,700.32** | **$4,469.42** |
->
-> **OT worth: $1,181.09 → $769.09 (65.1% retained)** — up from 62.9%, because a
-> tax-free dollar is kept whole. This is the second thing Phase 10 reconciles,
-> and it is the cheaper of the two to settle: a payslip either has a
-> `MEAL ALLOWANCE` line beside that fortnight or it does not.
+> The allowance case is covered separately, by an AM shift picked up and entered
+> as one period running to 18:00 — `06:30–18:00`, two occasions, **$70.76
+> untaxed**, PAYG unaffected. Same shift entered as `06:30–16:30` earns nothing.
+> Both are in `golden.test.ts`.
 
 These figures are computed from the EBA tables and the FY2025-26 NAT 1004 coefficients in the sibling project. They must be **re-verified against a real payslip in Phase 10** before the app is shared with anyone else.
 
@@ -457,7 +483,7 @@ Other required coverage:
 - PAYG at bracket boundaries and at zero income.
 - Packaging: fixed only, percent only, both; no cap warning at any amount.
 - Delta consistency: zero OT ⇒ zero delta.
-- Meal allowance (§3.11): each of the four N36.3 windows; overtime finishing *at* the window's close earns it and finishing inside it does not; one occasion per window on a shift crossing several; the midnight window credited to the day it falls on rather than the day the shift started; an unpaid break inside a window suppressing that window and no other; both shift kinds treated alike; the C9.5 top-up not extending an attendance through a window it did not work; and the allowance never reaching `taxableGross`.
+- Meal allowance (§3.11): each of the four N36.3 windows, and that they are not N35.7's; every roster pattern worked to its rostered end earning nothing; a one-hour overrun on each pattern earning what that shift worked through; a pickup entered whole reaching the same answer as the equivalent overrun; one minute past the boundary being enough; the midnight window credited to the day it fell rather than the day the shift started; the duty stopping part-way through a window earning nothing and stopping exactly at its close earning it; an unpaid break suppressing its own window and no other; unrecognised times and an empty roster table dropping silently; 21:00 resolved by the C9.5 kind; the C9.5 top-up not carrying a duty past a boundary; and the allowance never reaching `taxableGross`.
 - Storage: corrupt JSON, unknown schema version, missing keys all fall back cleanly.
 
 Property test worth having: OT dollars are monotonic in hours, and net pay is monotonic in gross.

@@ -10,7 +10,7 @@
 
 import { calculateOvertime } from './attendance'
 import { mealAllowanceFor } from './meals'
-import type { MealAllowanceResult } from './meals'
+import type { MealAllowanceResult, MealAllowanceSettings } from './meals'
 import { computeDeductions, packagingFlags } from './packaging'
 import type { DeductionSettings, FortnightFlag } from './packaging'
 import { helpRepayment, ordinaryFortnightlyGross, paygWithholding } from './tax'
@@ -31,12 +31,12 @@ export interface FortnightSettings {
   deductions: DeductionSettings
   holidays: HolidayCalendar
   /**
-   * The Annex C overtime meal allowance, per occasion (EBA N36). Required
-   * rather than optional: it is money, and a defaulted zero would be a figure
-   * quietly missing from someone's fortnight rather than a wiring bug anyone
-   * would notice.
+   * The Annex C rate and the roster patterns EBA N36's boundary is placed from.
+   * Required rather than optional: it is money, and a defaulted zero would be a
+   * figure quietly missing from someone's fortnight rather than a wiring bug
+   * anyone would notice.
    */
-  mealAllowancePerOccasion: number
+  meals: MealAllowanceSettings
   /**
    * Overrides the derived ordinary gross. For someone part-way through a step,
    * acting up, or simply reading a different number off their payslip — §6
@@ -166,13 +166,10 @@ export function calculateFortnight(
 
   const deductions = computeDeductions(comparison.withOt.gross, settings.deductions)
 
-  // Priced from the attendances rather than the shifts, because the N36 window
-  // test asks whether an unpaid break fell inside a meal period — and a break
-  // only exists once shifts have been grouped into one continuous attendance.
-  const mealAllowance = mealAllowanceFor(
-    overtime.attendances,
-    settings.mealAllowancePerOccasion,
-  )
+  // Priced from the attendances rather than the shifts, because the N36 test
+  // needs both the C9.5 kind (which places the boundary) and the unpaid gaps
+  // inside one continuous attendance (which suppress a window).
+  const mealAllowance = mealAllowanceFor(overtime.attendances, settings.meals)
 
   return {
     ...comparison,

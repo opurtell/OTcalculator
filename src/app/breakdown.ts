@@ -246,7 +246,12 @@ export function mealDerivationRows(
 ): FigureRow[] {
   return occasions.map((occasion) => ({
     label: `${formatShortDate(occasion.date)} ${mealPeriodLabel(occasion)}`,
-    note: 'Worked through without a break for a meal (N36.2)',
+    // Which shift placed the boundary is part of the working, not decoration:
+    // on an overrun the shift was never entered, so a user checking this figure
+    // needs to see which pattern the app assumed before they can agree with it.
+    note: occasion.shiftInferred
+      ? `Worked through on the ${occasion.rosterCode} shift this ran on from, no break (N36.2)`
+      : `Worked through on this ${occasion.rosterCode} shift, no break (N36.2)`,
     values: [occasion.amount],
   }))
 }
@@ -280,8 +285,8 @@ export function mealAllowanceRows(result: FortnightResult): FigureRow[] {
       label: 'Occasions',
       note:
         count === 0
-          ? 'No overtime ran through to the end of a meal period'
-          : 'Overtime worked to the end of a meal period, with no break (N36.2)',
+          ? 'No overtime ran past the end of a rostered shift through a meal period'
+          : 'Meal periods worked through, with overtime past the end of the shift (N36.2)',
       values: [String(count)],
     },
     {

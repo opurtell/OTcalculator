@@ -19,7 +19,7 @@ import { taxScaleFor } from '../../data/tax-scales'
 import {
   AP1_STEP_2,
   HOLIDAYS_2026,
-  OT_MEAL_ALLOWANCE,
+  MEAL_SETTINGS,
   cents,
   shift,
 } from './fixtures'
@@ -103,7 +103,7 @@ describe('golden fixture — the whole fortnight', () => {
     helpSchedule: null,
     deductions: NO_DEDUCTIONS,
     holidays: HOLIDAYS_2026,
-    mealAllowancePerOccasion: OT_MEAL_ALLOWANCE,
+    meals: MEAL_SETTINGS,
   })
 
   it('derives ordinary fortnightly gross of $4,908.32', () => {
@@ -137,35 +137,22 @@ describe('golden fixture — the whole fortnight', () => {
     expect(Math.round(result.retention * 1000) / 10).toBe(62.9)
   })
 
-  it('earns two meal allowances on the Saturday and none on the Wednesday', () => {
-    // §4.5 predates the N36 work and names no allowance, so this is added
-    // rather than reconciled. The Saturday pickup runs 09:00–19:00, through
-    // both the 12:00–14:00 and the 18:00–19:00 windows; the Wednesday overrun
-    // is 09:00–11:00, which reaches neither.
-    const { occasions, total, ratePerOccasion } = result.mealAllowance
-    expect(occasions.map((o) => [o.date, o.startMin, o.endMin])).toEqual([
-      ['2026-08-15', 720, 840],
-      ['2026-08-15', 1080, 1140],
-    ])
-    expect(ratePerOccasion).toBe(35.38)
-    expect(cents(total)).toBe(70.76)
+  it('earns no meal allowance — neither shift is past a rostered end', () => {
+    // §4.5's figures are untouched by N36, and that is the answer rather than an
+    // omission. The Saturday is a 09:00–19:00 pickup: it matches the D shift's
+    // start but knocks off two hours before its 21:00 end, so there is no
+    // overtime "after the end of ordinary duty for the day" (N36.2). The
+    // Wednesday overrun starts at 09:00, which is no roster shift's end, so the
+    // boundary cannot be placed at all and the calculation is skipped.
+    expect(result.mealAllowance.occasions).toEqual([])
+    expect(result.mealAllowance.total).toBe(0)
+    expect(result.mealAllowance.ratePerOccasion).toBe(35.38)
   })
 
-  it('adds the allowance after tax, not before it', () => {
-    // The whole point of the N36 line: PAYG is withheld on $6,018.66 either
-    // way, so the allowance reaches take-home undiminished.
-    expect(cents(result.withOt.taxableGross)).toBe(6018.66)
-    expect(result.withOt.payg).toBe(1620)
-    expect(cents(result.netTotal)).toBe(4469.42)
-    expect(cents(result.netTotal - result.withOt.net)).toBe(70.76)
-  })
-
-  it('reports the overtime as worth $769.09 once the allowance is counted', () => {
-    // $698.33 of taxed overtime plus $70.76 untaxed. Retention rises because a
-    // tax-free dollar is kept whole — 62.9% on the pay alone, 65.1% with it.
-    expect(cents(result.otEarnedTotal)).toBe(1181.09)
-    expect(cents(result.otNetTotal)).toBe(769.09)
-    expect(Math.round((result.otNetTotal / result.otEarnedTotal) * 1000) / 10).toBe(65.1)
+  it('leaves the tax-free totals equal to the taxed ones when none is earned', () => {
+    expect(cents(result.netTotal)).toBe(4398.66)
+    expect(cents(result.otEarnedTotal)).toBe(1110.33)
+    expect(cents(result.otNetTotal)).toBe(698.33)
   })
 
   it('withholds no HELP when there is no study debt', () => {
@@ -175,5 +162,70 @@ describe('golden fixture — the whole fortnight', () => {
 
   it('raises no flags', () => {
     expect(result.flags).toEqual([])
+  })
+})
+
+/**
+ * The allowance case, since the §4.5 pair does not reach it.
+ *
+ * An AM shift picked up and entered as one period that ran an hour and a half
+ * over — Oscar's example. Same band and settings as above, so the only thing
+ * that differs is the shift, and the untaxed line can be read against the taxed
+ * ones without a second variable.
+ */
+describe('a fortnight that does earn the meal allowance', () => {
+  const AM_RUN_ON = shift('2026-08-19', '06:30', '18:00', 'separate')
+
+  const result = calculateFortnight([AM_RUN_ON], {
+    band: AP1_STEP_2,
+    taxScale: taxScaleFor('2025-26', 2).scale,
+    helpSchedule: null,
+    deductions: NO_DEDUCTIONS,
+    holidays: HOLIDAYS_2026,
+    meals: MEAL_SETTINGS,
+  })
+
+  it('earns two occasions at $35.38 — breakfast and lunch', () => {
+    // 06:30–18:00 covers 07:00–09:00 and 12:00–14:00 and was still running when
+    // each closed. 18:00–19:00 is not earned: the duty ends as it opens.
+    const { occasions, total } = result.mealAllowance
+    expect(occasions.map((o) => [o.startMin, o.endMin])).toEqual([
+      [420, 540],
+      [720, 840],
+    ])
+    expect(occasions.map((o) => o.rosterCode)).toEqual(['AM', 'AM'])
+    // Entered whole, so nothing about the shift was inferred.
+    expect(occasions.every((o) => o.shiftInferred)).toBe(false)
+    expect(cents(total)).toBe(70.76)
+  })
+
+  it('withholds nothing on it — the tax figures ignore the allowance', () => {
+    // The one property that must hold whatever the occasion count turns out to
+    // be: PAYG is computed on gross alone, so the allowance arrives whole.
+    expect(cents(result.withOt.taxableGross)).toBe(cents(result.withOt.gross))
+    expect(cents(result.netTotal - result.withOt.net)).toBe(70.76)
+    expect(cents(result.otNetTotal - result.otNetDelta)).toBe(70.76)
+    expect(cents(result.otEarnedTotal - result.otGrossDelta)).toBe(70.76)
+  })
+
+  it('keeps more of the overtime than the taxed pay alone would', () => {
+    // A tax-free dollar is kept whole, so retention has to rise once it is in.
+    expect(result.otNetTotal / result.otEarnedTotal).toBeGreaterThan(
+      result.otNetDelta / result.otGrossDelta,
+    )
+  })
+
+  it('earns nothing from the same shift worked to its rostered end', () => {
+    // The control: 06:30–16:30 is the same pickup without the run-on, and it is
+    // the case Oscar said should pay no allowance.
+    const onTime = calculateFortnight([shift('2026-08-19', '06:30', '16:30', 'separate')], {
+      band: AP1_STEP_2,
+      taxScale: taxScaleFor('2025-26', 2).scale,
+      helpSchedule: null,
+      deductions: NO_DEDUCTIONS,
+      holidays: HOLIDAYS_2026,
+      meals: MEAL_SETTINGS,
+    })
+    expect(onTime.mealAllowance.total).toBe(0)
   })
 })

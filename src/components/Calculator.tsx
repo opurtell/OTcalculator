@@ -351,7 +351,7 @@ export function Calculator({
               onClose={closeDraft}
               band={settings.band}
               holidays={settings.holidays}
-              mealAllowancePerOccasion={settings.mealAllowancePerOccasion}
+              meals={settings.meals}
             />
           ) : null}
           <FortnightPathway

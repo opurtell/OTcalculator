@@ -18,6 +18,7 @@
 
 import {
   ACT_HOLIDAY_CALENDAR,
+  ROSTER_SHIFTS,
   fallbackCaption,
   helpFallbackCaption,
   helpScheduleFor,
@@ -169,7 +170,13 @@ export function resolveSettings(
       helpSchedule: helpSelection?.schedule ?? null,
       deductions: choices.deductions,
       holidays: ACT_HOLIDAY_CALENDAR,
-      mealAllowancePerOccasion: mealAllowanceRate.amount,
+      meals: {
+        ratePerOccasion: mealAllowanceRate.amount,
+        // The roster patterns are what let the engine place N36.2's "end of
+        // ordinary duty for the day" from an overtime entry alone. Passed in
+        // rather than reached for, like every other table.
+        rosterShifts: ROSTER_SHIFTS,
+      },
       // `undefined` rather than `null`: the engine's field is optional, and
       // `??` on an explicit null would silently mean "no override" anyway.
       ordinaryGrossOverride: choices.band.fortnightlyGross ?? undefined,

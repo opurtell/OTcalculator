@@ -7,7 +7,7 @@ import { taxScaleFor } from '../../data/tax-scales'
 import {
   AP1_STEP_2,
   HOLIDAYS_2026,
-  OT_MEAL_ALLOWANCE,
+  MEAL_SETTINGS,
   cents,
   shift,
 } from './fixtures'
@@ -22,7 +22,7 @@ const baseSettings = {
   helpSchedule: null,
   deductions: NO_DEDUCTIONS,
   holidays: HOLIDAYS_2026,
-  mealAllowancePerOccasion: OT_MEAL_ALLOWANCE,
+  meals: MEAL_SETTINGS,
 }
 
 describe('paygWithholding', () => {

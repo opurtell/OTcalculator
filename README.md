@@ -25,7 +25,7 @@ public holidays, NAT 1004 coefficients, HELP thresholds, the Annex C meal
 allowance and FBT caps. `src/storage/` remembers the settings across reloads, and
 this pay fortnight's shifts until the fortnight ends. `src/components/` is the
 app: both pathways, the shift list, the results and the working behind them.
-515 tests.
+533 tests.
 
 Phase 9 added the polish layer — keyboard operation, touch targets, an
 installable offline build, a print stylesheet, a shareable text summary, an
@@ -38,8 +38,8 @@ to FY2025-26 and captions it, exactly as §3.8 specifies. Adding the real rows t
 `src/data/tax-scales.ts` is the whole fix.
 
 Phase 10 is next, and it is the one that matters: reconcile against real
-payslips with OT lines — including the `MEAL ALLOWANCE` line, which settles the
-one open reading in `src/engine/meals.ts` (see §3.11). **Until it passes, this is
+payslips with OT lines — including the `MEAL ALLOWANCE` line, whose date-prefixed
+sub-rows settle how many occasions N36 actually pays (see §3.11). **Until it passes, this is
 a well-tested hypothesis and should not be shared with colleagues.**
 
 ## Working on it

@@ -247,19 +247,19 @@ This is where the product lives. It must show a genuinely mixed fortnight.
 │  ┌─────────────────────────────┐    │
 │  │  Your OT adds               │    │
 │  │                             │    │
-│  │    $ 8 0 4 . 4 7            │    │
+│  │    $ 6 9 8 . 3 3            │    │
 │  │    take-home                │    │
 │  │                             │    │
-│  │  from $1,216.47 before tax  │    │
-│  │  66% kept                   │    │
+│  │  from $1,110.33 before tax  │    │
+│  │  63% kept                   │    │
 │  ├─────────────────────────────┤    │
 │  │  Fortnight   no OT   with   │    │
 │  │  Pre-tax    4,908.32  6,018.66  │
 │  │  PAYG tax  −1,208.00 −1,620.00  │
 │  │  Take-home  3,700.32  4,398.66  │
-│  │  Meal allow.       —     106.14 │
+│  │  Meal allow.       —      70.76 │
 │  │  ─────────────────────────  │    │
-│  │  In the hand 3,700.32 4,504.80  │
+│  │  In the hand 3,700.32 4,469.42  │
 │  │                             │    │
 │  │  How this was worked out ▸  │    │
 │  └─────────────────────────────┘    │
@@ -269,13 +269,12 @@ This is where the product lives. It must show a genuinely mixed fortnight.
 │  ┌─────────────────────────────┐    │
 │  │ Sat 15 Aug   09:00–19:00    │    │
 │  │ 10h · all at 2×             │    │
-│  │ · + $70.76 meal allowance   │    │
 │  │ Separate shift      $965.51 │    │
 │  ├─────────────────────────────┤    │
-│  │ Wed 19 Aug   18:00–20:00    │    │
-│  │ 2h · 2h at 1.5×             │    │
-│  │ · + $35.38 meal allowance   │    │
-│  │ Shift overrun       $144.83 │    │
+│  │ Wed 19 Aug   16:30–18:00    │    │
+│  │ 1.5h · all at 1.5×          │    │
+│  │ · + $70.76 meal allowance   │    │
+│  │ Shift overrun       $108.62 │    │
 │  └─────────────────────────────┘    │
 │                                     │
 │  ┌─────────────────────────────┐    │
@@ -509,7 +508,9 @@ Priority order. The first five are enough to start building.
 
 Use the real numbers from `IMPLEMENTATION_PLAN.md` §4.5 throughout — AP1 Step 2, $4,908.32 base, the Saturday 10h and Wednesday 18:00–20:00 shifts. Mockups with plausible real figures surface layout problems that lorem-ipsum numbers hide, and these particular figures are the ones the engine is tested against.
 
-Two corrections to §4.5 that the shipped app carries and a mockup should too: the net delta is **$698.33**, not $698.34 (§3.13 keeps full precision to display; the plan sums two already-rounded lines), and those two shifts earn **three N36 meal allowances at $35.38** — the Saturday's 12:00–14:00 and 18:00–19:00 windows, and the Wednesday overrun's 18:00–19:00. Untaxed, so the headline reads **$804.47 from $1,216.47, 66% kept**, and the fortnight lands at $4,504.80. §3.11 has the rule.
+One correction to §4.5 that the shipped app carries and a mockup should too: the net delta is **$698.33**, not $698.34 (§3.13 keeps full precision to display; the plan sums two already-rounded lines).
+
+To show the `Meal allowance` and `Total in the hand` rows you need a shift that earns one, because **neither §4.5 shift does** — N36 needs overtime past the end of a rostered shift (§3.11). The wireframe above uses a 16:30–18:00 overrun off an AM shift: two occasions, **$70.76 untaxed**, taking the fortnight to $4,469.42. A pickup entered whole as `06:30–18:00` gives the same allowance.
 
 ---
 

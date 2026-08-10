@@ -52,15 +52,27 @@ How to work it:
    §3.13 and gets $1,110.33. If a real payslip sums rounded per-line amounts,
    §3.13 needs an explicit exception for overtime lines — and
    `golden.test.ts` changes with it.
-5. **Settle the meal-allowance reading.** `src/engine/meals.ts` implements
-   N36.2 on its own terms — overtime worked to the end of a meal period, no
-   break, one allowance per window — and deliberately does *not* apply Annex C's
-   1.5h/5h/0.5h durations, on the grounds that those hang off a break being
-   taken and N36.2 is the exception that replaces it. The consequence is
-   testable: a short overrun through a window earns an allowance here and would
-   not under a literal Annex C read. Find a fortnight with a short overrun
-   across 18:00–19:00 and see whether payroll paid one. If it did not, the
-   durations go back in and `meals.test.ts` gains the boundary cases.
+5. **Settle the meal-allowance count.** The *gate* is now settled by Oscar's own
+   experience — a pickup knocked off on time earns nothing, an overrun earns one
+   — and `src/engine/meals.ts` implements that. What is not settled is **how
+   many**. One per N36.3 window the duty covered means any overrun on an AM, D or
+   PM shift earns two ($70.76) and on an N shift one, so a thirty-minute overrun
+   earns $70.76. That is generous, and payroll may instead pay one per
+   occurrence, or require a minimum overrun length.
+
+   The payslips answer it directly: `MEAL ALLOWANCE` carries **date-prefixed
+   sub-rows**, one per occasion, exactly like the OT detail lines (see the
+   interpretation guide's payment-line table). Take one fortnight where the
+   roster and the overrun are known, count the sub-rows, and compare. Two
+   secondary things fall out of the same look: whether payroll pays a *second*
+   occasion for one overrun, and whether the allowance appears in the figure Tax
+   was withheld on — it must not, and if it does the app's whole treatment of it
+   is wrong rather than just its count.
+
+   Also worth confirming while you are there: the app **assumes no meal break was
+   taken during the rostered shift**, because on an overrun the shift is never
+   entered. A fortnight where you know you got your break inside a meal window
+   would show whether payroll pays regardless.
 6. **Anything that diverges gets a fixture, not a patch.** Add the real
    fortnight as a test case first, watch it fail, then fix the engine.
 
@@ -195,10 +207,10 @@ full precision to display per §3.13; the plan's figure sums two already-rounded
 line items. Do not "fix" a preview or a test back to the plan's number — which
 convention is right is a question for A, not a typo.
 
-The fixture has also **gained a figure §4.5 never had**: two N36 meal allowances
-on the Saturday, $70.76 untaxed, taking the fortnight to $4,469.42 and the
-overtime's worth to $769.09 of $1,181.09 (65.1% kept). Any preview or mockup
-showing the populated fortnight now needs the `Meal allowance` and `Total in the
-hand` rows, and the headline reads $804.47 on the pathway test's shift pair
-(which uses an 18:00–20:00 Wednesday rather than the engine test's 09:00–11:00,
-and so earns a third occasion). §3.11 has the rule.
+The N36 meal allowance **does not touch the §4.5 pair** — the Saturday pickup
+finishes before the D shift's rostered end and the Wednesday overrun starts at a
+time no roster shift ends at — so the fixture's figures are exactly as they were.
+A preview or mockup that wants to show the `Meal allowance` and `Total in the
+hand` rows needs a shift that earns one: an AM picked up and entered whole as
+`06:30–18:00` gives two occasions, $70.76 untaxed. §3.11 has the rule, including
+why the first implementation of it was inverted.

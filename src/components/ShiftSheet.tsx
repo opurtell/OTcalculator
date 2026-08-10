@@ -1,5 +1,6 @@
 import { calculateOvertime } from '../engine/attendance'
 import { mealOccasionsFor } from '../engine/meals'
+import type { MealAllowanceSettings } from '../engine/meals'
 import type { HolidayCalendar, PayBand } from '../engine/types'
 import {
   applyRosterShift,
@@ -33,8 +34,8 @@ export interface ShiftSheetProps {
   onClose: () => void
   band: PayBand
   holidays: HolidayCalendar
-  /** Annex C's per-occasion figure, so the preview can price EBA N36. */
-  mealAllowancePerOccasion: number
+  /** The Annex C rate and roster patterns, so the preview can price EBA N36. */
+  meals: MealAllowanceSettings
 }
 
 /**
@@ -63,7 +64,7 @@ export function ShiftSheet({
   onClose,
   band,
   holidays,
-  mealAllowancePerOccasion,
+  meals: mealSettings,
 }: ShiftSheetProps) {
   const editing = draft.id !== null
   const shift = toShift(draft)
@@ -75,9 +76,10 @@ export function ShiftSheet({
   // Priced by the same function the fortnight uses, on this shift alone — the
   // same reason the pay preview calls `calculateOvertime` rather than doing its
   // own arithmetic. A shift that earns a meal allowance should say so here,
-  // where the times are still being chosen.
-  const meals =
-    preview === null ? [] : mealOccasionsFor(preview, mealAllowancePerOccasion)
+  // where the times are still being chosen, and it should name the roster shift
+  // it was worked out from — on an overrun that shift was never entered, so the
+  // assumption is only checkable if it is stated.
+  const meals = preview === null ? [] : mealOccasionsFor(preview, mealSettings)
 
   /** Times drive the C9.5 default until the user overrules it (§3.6). */
   function updateTime(patch: Partial<ShiftDraft>) {
@@ -174,11 +176,12 @@ export function ShiftSheet({
         {meals.length > 0 ? (
           <p className="sl-hint">
             + {formatMoney(meals.reduce((sum, meal) => sum + meal.amount, 0))} meal
-            allowance ·{' '}
+            allowance, not taxed ·{' '}
             {meals.length === 1
-              ? 'one meal period worked through'
-              : `${meals.length} meal periods worked through`}{' '}
-            (EBA N36) · not taxed
+              ? 'one meal period'
+              : `${meals.length} meal periods`}{' '}
+            worked through on the {meals[0].rosterCode} shift
+            {meals[0].shiftInferred ? ' this ran on from' : ''} (EBA N36)
           </p>
         ) : null}
 

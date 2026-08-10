@@ -58,13 +58,27 @@ export function HowItWasWorkedOut({ settings, result }: HowItWasWorkedOutProps) 
             caption="How the meal allowance was worked out"
             rows={mealAllowanceRows(result)}
           />
-          {/* The four windows, spelled out. The table above can say how many
-              occasions were earned; only this line lets someone work out why a
-              shift of their own did or did not earn one. */}
+          {/* The rule spelled out. The table above says how many occasions were
+              earned; these three lines are the only way someone can work out
+              why a shift of their own did or did not earn one — which matters
+              more than usual here, because a shift the app cannot place earns
+              nothing and says nothing about it. */}
           <p className="sl-caption">
-            Meal periods (N36.3): {mealPeriodsSentence()}. Overtime that runs to
-            the end of one of these, or past it, without a break for a meal earns
-            one allowance — and one more for each further meal period.
+            Meal periods (N36.3): {mealPeriodsSentence()}. Working through one of
+            these without a break earns an allowance, provided you also worked
+            overtime past the end of your shift (N36.2) — and one more for each
+            further meal period.
+          </p>
+          <p className="sl-caption">
+            Worked out from the roster shift your overtime attaches to: the shift
+            it ran on from, or the shift you picked up and stayed past the end of.
+            Times that match no roster pattern are left out of this figure rather
+            than guessed at.
+          </p>
+          <p className="sl-caption">
+            Assumes you did not get a meal break during the shift itself, which is
+            the case this allowance exists for. If you did take one inside a meal
+            period, that one is not payable.
           </p>
         </section>
       </div>

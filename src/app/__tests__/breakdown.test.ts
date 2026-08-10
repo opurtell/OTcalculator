@@ -85,20 +85,49 @@ describe('comparisonRows', () => {
     expect(cents(payg.values[1] as number)).toBe(1620.0)
   })
 
-  it('carries take-home both ways, as the sub-total it now is', () => {
+  it('totals take-home both ways', () => {
     const net = by('Take-home')
-    // Not the table's total row any more: a tax-free meal allowance sits below
-    // it, so the rule and the heavier weight belong to the line under that.
-    expect(net.total).toBe(false)
+    // Still the table's total row here, because neither §4.5 shift earns a meal
+    // allowance — see `mealFortnight` below for the shape when one does.
+    expect(net.total).toBe(true)
     expect(net.tone).toBe('net')
     expect(cents(net.values[0] as number)).toBe(3700.32)
     expect(cents(net.values[1] as number)).toBe(4398.66)
   })
 
+  it('leaves out the rows that did not move the figure', () => {
+    expect(rows.some((r) => r.label === 'Pre-tax deductions')).toBe(false)
+    expect(rows.some((r) => r.label === 'Study loan')).toBe(false)
+    // No N36 occasion, so no untaxed line and no second bottom line.
+    expect(rows.some((r) => r.label === 'Meal allowance')).toBe(false)
+    expect(rows.some((r) => r.label === 'Total in the hand')).toBe(false)
+  })
+})
+
+/**
+ * The same band with a shift that does earn the allowance: an AM picked up and
+ * entered as one period that ran to 18:00. Two occasions, $70.76 untaxed.
+ */
+const mealFortnight = calculateFortnight(
+  [
+    {
+      id: 'am-run-on',
+      date: '2026-08-19',
+      startMin: 6 * 60 + 30,
+      endMin: 18 * 60,
+      endsNextDay: false,
+      kind: 'separate',
+    },
+  ],
+  settings,
+)
+
+describe('comparisonRows with a meal allowance', () => {
+  const { rows } = comparisonRows(mealFortnight)
+  const by = (label: string) => rows.find((r) => r.label === label)!
+
   it('puts the tax-free meal allowance below the tax lines, not above them', () => {
-    // Above PAYG it would read as an amount PAYG took a cut of. The Saturday
-    // ran through the 12:00–14:00 and 18:00–19:00 windows; the two-hour
-    // Wednesday overrun reached neither.
+    // Above PAYG it would read as an amount PAYG took a cut of.
     const meal = by('Meal allowance')
     expect(meal.values[0]).toBe('—')
     expect(cents(meal.values[1] as number)).toBe(70.76)
@@ -111,45 +140,70 @@ describe('comparisonRows', () => {
     expect(order.indexOf('Meal allowance')).toBeGreaterThan(order.indexOf('Take-home'))
   })
 
-  it('ends on what actually reaches the account', () => {
+  it('demotes take-home to a sub-total and ends on what reaches the account', () => {
+    expect(by('Take-home').total).toBe(false)
+
     const total = rows[rows.length - 1]
     expect(total.label).toBe('Total in the hand')
     expect(total.total).toBe(true)
     // Untaxed, so the without-OT column is unchanged: no overtime, no N36.
-    expect(cents(total.values[0] as number)).toBe(3700.32)
-    expect(cents(total.values[1] as number)).toBe(4469.42)
-  })
-
-  it('leaves out the rows that did not move the figure', () => {
-    expect(rows.some((r) => r.label === 'Pre-tax deductions')).toBe(false)
-    expect(rows.some((r) => r.label === 'Study loan')).toBe(false)
+    expect(cents(total.values[0] as number)).toBe(
+      cents(mealFortnight.withoutOt.net),
+    )
+    expect(cents(total.values[1] as number)).toBe(cents(mealFortnight.netTotal))
+    expect(
+      cents((total.values[1] as number) - (by('Take-home').values[1] as number)),
+    ).toBe(70.76)
   })
 })
 
 describe('mealDerivationRows', () => {
-  const rows = mealDerivationRows(result.mealAllowance.occasions)
+  const rows = mealDerivationRows(mealFortnight.mealAllowance.occasions)
 
   it('names the window as well as the date, so two on one day are distinct', () => {
     expect(rows.map((r) => r.label)).toEqual([
-      'Sat 15 Aug 12:00–14:00',
-      'Sat 15 Aug 18:00–19:00',
+      'Wed 19 Aug 07:00–09:00',
+      'Wed 19 Aug 12:00–14:00',
     ])
     // `FigureTable` keys its rows on the label, so a collision here would drop
     // a row rather than merely reading badly.
     expect(new Set(rows.map((r) => r.label)).size).toBe(rows.length)
   })
 
-  it('says why each one was earned', () => {
+  it('names the shift the boundary was placed from, and the clause', () => {
     for (const row of rows) {
       expect(row.note).toContain('N36.2')
+      expect(row.note).toContain('AM shift')
       expect(cents(row.values[0] as number)).toBe(35.38)
     }
+    // Entered whole, so it does not claim the shift was inferred.
+    expect(rows[0].note).not.toContain('ran on from')
+  })
+
+  it('says when the shift was inferred rather than entered', () => {
+    // A D-shift overrun: the shift itself was never typed in, so the working has
+    // to name the assumption before anyone can agree with the figure.
+    const overrun = calculateFortnight(
+      [
+        {
+          id: 'd-overrun',
+          date: '2026-08-19',
+          startMin: 21 * 60,
+          endMin: 22 * 60,
+          endsNextDay: false,
+          kind: 'overrun',
+        },
+      ],
+      settings,
+    )
+    const note = mealDerivationRows(overrun.mealAllowance.occasions)[0].note!
+    expect(note).toContain('D shift this ran on from')
   })
 })
 
 describe('mealAllowanceRows', () => {
   it('names the rate, the count and the fact that it is not taxed', () => {
-    const rows = mealAllowanceRows(result)
+    const rows = mealAllowanceRows(mealFortnight)
     expect(cents(rows[0].values[0] as number)).toBe(35.38)
     expect(rows[0].note).toContain('Annex C')
     expect(rows[1].values[0]).toBe('2')
@@ -160,7 +214,9 @@ describe('mealAllowanceRows', () => {
   it('reports zero occasions rather than disappearing', () => {
     // The §5.7 section is how someone checks whether payroll owed them one, and
     // a working that only appears once the app already agrees is no use for it.
-    const rows = mealAllowanceRows(calculateFortnight([], settings))
+    // It matters more under this reading than it would under a looser one: a
+    // shift the app cannot place earns nothing and says nothing on its own row.
+    const rows = mealAllowanceRows(result)
     expect(rows[1].values[0]).toBe('0')
     expect(rows[1].note).toContain('No overtime')
     expect(rows[2].values[0]).toBe(0)

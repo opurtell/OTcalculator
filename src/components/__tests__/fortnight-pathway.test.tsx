@@ -54,6 +54,17 @@ const WEDNESDAY: OtShift = {
   kind: 'overrun',
 }
 
+/** An AM shift picked up and entered as one period that ran to 18:00 — the case
+ * that earns two N36 occasions, which the §4.5 pair does not reach. */
+const AM_RUN_ON: OtShift = {
+  id: 'am-run-on',
+  date: '2026-08-19',
+  startMin: 6 * 60 + 30,
+  endMin: 18 * 60,
+  endsNextDay: false,
+  kind: 'separate',
+}
+
 function renderPathway(shifts: OtShift[], storageNote?: string) {
   const result = calculateFortnight(shifts, settings)
   return renderToStaticMarkup(
@@ -100,22 +111,20 @@ describe('the fortnight list', () => {
     expect(html).not.toContain('4-hour minimum')
   })
 
-  it('names the meal allowance on the row that earned it', () => {
-    // Beside the rate breakdown rather than folded into the row's amount: the
-    // amount is overtime pay and the payslip lists it separately, so adding
-    // $70.76 to $965.51 would make the row disagree with payroll.
-    expect(html).toContain('+ $70.76 meal allowance')
-    expect(html).toContain('+ $35.38 meal allowance')
-    expect(html).toContain('$965.51')
+  it('says nothing about a meal allowance on rows that earned none', () => {
+    // The Saturday pickup finishes before the D shift's rostered end and the
+    // Wednesday overrun starts at a time no roster shift ends at, so neither is
+    // placed. Silent by design — see §3.11.
+    expect(html).not.toContain('meal allowance')
   })
 
-  it('leaves the row alone when no meal period was worked through', () => {
-    // 09:00–11:00 reaches no window, so nothing is appended.
-    const quiet = renderPathway([
-      { ...WEDNESDAY, startMin: 9 * 60, endMin: 11 * 60 },
-    ])
-    expect(quiet).toContain('2h · all at 1.5×')
-    expect(quiet).not.toContain('meal allowance')
+  it('names the meal allowance on the row that earned it', () => {
+    // Beside the rate breakdown rather than folded into the row's amount: the
+    // amount is overtime pay and the payslip lists the allowance on its own
+    // line, so adding $70.76 into $1,062.06 would make the row disagree with
+    // payroll.
+    const withMeal = renderPathway([AM_RUN_ON])
+    expect(withMeal).toContain('+ $70.76 meal allowance')
   })
 
   it('names the C9.5 kind in the collapsed row, because it changes the money', () => {
@@ -154,12 +163,9 @@ describe('the result once shifts are in', () => {
     // prints $1,110.34 by summing two already-rounded lines; §3.13 says full
     // precision until display, which gives the figure asserted here.
     expect(html).toContain('Your OT adds')
-    // $698.33 of taxed overtime plus three tax-free N36 meal allowances at
-    // $35.38 — the Saturday's lunch and dinner windows, and the Wednesday
-    // overrun's dinner window.
-    expect(html).toContain('$804.47')
-    expect(html).toContain('from $1,216.47 before tax')
-    expect(html).toContain('66% kept')
+    expect(html).toContain('$698.33')
+    expect(html).toContain('from $1,110.33 before tax')
+    expect(html).toContain('63% kept')
     // PAYG moves from $1,208 to $1,620 — the reason the delta is not the
     // overtime's marginal rate.
     expect(html).toContain('1,620.00')
@@ -191,7 +197,7 @@ describe('the result once shifts are in', () => {
       html.indexOf('sl-result__headline'),
       html.indexOf('sl-result__divider'),
     )
-    expect(announced).toContain('$804.47')
+    expect(announced).toContain('$698.33')
     expect(announced).not.toContain('Without OT')
   })
 
@@ -213,7 +219,7 @@ describe('the add/edit sheet', () => {
         onClose={() => {}}
         band={settings.band}
         holidays={settings.holidays}
-        mealAllowancePerOccasion={settings.mealAllowancePerOccasion}
+        meals={settings.meals}
       />,
     )
   }
@@ -226,11 +232,22 @@ describe('the add/edit sheet', () => {
   })
 
   it('previews the meal allowance while the times are still being chosen', () => {
-    const html = renderSheet({ date: '2026-08-15', start: '09:00', end: '19:00' })
-    expect(html).toContain('+ $70.76 meal allowance')
-    expect(html).toContain('2 meal periods worked through')
+    // An AM picked up and entered whole, running to 18:00.
+    const html = renderSheet({ date: '2026-08-19', start: '06:30', end: '18:00' })
+    expect(html).toContain('+ $70.76 meal allowance, not taxed')
+    expect(html).toContain('2 meal periods worked through on the AM shift')
     expect(html).toContain('EBA N36')
-    expect(html).toContain('not taxed')
+  })
+
+  it('names the shift an overrun was worked out from, since it was never entered', () => {
+    const html = renderSheet({
+      date: '2026-08-19',
+      start: '21:00',
+      end: '22:00',
+      kind: 'overrun',
+      kindTouched: true,
+    })
+    expect(html).toContain('worked through on the D shift this ran on from')
   })
 
   it('says nothing about a meal allowance the shift did not earn', () => {
