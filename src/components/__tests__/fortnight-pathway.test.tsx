@@ -54,17 +54,19 @@ const WEDNESDAY: OtShift = {
   kind: 'overrun',
 }
 
-function renderPathway(shifts: OtShift[]) {
+function renderPathway(shifts: OtShift[], storageNote?: string) {
   const result = calculateFortnight(shifts, settings)
   return renderToStaticMarkup(
     <FortnightPathway
       attendances={result.attendances}
       shifts={shifts}
       warnings={fortnightWarnings(shifts, result.flags, settings.holidays)}
+      storageNote={storageNote}
       onAdd={() => {}}
       onEdit={() => {}}
       onDuplicate={() => {}}
       onDelete={() => {}}
+      onClearAll={() => {}}
       pendingDelete={null}
       onUndoDelete={() => {}}
       onExpireDelete={() => {}}

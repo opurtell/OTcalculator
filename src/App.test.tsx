@@ -23,6 +23,8 @@ import {
   savePreferences,
 } from './storage/preferences'
 import type { PreferenceStore, Preferences } from './storage/preferences'
+import { SHIFTS_KEY, saveShifts } from './storage/shifts'
+import type { IsoDate, OtShift } from './engine/types'
 
 /** AP1 Step 2 — the §4.5 golden fixture's band. */
 const AP1_STEP_2: Preferences = {
@@ -33,18 +35,24 @@ const AP1_STEP_2: Preferences = {
   lastPathway: 'fortnight',
 }
 
-/** A `localStorage` stand-in. The test env is node, so there is no real one. */
-function fakeStore(): PreferenceStore & { value: string | null } {
+/**
+ * A `localStorage` stand-in. The test env is node, so there is no real one.
+ *
+ * Keyed, because the app keeps two records: the settings and this pay
+ * fortnight's shifts. A fake that ignored the key would hand each read the
+ * other's JSON and both would look defensively "unreadable".
+ */
+function fakeStore(): PreferenceStore & { entries: Map<string, string> } {
   return {
-    value: null,
-    getItem() {
-      return this.value
+    entries: new Map<string, string>(),
+    getItem(key: string) {
+      return this.entries.get(key) ?? null
     },
-    setItem(_key: string, value: string) {
-      this.value = value
+    setItem(key: string, value: string) {
+      this.entries.set(key, value)
     },
-    removeItem() {
-      this.value = null
+    removeItem(key: string) {
+      this.entries.delete(key)
     },
   }
 }
@@ -153,9 +161,9 @@ describe('App', () => {
     // the user can be looking at a band they never set. Silently swapping a
     // pay band is the one outcome the read must never produce quietly.
     const store = storeWith(AP1_STEP_2)
-    const record = JSON.parse(store.value ?? '{}')
+    const record = JSON.parse(store.getItem(PREFERENCES_KEY) ?? '{}')
     delete record.deductions
-    store.value = JSON.stringify(record)
+    store.setItem(PREFERENCES_KEY, JSON.stringify(record))
 
     const html = renderToStaticMarkup(<App store={store} />)
     expect(html).toContain('set back to the defaults')
@@ -182,9 +190,81 @@ describe('App', () => {
     const htmlBefore = renderToStaticMarkup(<App store={store} />)
     expect(htmlBefore).toContain('4,908.32')
 
-    store.value = JSON.stringify({ schemaVersion: 2 })
     store.setItem(PREFERENCES_KEY, '{not json')
     const htmlAfter = renderToStaticMarkup(<App store={store} />)
     expect(htmlAfter).toContain('Set your pay band')
+  })
+})
+
+describe('this fortnight’s shifts', () => {
+  /** Monday 10 August 2026 — inside the fortnight Thu 30 Jul – Wed 12 Aug. */
+  const TODAY: IsoDate = '2026-08-10'
+  const THIS_PERIOD: IsoDate = '2026-08-12'
+  const LAST_PERIOD: IsoDate = '2026-07-29'
+
+  /** Saturday 8 August 2026, 09:00–19:00, picked up. Priced at 2× throughout. */
+  const SATURDAY: OtShift = {
+    id: 'shift-1',
+    date: '2026-08-08',
+    startMin: 9 * 60,
+    endMin: 19 * 60,
+    endsNextDay: false,
+    kind: 'separate',
+  }
+
+  function storeWithShifts(payPeriodEnd: IsoDate) {
+    const store = storeWith(AP1_STEP_2)
+    saveShifts(payPeriodEnd, [SATURDAY], store)
+    return store
+  }
+
+  it('brings this fortnight’s shifts back on the next visit', () => {
+    const html = renderToStaticMarkup(
+      <App store={storeWithShifts(THIS_PERIOD)} today={TODAY} />,
+    )
+
+    // The row, and the figure it is worth: 10h at 2× on AP1 Step 2.
+    expect(html).toContain('Sat 8 Aug')
+    expect(html).toContain('09:00–19:00')
+    expect(html).toContain('all at 2× (Saturday)')
+    // And it says why they are still there, rather than just producing them.
+    expect(html).toContain('Saved on this device for the pay fortnight')
+    expect(html).toContain('Thu 30 Jul – Wed 12 Aug')
+  })
+
+  it('does not carry last fortnight’s shifts into this one', () => {
+    // The stale-data trap: last fortnight's pickups inflating this fortnight's
+    // total is a wrong answer that looks exactly like a right one.
+    const store = storeWithShifts(LAST_PERIOD)
+    const html = renderToStaticMarkup(<App store={store} today={TODAY} />)
+
+    expect(html).not.toContain('Sat 8 Aug')
+    expect(html).toContain('No shifts added yet')
+    // An empty list the user did not empty is owed an explanation.
+    expect(html).toContain('were cleared when this one started')
+    expect(html).toContain('Thu 30 Jul')
+    // And the expired record is off the device, not waiting for a read that
+    // will never accept it.
+    expect(store.getItem(SHIFTS_KEY)).toBeNull()
+  })
+
+  it('offers to clear the list only when there is something in it', () => {
+    const withShifts = renderToStaticMarkup(
+      <App store={storeWithShifts(THIS_PERIOD)} today={TODAY} />,
+    )
+    expect(withShifts).toContain('Clear shifts')
+
+    const empty = renderToStaticMarkup(
+      <App store={storeWith(AP1_STEP_2)} today={TODAY} />,
+    )
+    expect(empty).not.toContain('Clear shifts')
+  })
+
+  it('promises nothing about saving when the browser has no storage', () => {
+    // `store={null}` is a browser that refuses `localStorage`. The setup
+    // screen already says settings will not be kept; claiming the shifts are
+    // saved on the same device would be the app contradicting itself.
+    const html = renderToStaticMarkup(<App store={null} today={TODAY} />)
+    expect(html).not.toContain('Saved on this device')
   })
 })

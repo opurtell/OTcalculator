@@ -7,10 +7,9 @@
  *    missing key, a `localStorage` that throws on access in private browsing —
  *    every one of them yields defaults. A calculator that white-screens on a
  *    stale key is worse than one that forgets your settings.
- * 2. **Shifts are not stored.** They are transient by nature and persisting
- *    them creates a stale-data trap: last fortnight's overtime silently
- *    inflating this fortnight's answer. A "keep this fortnight" opt-in is a
- *    reasonable v1.1 addition; the default is not.
+ * 2. **Shifts are not stored here.** They expire with the pay fortnight and
+ *    have their own key and their own clear control — see `shifts.ts`, which
+ *    also explains why the two records are kept apart rather than merged.
  * 3. **Storage validates shape, not meaning.** A pay band that no longer
  *    exists in Annex A is a question for `payBandFor`, which already returns
  *    `undefined` for exactly this case. Importing `data/` here would put the

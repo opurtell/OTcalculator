@@ -12,6 +12,7 @@
  */
 
 export * from './pay-rates'
+export * from './pay-periods'
 export * from './public-holidays'
 export * from './packaging'
 export * from './roster-shifts'

@@ -22,8 +22,9 @@ attendance grouping, the C9.5 four-hour minimum) and then the money (PAYG,
 HELP, pre-tax deductions, and what the overtime added to take-home).
 `src/data/` holds the Annex A pay tables, ACT public holidays, NAT 1004
 coefficients, HELP thresholds and FBT caps. `src/storage/` remembers the
-settings across reloads. `src/components/` is the app: both pathways, the shift
-list, the results and the working behind them. 413 tests.
+settings across reloads, and this pay fortnight's shifts until the fortnight
+ends. `src/components/` is the app: both pathways, the shift list, the results
+and the working behind them. 472 tests.
 
 Phase 9 added the polish layer — keyboard operation, touch targets, an
 installable offline build, a print stylesheet, a shareable text summary, an
@@ -68,7 +69,7 @@ offline behaviour has to be checked through `npm run preview`.
 | --- | --- |
 | `src/engine/` | Pure calculation. No DOM, no React, no imports from `data/`, `components/` or `storage/` — that boundary is what makes the money math testable, and `__tests__/boundary.test.ts` enforces it |
 | `src/data/` | Every rate, table and threshold, each with a provenance comment. The engine takes these as parameters and holds no figures of its own |
-| `src/storage/` | Versioned `localStorage`. Reads never throw and never trust what they find; shift entries are deliberately not persisted |
+| `src/storage/` | Versioned `localStorage`. Reads never throw and never trust what they find. Two keys: settings, which are indefinite, and this pay fortnight's shifts, which are discarded when the fortnight rolls over |
 | `src/ui/` | Station Ledger, the 22-component design system |
 | `src/app/` | The pure app-layer logic between engine and screen: shift drafts, warnings, figure rows, the shareable summary |
 | `src/components/` | The screens themselves |

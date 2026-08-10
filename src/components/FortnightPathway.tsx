@@ -18,11 +18,20 @@ export interface FortnightPathwayProps {
   /** The entered shifts, for resolving an attendance back to what to edit. */
   shifts: readonly OtShift[]
   warnings: readonly Warning[]
+  /**
+   * What the app is doing with these shifts between visits, if anything worth
+   * saying. Plain copy, not a warning — it goes outside the live region, since
+   * it is the same sentence on every render and does not respond to what was
+   * just typed.
+   */
+  storageNote?: string
   onAdd: () => void
   onEdit: (shiftId: string) => void
   onDuplicate: (shiftId: string) => void
   /** Removes every shift in the attendance — a row is one attendance. */
   onDelete: (shiftIds: readonly string[]) => void
+  /** Empties the list in one tap. Undoable, like any other deletion. */
+  onClearAll: () => void
   /**
    * Set while a deletion can still be taken back.
    *
@@ -53,10 +62,12 @@ export function FortnightPathway({
   attendances,
   shifts,
   warnings,
+  storageNote,
   onAdd,
   onEdit,
   onDuplicate,
   onDelete,
+  onClearAll,
   pendingDelete,
   onUndoDelete,
   onExpireDelete,
@@ -93,9 +104,26 @@ export function FortnightPathway({
         />
       ) : null}
 
-      <Button block variant="secondary" onClick={onAdd}>
-        + Add OT shift
-      </Button>
+      {/* Add is the action; Clear only exists once there is something to
+          clear, and sits beside Add rather than under the list so that it is
+          never the thing a thumb finds on the way to a row's menu. */}
+      <div className="sl-shift-actions">
+        <Button block variant="secondary" onClick={onAdd}>
+          + Add OT shift
+        </Button>
+        {hasShifts ? (
+          <Button variant="ghost" onClick={onClearAll}>
+            Clear shifts
+          </Button>
+        ) : null}
+      </div>
+
+      {/* Its own class on top of the caption styling, so print can drop it:
+          what the device is holding between visits is chrome, and a printed
+          page set beside a payslip has no use for it. */}
+      {storageNote !== undefined ? (
+        <p className="sl-caption sl-shift-storage">{storageNote}</p>
+      ) : null}
 
       {/* Always rendered, and never hidden: a live region has to be in the DOM
           — and displayed — before its content arrives, or the first warning

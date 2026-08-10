@@ -73,6 +73,15 @@ than one found by the first colleague who opens it.
 Note that `npm run dev` has no service worker by design, so anything about
 offline behaviour has to go through `npm run preview`.
 
+One item to add to that list, from the shift-caching change: **enter a shift,
+reload, and confirm it comes back** — then add a second one and confirm the
+first is still there, which is the check that would catch a regression in
+`reserveShiftIds`. The expiry itself is awkward to drive by hand (it needs a
+Thursday) but can be forced by editing `payPeriodEnd` in the
+`actas-ot-calculator/shifts` key in DevTools: the list should come back empty
+with a line saying last fortnight's shifts were cleared, and the key should be
+gone.
+
 ---
 
 ## C. The design system

@@ -325,7 +325,10 @@ No timezone conversion happens anywhere, which is correct because every time in 
 
 ### 4.4 Persistence
 
-`localStorage` under a single versioned key:
+`localStorage` under two versioned keys — the settings, which are indefinite,
+and this pay fortnight's shifts, which expire.
+
+Settings, under `actas-ot-calculator/preferences`:
 
 ```ts
 {
@@ -338,11 +341,25 @@ No timezone conversion happens anywhere, which is correct because every time in 
 }
 ```
 
+Shifts, under `actas-ot-calculator/shifts`:
+
+```ts
+{
+  schemaVersion: 1,
+  payPeriodEnd: '2026-08-12',
+  shifts: [
+    { id: 'shift-1', date: '2026-08-08', startMin: 540, endMin: 1140, kind: 'separate' }
+  ]
+}
+```
+
 Rules:
 - Read is defensive — any parse failure, unknown version or schema mismatch falls back to defaults rather than throwing. A calculator that white-screens because of a stale key is worse than one that forgets your settings.
-- Write on change, debounced.
-- **Shift entries are not persisted by default.** They're transient by nature and persisting them creates a stale-data trap. A "keep this fortnight" opt-in is a reasonable v1.1 addition.
-- A visible "Clear saved settings" control in Settings.
+- Settings are written on change, debounced. Shifts are written straight through: they change on a save, a delete or an undo, never on a keystroke.
+- **Shift entries are kept for the pay fortnight they belong to, and no longer.** The stale-data trap is specifically last fortnight's pickups inflating this fortnight's total, so the record carries its pay period and is discarded — and removed from the device — the moment the period no longer matches. Pay fortnights run Thursday to Wednesday; the anchor is in `src/data/pay-periods.ts` and the arithmetic in `src/app/pay-period.ts`.
+- `endsNextDay` is derived on read rather than stored. It is a function of the two times, so a stored disagreement is corruption, not a second opinion.
+- A visible "Clear saved settings" control in Settings, and a one-tap "Clear shifts" beside the shift list. Clearing the settings clears the shifts too — the copy says so.
+- The app says what it is holding: a restored list names the fortnight it is being kept for, and a list that expired between visits says that is what happened rather than presenting itself as a fresh start.
 
 Cross-device transfer via a URL hash payload is a possible v1.1 addition — deliberately deferred because it's the one feature that could put salary data into a browser history or a pasted link.
 

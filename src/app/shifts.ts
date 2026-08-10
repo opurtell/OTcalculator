@@ -38,11 +38,36 @@ export interface ShiftDraft {
   kindTouched: boolean
 }
 
-/** Ids are per-session: shifts are never persisted, so they never outlive it. */
+/**
+ * Ids are handed out in sequence within a session, and the counter starts at
+ * zero on every load — so a restored fortnight has to be declared before any
+ * new shift is added. See `reserveShiftIds`.
+ */
 let nextId = 0
 export function newShiftId(): string {
   nextId += 1
   return `shift-${nextId}`
+}
+
+/**
+ * Move the id counter past a set of restored shifts.
+ *
+ * Without this, a fortnight read back from storage holds `shift-1` and the
+ * next shift the user adds is also `shift-1` — and `upsertShift` matches on
+ * id, so adding a shift would silently overwrite the first one already in the
+ * list. Ids only have to be unique within the session, so stepping the counter
+ * past the highest one restored is the whole fix.
+ *
+ * Ids the app did not mint are ignored rather than rejected: an id is an
+ * opaque handle, and a record whose ids came from somewhere else still works
+ * as long as nothing new collides with them.
+ */
+export function reserveShiftIds(shifts: readonly OtShift[]): void {
+  for (const shift of shifts) {
+    const match = /^shift-(\d+)$/.exec(shift.id)
+    if (match === null) continue
+    nextId = Math.max(nextId, Number(match[1]))
+  }
 }
 
 export function emptyDraft(): ShiftDraft {
