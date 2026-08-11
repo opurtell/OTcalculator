@@ -54,8 +54,8 @@ const WEDNESDAY: OtShift = {
   kind: 'overrun',
 }
 
-/** An AM shift picked up and entered as one period that ran to 18:00 — the case
- * that earns two N36 occasions, which the §4.5 pair does not reach. */
+/** An AM shift picked up and entered as one period that ran to 18:00 — a 10-hour
+ * shift taken to 11.5, which earns the one N36 occasion the §4.5 pair does not. */
 const AM_RUN_ON: OtShift = {
   id: 'am-run-on',
   date: '2026-08-19',
@@ -121,10 +121,10 @@ describe('the fortnight list', () => {
   it('names the meal allowance on the row that earned it', () => {
     // Beside the rate breakdown rather than folded into the row's amount: the
     // amount is overtime pay and the payslip lists the allowance on its own
-    // line, so adding $70.76 into $1,062.06 would make the row disagree with
+    // line, so adding $35.38 into $1,062.06 would make the row disagree with
     // payroll.
     const withMeal = renderPathway([AM_RUN_ON])
-    expect(withMeal).toContain('+ $70.76 meal allowance')
+    expect(withMeal).toContain('+ $35.38 meal allowance')
   })
 
   it('names the C9.5 kind in the collapsed row, because it changes the money', () => {
@@ -234,25 +234,36 @@ describe('the add/edit sheet', () => {
   it('previews the meal allowance while the times are still being chosen', () => {
     // An AM picked up and entered whole, running to 18:00.
     const html = renderSheet({ date: '2026-08-19', start: '06:30', end: '18:00' })
-    expect(html).toContain('+ $70.76 meal allowance, not taxed')
-    expect(html).toContain('2 meal periods worked through on the AM shift')
+    expect(html).toContain('+ $35.38 meal allowance, not taxed')
+    expect(html).toContain('1h 30m past the 10h AM shift')
     expect(html).toContain('EBA N36')
   })
 
   it('names the shift an overrun was worked out from, since it was never entered', () => {
     const html = renderSheet({
       date: '2026-08-19',
-      start: '21:00',
-      end: '22:00',
+      start: '16:30',
+      end: '18:00',
       kind: 'overrun',
       kindTouched: true,
     })
-    expect(html).toContain('worked through on the D shift this ran on from')
+    expect(html).toContain('past the 10h AM shift this ran on from')
   })
 
   it('says nothing about a meal allowance the shift did not earn', () => {
     const html = renderSheet({ date: '2026-08-19', start: '09:00', end: '11:00' })
     expect(html).toContain('2h · all at 1.5×')
+    expect(html).not.toContain('meal allowance')
+  })
+
+  it('says nothing on a 12-hour shift that ran over — outside the rule', () => {
+    const html = renderSheet({
+      date: '2026-08-19',
+      start: '21:00',
+      end: '23:00',
+      kind: 'overrun',
+      kindTouched: true,
+    })
     expect(html).not.toContain('meal allowance')
   })
 

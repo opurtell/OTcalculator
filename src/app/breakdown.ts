@@ -23,14 +23,17 @@
 import type { Attendance } from '../engine/attendance'
 import { ordinaryFortnightlyGross, ROSTER_ADJUSTMENT_RATE } from '../engine/tax'
 import { otHourlyRate } from '../engine/overtime'
-import { MEAL_PERIODS } from '../engine/meals'
+import {
+  MEAL_ALLOWANCE_OVERRUN_MINUTES,
+  MEAL_ALLOWANCE_SHIFT_MINUTES,
+} from '../engine/meals'
 import type { MealOccasion } from '../engine/meals'
 import type { FortnightResult, FortnightSettings } from '../engine/fortnight'
 import { RATES_EFFECTIVE_FROM } from '../data'
 import { describeAttendance } from './shifts'
 import { formatIsoDateAu } from './inputs'
-import { clockTime, formatShortDate } from './dates'
-import { formatMoney } from '../ui/format'
+import { formatShortDate } from './dates'
+import { formatHours, formatMoney } from '../ui/format'
 import type { FigureRow } from '../ui/FigureTable'
 
 /**
@@ -244,21 +247,22 @@ export function overtimeDerivationRows(
 export function mealDerivationRows(
   occasions: readonly MealOccasion[],
 ): FigureRow[] {
-  return occasions.map((occasion) => ({
-    label: `${formatShortDate(occasion.date)} ${mealPeriodLabel(occasion)}`,
-    // Which shift placed the boundary is part of the working, not decoration:
-    // on an overrun the shift was never entered, so a user checking this figure
+  return occasions.map((occasion) => {
+    const rostered = formatHours(occasion.rosteredMinutes / 60)
+    const over = formatHours(occasion.overrunMinutes / 60)
+    // Which shift placed the boundary is part of the working, not decoration: on
+    // an overrun the shift was never entered, so a user checking this figure
     // needs to see which pattern the app assumed before they can agree with it.
-    note: occasion.shiftInferred
-      ? `Worked through on the ${occasion.rosterCode} shift this ran on from, no break (N36.2)`
-      : `Worked through on this ${occasion.rosterCode} shift, no break (N36.2)`,
-    values: [occasion.amount],
-  }))
-}
+    const shift = occasion.shiftInferred
+      ? `${occasion.rosterCode} shift it ran on from`
+      : `${occasion.rosterCode} shift`
 
-/** `12:00–14:00` — an N36.3 window as it reads on a clock. */
-function mealPeriodLabel(period: { startMin: number; endMin: number }): string {
-  return `${clockTime(period.startMin)}–${clockTime(period.endMin)}`
+    return {
+      label: `${formatShortDate(occasion.date)} ${occasion.rosterCode} shift`,
+      note: `${over} past the ${rostered} ${shift} — a second meal break is owed`,
+      values: [occasion.amount],
+    }
+  })
 }
 
 /**
@@ -285,8 +289,8 @@ export function mealAllowanceRows(result: FortnightResult): FigureRow[] {
       label: 'Occasions',
       note:
         count === 0
-          ? 'No overtime ran past the end of a rostered shift through a meal period'
-          : 'Meal periods worked through, with overtime past the end of the shift (N36.2)',
+          ? 'No 10-hour shift ran an hour or more over'
+          : 'One per 10-hour shift that ran an hour or more over',
       values: [String(count)],
     },
     {
@@ -298,9 +302,17 @@ export function mealAllowanceRows(result: FortnightResult): FigureRow[] {
   ]
 }
 
-/** The four N36.3 windows, for the line under the meal allowance table. */
-export function mealPeriodsSentence(): string {
-  return MEAL_PERIODS.map(mealPeriodLabel).join(' · ')
+/**
+ * The rule under the meal allowance table, with its own figures in it.
+ *
+ * Built here rather than written into the component so the thresholds cannot
+ * drift apart from the engine's constants: if the ten hours or the hour ever
+ * change, this sentence changes with them.
+ */
+export function mealRuleSentence(): string {
+  const shift = formatHours(MEAL_ALLOWANCE_SHIFT_MINUTES / 60)
+  const over = formatHours(MEAL_ALLOWANCE_OVERRUN_MINUTES / 60)
+  return `A ${shift} shift that runs ${over} or more over earns one allowance (EBA N36). Worked to time it earns nothing, whether or not you got a break.`
 }
 
 /**

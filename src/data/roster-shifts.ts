@@ -6,13 +6,19 @@
  * and this is where tables of figures live.
  *
  * **The money now depends on them.** They started as a quick-fill for the shift
- * sheet and nothing else, but EBA N36.2 turns on "the end of ordinary duty for
- * the day", and on an overrun the only thing that can place that boundary is the
- * pattern the overtime ran on from. `src/app/settings.ts` passes this table to
- * the engine as `meals.rosterShifts`; the engine still holds none of it. Two
- * consequences: a mistyped time here silently removes someone's meal allowance
- * (`dutyFor` returns `null` rather than guessing), and the four **end** times
- * have to stay distinct from each other or an overrun cannot be attributed.
+ * sheet and nothing else, but the N36 meal allowance turns on a 10-hour shift
+ * running an hour over, and on an overrun the only thing that can place that
+ * shift is the pattern the overtime ran on from. `src/app/settings.ts` passes
+ * this table to the engine as `meals.rosterShifts`; the engine still holds none
+ * of it. Three consequences:
+ *
+ * - a mistyped time here silently removes someone's meal allowance (`dutyFor`
+ *   returns `null` rather than guessing);
+ * - the four **end** times have to stay distinct from each other, or an overrun
+ *   cannot be attributed;
+ * - the **durations** decide eligibility, not just the times. AM and N are the
+ *   two 10-hour patterns and the only ones inside the rule; changing D or PM to
+ *   ten hours would start paying allowances that payroll does not.
  *
  * The four durations sum to 44 hours, which is where the roster gets its name
  * and is the one checkable property of the transcription. `roster-shifts.test.ts`

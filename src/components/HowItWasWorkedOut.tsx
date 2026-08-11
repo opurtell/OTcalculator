@@ -2,7 +2,7 @@ import type { FortnightResult, FortnightSettings } from '../engine/fortnight'
 import { Disclosure, FigureTable } from '../ui/index'
 import {
   mealAllowanceRows,
-  mealPeriodsSentence,
+  mealRuleSentence,
   ordinaryPayRows,
   overtimeRateRows,
   paygRows,
@@ -58,27 +58,22 @@ export function HowItWasWorkedOut({ settings, result }: HowItWasWorkedOutProps) 
             caption="How the meal allowance was worked out"
             rows={mealAllowanceRows(result)}
           />
-          {/* The rule spelled out. The table above says how many occasions were
-              earned; these three lines are the only way someone can work out
-              why a shift of their own did or did not earn one — which matters
-              more than usual here, because a shift the app cannot place earns
-              nothing and says nothing about it. */}
+          {/* The rule spelled out. The table above says whether one was earned;
+              these lines are the only way someone can work out why a shift of
+              their own did or did not earn it — which matters more than usual
+              here, because a shift the app cannot place earns nothing and says
+              nothing about it on its own row. */}
+          <p className="sl-caption">{mealRuleSentence()}</p>
           <p className="sl-caption">
-            Meal periods (N36.3): {mealPeriodsSentence()}. Working through one of
-            these without a break earns an allowance, provided you also worked
-            overtime past the end of your shift (N36.2) — and one more for each
-            further meal period.
+            The break you were due during the shift counts as given. Past eleven
+            hours a second one is owed, and that is the one you will not get — so
+            the allowance stands in for the meal you have to buy.
           </p>
           <p className="sl-caption">
             Worked out from the roster shift your overtime attaches to: the shift
             it ran on from, or the shift you picked up and stayed past the end of.
             Times that match no roster pattern are left out of this figure rather
-            than guessed at.
-          </p>
-          <p className="sl-caption">
-            Assumes you did not get a meal break during the shift itself, which is
-            the case this allowance exists for. If you did take one inside a meal
-            period, that one is not payable.
+            than guessed at, and 12-hour shifts are outside the rule.
           </p>
         </section>
       </div>

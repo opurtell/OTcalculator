@@ -257,9 +257,9 @@ This is where the product lives. It must show a genuinely mixed fortnight.
 │  │  Pre-tax    4,908.32  6,018.66  │
 │  │  PAYG tax  −1,208.00 −1,620.00  │
 │  │  Take-home  3,700.32  4,398.66  │
-│  │  Meal allow.       —      70.76 │
+│  │  Meal allow.       —      35.38 │
 │  │  ─────────────────────────  │    │
-│  │  In the hand 3,700.32 4,469.42  │
+│  │  In the hand 3,700.32 4,434.04  │
 │  │                             │    │
 │  │  How this was worked out ▸  │    │
 │  └─────────────────────────────┘    │
@@ -273,7 +273,7 @@ This is where the product lives. It must show a genuinely mixed fortnight.
 │  ├─────────────────────────────┤    │
 │  │ Wed 19 Aug   16:30–18:00    │    │
 │  │ 1.5h · all at 1.5×          │    │
-│  │ · + $70.76 meal allowance   │    │
+│  │ · + $35.38 meal allowance   │    │
 │  │ Shift overrun       $108.62 │    │
 │  └─────────────────────────────┘    │
 │                                     │
@@ -451,7 +451,7 @@ Approved phrasing. Consistency here matters more than elegance.
 | Privacy | "Nothing you enter leaves this device." | "Secure", "Encrypted", "Private" |
 | Rate currency | "Rates effective 04/12/2025" | Nothing at all |
 | Meal allowance | "Meal allowance · Tax free · EBA N36" | "Overtime meal", "OT meal", the bare Annex C code |
-| Meal periods | "12:00–14:00 worked through" | "Meal window missed", "No break taken" |
+| Meal allowance, earned | "1h 30m past the 10h AM shift" | "Meal window missed", "No break taken" |
 | The two bottom lines | "Take-home" then "Total in the hand" | Two rows both called take-home; the allowance above the tax lines |
 
 ### The disclaimer
@@ -510,7 +510,7 @@ Use the real numbers from `IMPLEMENTATION_PLAN.md` §4.5 throughout — AP1 Step
 
 One correction to §4.5 that the shipped app carries and a mockup should too: the net delta is **$698.33**, not $698.34 (§3.13 keeps full precision to display; the plan sums two already-rounded lines).
 
-To show the `Meal allowance` and `Total in the hand` rows you need a shift that earns one, because **neither §4.5 shift does** — N36 needs overtime past the end of a rostered shift (§3.11). The wireframe above uses a 16:30–18:00 overrun off an AM shift: two occasions, **$70.76 untaxed**, taking the fortnight to $4,469.42. A pickup entered whole as `06:30–18:00` gives the same allowance.
+To show the `Meal allowance` and `Total in the hand` rows you need a shift that earns one, because **neither §4.5 shift does** — the allowance needs a 10-hour shift running an hour or more over (§3.11). The wireframe above uses a 16:30–18:00 overrun off an AM shift: one allowance, **$35.38 untaxed**, taking the fortnight to $4,434.04. A pickup entered whole as `06:30–18:00` gives the same.
 
 ---
 

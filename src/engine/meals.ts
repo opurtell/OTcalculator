@@ -5,101 +5,93 @@
  * the fortnight has two bottom lines: the take-home the tax schedules produce,
  * and what actually lands once the allowance is added on top. See `fortnight.ts`.
  *
- * ## The rule
+ * ## The rule, as ACTAS applies it
  *
- * N36.1 sends the rate to Annex C "with the following exception", and N36.2 is
- * the exception — written for a cohort that cannot reliably stop for a meal:
+ * **A 10-hour shift that runs an hour or more over earns one allowance. Nothing
+ * else earns anything.**
  *
- * > An employee who works overtime is entitled to payment of overtime meal
- * > allowance where the overtime is worked **after the end of ordinary duty for
- * > the day**, to the completion of or beyond a meal period, and any subsequent
- * > meal period, without a break for a meal.
+ * That is it. Not the meal periods, not whether a break was taken, not how many
+ * windows the duty crossed. The reasoning behind it — Oscar's, from practice — is
+ * that the system takes the break you were entitled to during the shift as
+ * having been given: N35.3 entitles you to 30 minutes within five hours of
+ * continuous duty, and N35.7 gives a 10-hour shift exactly one Window of
+ * Opportunity to take it in. Once the shift passes eleven hours you are owed a
+ * *second* break, and that is the one you will not be given — so the allowance
+ * stands in for the meal you have to buy instead.
  *
- * Two phrases carry the whole clause, and both are easy to read past:
+ * So:
  *
- * 1. **"after the end of ordinary duty for the day"** is a gate, not scenery.
- *    The overtime has to sit past the end of a shift. A bare pickup — a shift
- *    worked and knocked off on time — is not overtime *after* ordinary duty, so
- *    N36.2 cannot reach it, and Annex C cannot either (see the note below on
- *    "unpaid meal break"). It earns nothing.
- * 2. **"to the completion of or beyond a meal period"** describes the *duty*,
- *    not the overtime alone. You worked through a meal period without getting a
- *    break, and then you did not get to go home on time either — so you had to
- *    buy food. Attaching it to the overtime alone makes the clause fire only on
- *    two-to-four-hour overruns, which is not the case it was written for.
+ * - **A 10-hour shift worked to time earns nothing**, break or no break.
+ * - **An hour or more past it earns exactly one allowance**, however far past.
+ * - A picked-up shift is treated exactly the same way: an AM picked up and
+ *   entered as `06:30–17:30` earns one, and `06:30–16:30` earns nothing. The two
+ *   10-hour patterns are the ones that start at 06:30 and 21:00.
  *
- * So the test, per attendance:
+ * `dutyFor` places the boundary — the end of the rostered shift — from the
+ * roster patterns, and there is no calculation at all without one:
  *
- * - Place the **rostered end** — the N36.2 boundary. `dutyFor` infers it from
- *   the roster patterns; without one there is no calculation at all.
- * - Require worked time **past** that boundary.
- * - Then, for each N36.3 window in `MEAL_PERIODS` that the whole duty touched:
- *   the duty must have been worked inside it, must have still been running when
- *   the window closed, and must have had no unpaid break fall in it.
+ * - **`overrun`** → the pattern whose **end** time is the overtime's start. The
+ *   shift itself is never entered, so its length comes from the pattern.
+ * - **`separate`** → the pattern whose **start** time is the attendance's start:
+ *   a picked-up shift entered as one period, treated as a normal shift.
+ * - **Neither → nothing, silently.** Oscar's call. Guessing a boundary from times
+ *   that match no pattern would invent the one fact the rule turns on.
  *
- * One allowance per window that passes — "and any subsequent meal period" is
- * what makes it per occasion rather than per attendance.
+ * ## This is practice, not literal clause text
  *
- * ## Why Annex C's durations never enter into it
- *
- * Annex C's own three circumstances each require 1.5 hours of overtime (5 on a
- * Saturday, Sunday or public holiday) **prior to an unpaid meal break being
- * taken**, then half an hour after it. The phrase "unpaid meal break" occurs
- * exactly three times in the whole agreement and all three are inside that one
- * Annex C table. Section N never characterises the N35 break as unpaid, and O12
- * is titled "Paid Meal Breaks" for the Patient Transport cohort — so for
- * 44-hour roster road staff, whose break sits inside a paid shift, Annex C's
- * conditions cannot be satisfied at all. That is the most likely reason N36
- * exists as an exception: it substitutes "you worked through the meal period
- * without a break" for "you took an unpaid break". Reading the durations back in
- * would leave the exception with nothing to except.
- *
- * ## What this module assumes, and cannot know
- *
- * **It assumes no meal break was taken during the rostered shift.** On an
- * overrun the shift itself is never entered — only the overtime is — so there is
- * no break information for it, and the case N36 exists for is precisely the one
- * where the break was missed. A crew who did get their break inside a meal
- * period is over-counted here. Breaks the app *can* see (an unpaid gap between
- * two entered shifts in one attendance, C9.7) do suppress the window they fall
- * in. The §5.7 working says both of these on screen.
- *
- * Two readings were tried before this one; the history is in
- * `IMPLEMENTATION_PLAN.md` §3.11, and Phase 10 confirms this one against the
- * date-prefixed `MEAL ALLOWANCE` sub-rows on a real payslip.
+ * Read literally, N36.2 says something else — "the overtime is worked after the
+ * end of ordinary duty for the day, to the completion of or beyond a meal period,
+ * and any subsequent meal period, without a break for a meal" — and N36.3 defines
+ * four meal periods, kept below as `MEAL_PERIODS`. Two readings of that text were
+ * implemented and both were wrong about the money; the history is in
+ * `IMPLEMENTATION_PLAN.md` §3.11. What is here is what payroll actually does, on
+ * the same footing as the midnight ratchet in `overtime.ts`: operational
+ * convention, confirmed by Oscar, that the agreement's own words do not spell
+ * out. Do not "correct" it back towards the clause text without a payslip.
  *
  * The rate and the roster patterns are both parameters, like every other figure
  * the engine uses. They live in `src/data/allowances.ts` and
  * `src/data/roster-shifts.ts`.
  */
 
-import { absoluteMinutes, addDays } from './calendar'
+import { absoluteMinutes } from './calendar'
 import type { Attendance } from './attendance'
 import type { IsoDate, Minutes } from './types'
 import { MINUTES_PER_DAY } from './types'
 
-/** One of N36.3's four windows, as minutes since midnight on a single day. */
+/**
+ * The rostered shift length the allowance attaches to — ten hours.
+ *
+ * Operational, not from the agreement. It is the shift that N35.7 gives a single
+ * Window of Opportunity: AM 0930–1130 and N 0000–0200. The two 12-hour patterns
+ * get two windows each, so a second break is not owed at the same point and they
+ * are outside this rule — see the §3.11 note on what Phase 10 still owes here.
+ */
+export const MEAL_ALLOWANCE_SHIFT_MINUTES = 600
+
+/** How far past the rostered end the duty has to run. An hour or more. */
+export const MEAL_ALLOWANCE_OVERRUN_MINUTES = 60
+
+/**
+ * One of N36.3's four meal periods, as minutes since midnight.
+ *
+ * **Nothing reads these.** They are the clause's own definition and are kept for
+ * the same reason `PACKAGING_CAPS` is kept in `src/data/`: transcribed source
+ * worth having on hand, with the money deliberately not depending on it. Two
+ * earlier implementations *did* turn on these windows and both disagreed with
+ * payroll — see the module header — so a future change that starts reading them
+ * again is re-treading known ground and needs a payslip behind it.
+ *
+ * They are also **not** N35.7's Windows of Opportunity (AM 0930–1130; D
+ * 1200–1400 & 1700–1900; PM 1400–1600 & 1900–2200; N 0000–0200), which are when
+ * a break is *scheduled* — and which are what the rule above actually rests on.
+ */
 export interface MealPeriod {
   startMin: Minutes
   /** Exclusive. `01:00` for the midnight window, not `00:59`. */
   endMin: Minutes
 }
 
-/**
- * The four meal periods of EBA N36.3 — midnight to 1:00 am, 7:00 to 9:00 am,
- * 12 noon to 2:00 pm, and 6:00 to 7:00 pm.
- *
- * Structural, not reference data: these are the clause's own text rather than a
- * table that gets reissued with a percentage on it, which is why they sit in the
- * engine beside the rule that walks them while the dollar figure does not.
- *
- * **Not the same as N35.7's Windows of Opportunity**, which are when a break is
- * *scheduled* (AM 0930–1130; D 1200–1400 & 1700–1900; PM 1400–1600 & 1900–2200;
- * N 0000–0200). Two different time sets doing two different jobs, and conflating
- * them is the easiest mistake available here.
- *
- * In clock order, which is the order occasions come out in.
- */
 export const MEAL_PERIODS: readonly MealPeriod[] = [
   { startMin: 0, endMin: 60 },
   { startMin: 7 * 60, endMin: 9 * 60 },
@@ -108,7 +100,7 @@ export const MEAL_PERIODS: readonly MealPeriod[] = [
 ]
 
 /**
- * A rostered shift pattern, as the N36.2 boundary is inferred from.
+ * A rostered shift pattern, as the boundary is placed from.
  *
  * Structurally what `RosterShift` in `src/data/roster-shifts.ts` already is, but
  * declared here with `code: string` so the engine never learns the four literal
@@ -125,29 +117,32 @@ export interface MealAllowanceSettings {
   /** The Annex C figure for the pay date. */
   ratePerOccasion: number
   /**
-   * The roster patterns to place the N36.2 boundary from. An empty list means no
+   * The roster patterns to place the shift's end from. An empty list means no
    * allowance can be worked out for anything — which is the honest answer for
    * someone whose roster this app does not know.
    */
   rosterShifts: readonly RosterPattern[]
 }
 
-/** One earned allowance: which attendance, and which window it worked through. */
+/** The one allowance an attendance earned, and why. */
 export interface MealOccasion {
   /** The attendance that earned it — the same ids the shift row acts on. */
   shiftIds: string[]
-  /** The calendar day the meal period fell on. */
+  /** Where the overtime was worked. */
   date: IsoDate
-  startMin: Minutes
-  endMin: Minutes
-  /** The roster pattern the N36.2 boundary was placed from — `'AM'`, `'N'`. */
+  /** The roster pattern the shift's end was placed from — `'AM'`, `'N'`. */
   rosterCode: string
   /** True when the shift was inferred rather than entered. See `dutyFor`. */
   shiftInferred: boolean
+  /** The rostered shift's own length. Always 600 while the rule is 10 hours. */
+  rosteredMinutes: number
+  /** Overtime worked past the rostered end. At least 60, or nothing is owed. */
+  overrunMinutes: number
   amount: number
 }
 
 export interface MealAllowanceResult {
+  /** At most one per attendance — the allowance is not paid twice for a shift. */
   occasions: MealOccasion[]
   /** Tax free. Never part of `taxableGross` — see `fortnight.ts`. */
   total: number
@@ -171,10 +166,9 @@ export function rosterDuration(pattern: RosterPattern): number {
 /**
  * The minutes actually worked in an attendance, as merged absolute spans.
  *
- * Read off the segments rather than the shifts, because the segments are what
- * the categoriser produced and they exclude the unpaid gaps by construction. A
- * segment never crosses midnight, so consecutive ones are re-joined here — the
- * date boundary is a labelling break, not a break for a meal.
+ * Read off the segments rather than the shifts, because the segments are what the
+ * categoriser produced and they exclude the unpaid gaps by construction. A
+ * segment never crosses midnight, so consecutive ones are re-joined here.
  */
 function workedSpans(attendance: Attendance): Span[] {
   const spans = attendance.segments
@@ -184,12 +178,8 @@ function workedSpans(attendance: Attendance): Span[] {
     })
     .sort((a, b) => a.start - b.start)
 
-  return mergeSpans(spans)
-}
-
-function mergeSpans(spans: readonly Span[]): Span[] {
   const merged: Span[] = []
-  for (const span of [...spans].sort((a, b) => a.start - b.start)) {
+  for (const span of spans) {
     const last = merged[merged.length - 1]
     if (last !== undefined && span.start <= last.end) {
       last.end = Math.max(last.end, span.end)
@@ -201,38 +191,31 @@ function mergeSpans(spans: readonly Span[]): Span[] {
 }
 
 /**
- * The unpaid gaps between the worked spans — the breaks C9.7 says do not break
- * continuity of duty, which is precisely why they are inside the attendance and
- * available to be checked here.
+ * Minutes **worked** past a boundary.
+ *
+ * Worked, not elapsed: an unpaid gap inside the attendance is not time on the
+ * road, so it does not count towards the hour. Same principle as the C9.5 top-up
+ * below — the rule is about how long you were actually kept there.
  */
-function breakSpans(worked: readonly Span[]): Span[] {
-  const gaps: Span[] = []
-  for (let i = 1; i < worked.length; i += 1) {
-    gaps.push({ start: worked[i - 1].end, end: worked[i].start })
-  }
-  return gaps
-}
-
-function overlaps(a: Span, b: Span): boolean {
-  return a.start < b.end && b.start < a.end
+function workedAfter(spans: readonly Span[], boundary: number): number {
+  return spans.reduce(
+    (total, span) => total + Math.max(0, span.end - Math.max(span.start, boundary)),
+    0,
+  )
 }
 
 /**
- * The whole duty an attendance belongs to, with the N36.2 boundary placed.
- *
- * `null` means the boundary cannot be placed, and therefore no allowance is
- * worked out for this attendance at all — deliberately in silence, on Oscar's
- * call. Guessing a boundary from times that match no roster pattern would be
- * inventing the one fact the clause turns on.
+ * The rostered shift an attendance attaches to, or `null` when it cannot be
+ * placed — in which case no allowance is worked out at all, deliberately in
+ * silence.
  */
 export interface Duty {
-  /** Worked spans across the shift *and* the overtime, merged. */
-  worked: Span[]
-  /** Absolute minute the rostered shift ended — the N36.2 boundary. */
-  rosteredEnd: number
   rosterCode: string
-  /** True when the rostered shift was inferred rather than entered. */
   shiftInferred: boolean
+  /** The rostered shift's own length, from the pattern. */
+  rosteredMinutes: number
+  /** Overtime worked past the rostered end. */
+  overrunMinutes: number
 }
 
 export function dutyFor(
@@ -242,46 +225,43 @@ export function dutyFor(
   const worked = workedSpans(attendance)
   if (worked.length === 0) return null
 
-  const entered = { start: worked[0].start, end: worked[worked.length - 1].end }
-
   if (attendance.kind === 'overrun') {
-    // The overtime ran on from a rostered shift, so it *begins* where that shift
-    // ended. Only the overtime was entered, so the shift is reconstructed
-    // backwards from the boundary — which is what puts the shift's own meal
-    // periods inside the duty, and is the whole reason a one-hour overrun
-    // qualifies at all.
+    // The overtime ran on from a rostered shift, so it begins where that shift
+    // ended. The shift itself was never entered — only the overtime — so its
+    // length comes from the pattern and every worked minute here is past it.
     const pattern = rosterShifts.find((p) => p.endMin === attendance.startMin)
     if (pattern === undefined) return null
 
-    const shift: Span = {
-      start: entered.start - rosterDuration(pattern),
-      end: entered.start,
-    }
     return {
-      worked: mergeSpans([shift, ...worked]),
-      rosteredEnd: entered.start,
       rosterCode: pattern.code,
       shiftInferred: true,
+      rosteredMinutes: rosterDuration(pattern),
+      overrunMinutes: workedAfter(worked, worked[0].start),
     }
   }
 
-  // A standalone attendance that *is* a rostered shift, entered as one period
-  // and running past its end — a picked-up shift that went long. Everything in
-  // it is overtime, but N36.2 still needs an "end of ordinary duty for the day"
-  // to sit after, and the shift's own end is the only candidate. An AM pickup
-  // entered as 06:30–18:00 qualifies; the same pickup ending on time at 16:30
-  // does not, which is the plain pickup case that earns nothing.
+  // A standalone attendance that *is* a rostered shift, entered as one period —
+  // a picked-up shift, treated exactly as a normal one. `06:30–17:30` is an AM
+  // an hour over; `06:30–16:30` is an AM worked to time and earns nothing.
   const pattern = rosterShifts.find((p) => p.startMin === attendance.startMin)
   if (pattern === undefined) return null
 
-  const rosteredEnd = entered.start + rosterDuration(pattern)
-  if (entered.end <= rosteredEnd) return null
-
-  return { worked, rosteredEnd, rosterCode: pattern.code, shiftInferred: false }
+  const rosteredMinutes = rosterDuration(pattern)
+  return {
+    rosterCode: pattern.code,
+    shiftInferred: false,
+    rosteredMinutes,
+    overrunMinutes: workedAfter(worked, worked[0].start + rosteredMinutes),
+  }
 }
 
 /**
- * The meal allowance occasions one attendance earned.
+ * The allowance one attendance earned — at most one.
+ *
+ * Returns an array rather than a nullable occasion so the aggregate and the
+ * display rows do not have to care that the count is currently capped at one.
+ * Whether payroll ever pays a second is a Phase 10 question, and keeping the
+ * shape means answering it does not ripple outwards.
  *
  * Exported so the shift sheet can price a single shift in its live preview
  * through the same code that prices the fortnight — the same reason the preview
@@ -294,61 +274,32 @@ export function mealOccasionsFor(
   const duty = dutyFor(attendance, settings.rosterShifts)
   if (duty === null) return []
 
-  const { worked } = duty
-  const breaks = breakSpans(worked)
-  const dutyStart = worked[0].start
-  const dutyEnd = worked[worked.length - 1].end
+  // Ten-hour shifts only. A 12-hour pattern gets two Windows of Opportunity
+  // under N35.7, so a second break is not owed at the same point.
+  if (duty.rosteredMinutes !== MEAL_ALLOWANCE_SHIFT_MINUTES) return []
 
-  // Days are counted off the attendance's own start date, because the duty can
-  // begin on an earlier one: a night-shift overrun starts at 07:00 on the day
-  // after the shift it ran on from.
-  const reference = absoluteMinutes(attendance.startDate, 0)
-  const firstDay = Math.floor((dutyStart - reference) / MINUTES_PER_DAY)
-  const lastDay = Math.floor((dutyEnd - 1 - reference) / MINUTES_PER_DAY)
+  // An hour or more over. Note this is measured on minutes *worked*, so the
+  // C9.5 four-hour minimum cannot buy the hour: a 30-minute call-in pays four
+  // hours and still only kept you there for thirty minutes.
+  if (duty.overrunMinutes < MEAL_ALLOWANCE_OVERRUN_MINUTES) return []
 
-  const occasions: MealOccasion[] = []
-
-  for (let day = firstDay; day <= lastDay; day += 1) {
-    const dayStart = reference + day * MINUTES_PER_DAY
-
-    for (const period of MEAL_PERIODS) {
-      const mealWindow: Span = {
-        start: dayStart + period.startMin,
-        end: dayStart + period.endMin,
-      }
-
-      // Worked inside the window at all. A window the duty never reached, or had
-      // already finished before, is not a meal that was missed.
-      if (!worked.some((span) => overlaps(span, mealWindow))) continue
-
-      // "to the completion of or beyond a meal period" — still on duty when the
-      // window closed. Knocking off at 13:00 leaves an hour of lunch to eat in.
-      if (dutyEnd < mealWindow.end) continue
-
-      // "without a break for a meal" — an unpaid gap in the window is the break
-      // the clause is looking for, so the window pays nothing. Only gaps the app
-      // can see; see the module header on what it cannot.
-      if (breaks.some((gap) => overlaps(gap, mealWindow))) continue
-
-      occasions.push({
-        shiftIds: [...attendance.shiftIds],
-        date: addDays(attendance.startDate, day),
-        startMin: period.startMin,
-        endMin: period.endMin,
-        rosterCode: duty.rosterCode,
-        shiftInferred: duty.shiftInferred,
-        amount: settings.ratePerOccasion,
-      })
-    }
-  }
-
-  return occasions
+  return [
+    {
+      shiftIds: [...attendance.shiftIds],
+      date: attendance.startDate,
+      rosterCode: duty.rosterCode,
+      shiftInferred: duty.shiftInferred,
+      rosteredMinutes: duty.rosteredMinutes,
+      overrunMinutes: duty.overrunMinutes,
+      amount: settings.ratePerOccasion,
+    },
+  ]
 }
 
 /**
- * The fortnight's meal allowance — every occasion across every attendance.
+ * The fortnight's meal allowance.
  *
- * A rate of zero is a legitimate argument and produces zero-dollar occasions
+ * A rate of zero is a legitimate argument and produces a zero-dollar occasion
  * rather than none, so a caller that has not wired the rate yet shows an
  * obviously wrong figure instead of a silently absent one.
  */

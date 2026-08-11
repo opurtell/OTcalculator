@@ -44,8 +44,8 @@ const WEDNESDAY: OtShift = {
   kind: 'overrun',
 }
 
-/** An AM shift picked up and entered as one period that ran to 18:00 — two N36
- * occasions, which the §4.5 pair does not reach. */
+/** An AM shift picked up and entered as one period that ran to 18:00 — a 10-hour
+ * shift taken to 11.5, which earns the one N36 occasion the §4.5 pair does not. */
 const AM_RUN_ON: OtShift = {
   id: 'am-run-on',
   date: '2026-08-19',
@@ -88,18 +88,17 @@ describe('summaryText', () => {
     expect(summary).not.toContain('Total in the hand')
   })
 
-  it('carries the meal allowance with its clause and its windows when there is one', () => {
-    // What leaves the device is read beside a payslip. "$70.76" on its own would
-    // be the screenshot problem again, so each occasion names the window it was
-    // earned in and the section names the clause.
+  it('carries the meal allowance with its clause and its shift when there is one', () => {
+    // What leaves the device is read beside a payslip. "$35.38" on its own would
+    // be the screenshot problem again, so the line names the shift, how far over
+    // it ran, and the clause.
     const withMeal = summaryText({
       result: calculateFortnight([AM_RUN_ON], settings),
       bandSummary: 'AP1 Step 2',
     })
 
     expect(withMeal).toContain('Meal allowance (tax free, EBA N36)')
-    expect(withMeal).toContain('Wed 19 Aug 07:00–09:00 worked through')
-    expect(withMeal).toContain('Wed 19 Aug 12:00–14:00 worked through')
+    expect(withMeal).toContain('Wed 19 Aug AM shift · 1h 30m over')
     expect(withMeal).toContain('$35.38')
 
     // Below the tax lines, for the same reason it sits there on screen.

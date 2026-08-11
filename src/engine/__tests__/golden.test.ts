@@ -185,27 +185,26 @@ describe('a fortnight that does earn the meal allowance', () => {
     meals: MEAL_SETTINGS,
   })
 
-  it('earns two occasions at $35.38 — breakfast and lunch', () => {
-    // 06:30–18:00 covers 07:00–09:00 and 12:00–14:00 and was still running when
-    // each closed. 18:00–19:00 is not earned: the duty ends as it opens.
+  it('earns one occasion at $35.38', () => {
+    // A 10-hour AM shift taken to 11.5 hours: an hour and a half over, so a
+    // second meal break is owed. One allowance, however far over it ran.
     const { occasions, total } = result.mealAllowance
-    expect(occasions.map((o) => [o.startMin, o.endMin])).toEqual([
-      [420, 540],
-      [720, 840],
-    ])
-    expect(occasions.map((o) => o.rosterCode)).toEqual(['AM', 'AM'])
+    expect(occasions).toHaveLength(1)
+    expect(occasions[0].rosterCode).toBe('AM')
+    expect(occasions[0].rosteredMinutes).toBe(600)
+    expect(occasions[0].overrunMinutes).toBe(90)
     // Entered whole, so nothing about the shift was inferred.
-    expect(occasions.every((o) => o.shiftInferred)).toBe(false)
-    expect(cents(total)).toBe(70.76)
+    expect(occasions[0].shiftInferred).toBe(false)
+    expect(cents(total)).toBe(35.38)
   })
 
   it('withholds nothing on it — the tax figures ignore the allowance', () => {
     // The one property that must hold whatever the occasion count turns out to
     // be: PAYG is computed on gross alone, so the allowance arrives whole.
     expect(cents(result.withOt.taxableGross)).toBe(cents(result.withOt.gross))
-    expect(cents(result.netTotal - result.withOt.net)).toBe(70.76)
-    expect(cents(result.otNetTotal - result.otNetDelta)).toBe(70.76)
-    expect(cents(result.otEarnedTotal - result.otGrossDelta)).toBe(70.76)
+    expect(cents(result.netTotal - result.withOt.net)).toBe(35.38)
+    expect(cents(result.otNetTotal - result.otNetDelta)).toBe(35.38)
+    expect(cents(result.otEarnedTotal - result.otGrossDelta)).toBe(35.38)
   })
 
   it('keeps more of the overtime than the taxed pay alone would', () => {
@@ -217,7 +216,7 @@ describe('a fortnight that does earn the meal allowance', () => {
 
   it('earns nothing from the same shift worked to its rostered end', () => {
     // The control: 06:30–16:30 is the same pickup without the run-on, and it is
-    // the case Oscar said should pay no allowance.
+    // the case Oscar said should pay no allowance — break or no break.
     const onTime = calculateFortnight([shift('2026-08-19', '06:30', '16:30', 'separate')], {
       band: AP1_STEP_2,
       taxScale: taxScaleFor('2025-26', 2).scale,

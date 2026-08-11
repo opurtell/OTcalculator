@@ -23,6 +23,7 @@ import {
   SegmentedControl,
   Sheet,
   TextField,
+  formatHours,
   formatMoney,
 } from '../ui/index'
 import type { ShiftKind } from '../ui/index'
@@ -175,12 +176,9 @@ export function ShiftSheet({
 
         {meals.length > 0 ? (
           <p className="sl-hint">
-            + {formatMoney(meals.reduce((sum, meal) => sum + meal.amount, 0))} meal
-            allowance, not taxed ·{' '}
-            {meals.length === 1
-              ? 'one meal period'
-              : `${meals.length} meal periods`}{' '}
-            worked through on the {meals[0].rosterCode} shift
+            + {formatMoney(meals[0].amount)} meal allowance, not taxed ·{' '}
+            {formatHours(meals[0].overrunMinutes / 60)} past the{' '}
+            {formatHours(meals[0].rosteredMinutes / 60)} {meals[0].rosterCode} shift
             {meals[0].shiftInferred ? ' this ran on from' : ''} (EBA N36)
           </p>
         ) : null}

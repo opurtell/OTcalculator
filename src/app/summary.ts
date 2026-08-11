@@ -1,7 +1,7 @@
 import type { Attendance } from '../engine/attendance'
 import type { FortnightResult } from '../engine/fortnight'
-import { formatKept, formatMoney } from '../ui/index'
-import { clockTime, formatShortDate, formatTimeRange } from './dates'
+import { formatHours, formatKept, formatMoney } from '../ui/index'
+import { formatShortDate, formatTimeRange } from './dates'
 import { describeAttendance } from './shifts'
 
 /** The copy deck's disclaimer, as one line. See `ui/Disclaimer.tsx`. */
@@ -47,10 +47,10 @@ export function summaryText({ result, bandSummary, captions = [] }: SummaryInput
       'Fortnight            Without OT      With OT',
       ...comparisonLines(result),
     )
-    // The meal periods are named rather than just the total, because this text
-    // is read away from the app — often beside a payslip — and "$35.38" with no
-    // clause and no window behind it is exactly the unexplained figure §5.7
-    // exists to prevent.
+    // The shift and the overrun are named rather than just the total, because
+    // this text is read away from the app — often beside a payslip — and "$35.38"
+    // with no clause and no shift behind it is exactly the unexplained figure
+    // §5.7 exists to prevent.
     if (result.mealAllowance.total > 0) {
       lines.push('', 'Meal allowance (tax free, EBA N36)', ...mealLines(result))
     }
@@ -78,13 +78,13 @@ export function summaryText({ result, bandSummary, captions = [] }: SummaryInput
     .trim()
 }
 
-/** `Sat 15 Aug 12:00–14:00 worked through   $35.38`, one per occasion. */
+/** `Wed 19 Aug AM shift · 1.5h over        $35.38`, one per occasion. */
 function mealLines(result: FortnightResult): string[] {
   return result.mealAllowance.occasions.map((occasion) =>
     [
-      `${formatShortDate(occasion.date)} ${clockTime(
-        occasion.startMin,
-      )}–${clockTime(occasion.endMin)} worked through`.padEnd(38),
+      `${formatShortDate(occasion.date)} ${occasion.rosterCode} shift · ${formatHours(
+        occasion.overrunMinutes / 60,
+      )} over`.padEnd(38),
       formatMoney(occasion.amount).padStart(9),
     ].join(''),
   )

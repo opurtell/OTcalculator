@@ -18,7 +18,7 @@ import {
   comparisonRows,
   mealAllowanceRows,
   mealDerivationRows,
-  mealPeriodsSentence,
+  mealRuleSentence,
   ordinaryPayRows,
   overtimeDerivationRows,
   overtimeRateRows,
@@ -106,7 +106,8 @@ describe('comparisonRows', () => {
 
 /**
  * The same band with a shift that does earn the allowance: an AM picked up and
- * entered as one period that ran to 18:00. Two occasions, $70.76 untaxed.
+ * entered as one period that ran to 18:00 — a 10-hour shift taken to 11.5. One
+ * occasion, $35.38 untaxed.
  */
 const mealFortnight = calculateFortnight(
   [
@@ -130,10 +131,10 @@ describe('comparisonRows with a meal allowance', () => {
     // Above PAYG it would read as an amount PAYG took a cut of.
     const meal = by('Meal allowance')
     expect(meal.values[0]).toBe('—')
-    expect(cents(meal.values[1] as number)).toBe(70.76)
+    expect(cents(meal.values[1] as number)).toBe(35.38)
     expect(meal.note).toContain('Tax free')
     expect(meal.note).toContain('EBA N36')
-    expect(meal.derivation).toHaveLength(2)
+    expect(meal.derivation).toHaveLength(1)
 
     const order = rows.map((r) => r.label)
     expect(order.indexOf('Meal allowance')).toBeGreaterThan(order.indexOf('PAYG tax'))
@@ -153,43 +154,38 @@ describe('comparisonRows with a meal allowance', () => {
     expect(cents(total.values[1] as number)).toBe(cents(mealFortnight.netTotal))
     expect(
       cents((total.values[1] as number) - (by('Take-home').values[1] as number)),
-    ).toBe(70.76)
+    ).toBe(35.38)
   })
 })
 
 describe('mealDerivationRows', () => {
   const rows = mealDerivationRows(mealFortnight.mealAllowance.occasions)
 
-  it('names the window as well as the date, so two on one day are distinct', () => {
-    expect(rows.map((r) => r.label)).toEqual([
-      'Wed 19 Aug 07:00–09:00',
-      'Wed 19 Aug 12:00–14:00',
-    ])
-    // `FigureTable` keys its rows on the label, so a collision here would drop
-    // a row rather than merely reading badly.
+  it('names the date and the shift it was earned on', () => {
+    expect(rows.map((r) => r.label)).toEqual(['Wed 19 Aug AM shift'])
+    // `FigureTable` keys its rows on the label, so a collision here would drop a
+    // row rather than merely reading badly.
     expect(new Set(rows.map((r) => r.label)).size).toBe(rows.length)
   })
 
-  it('names the shift the boundary was placed from, and the clause', () => {
-    for (const row of rows) {
-      expect(row.note).toContain('N36.2')
-      expect(row.note).toContain('AM shift')
-      expect(cents(row.values[0] as number)).toBe(35.38)
-    }
+  it('shows the arithmetic behind it — how far over, on what shift', () => {
+    expect(rows[0].note).toContain('1h 30m past the 10h AM shift')
+    expect(rows[0].note).toContain('second meal break is owed')
+    expect(cents(rows[0].values[0] as number)).toBe(35.38)
     // Entered whole, so it does not claim the shift was inferred.
     expect(rows[0].note).not.toContain('ran on from')
   })
 
   it('says when the shift was inferred rather than entered', () => {
-    // A D-shift overrun: the shift itself was never typed in, so the working has
-    // to name the assumption before anyone can agree with the figure.
+    // An AM overrun: the shift itself was never typed in, so the working has to
+    // name the assumption before anyone can agree with the figure.
     const overrun = calculateFortnight(
       [
         {
-          id: 'd-overrun',
+          id: 'am-overrun',
           date: '2026-08-19',
-          startMin: 21 * 60,
-          endMin: 22 * 60,
+          startMin: 16 * 60 + 30,
+          endMin: 18 * 60,
           endsNextDay: false,
           kind: 'overrun',
         },
@@ -197,7 +193,7 @@ describe('mealDerivationRows', () => {
       settings,
     )
     const note = mealDerivationRows(overrun.mealAllowance.occasions)[0].note!
-    expect(note).toContain('D shift this ran on from')
+    expect(note).toContain('AM shift it ran on from')
   })
 })
 
@@ -206,8 +202,9 @@ describe('mealAllowanceRows', () => {
     const rows = mealAllowanceRows(mealFortnight)
     expect(cents(rows[0].values[0] as number)).toBe(35.38)
     expect(rows[0].note).toContain('Annex C')
-    expect(rows[1].values[0]).toBe('2')
-    expect(cents(rows[2].values[0] as number)).toBe(70.76)
+    expect(rows[1].values[0]).toBe('1')
+    expect(rows[1].note).toContain('10-hour shift')
+    expect(cents(rows[2].values[0] as number)).toBe(35.38)
     expect(rows[2].note).toContain('after tax')
   })
 
@@ -218,15 +215,17 @@ describe('mealAllowanceRows', () => {
     // shift the app cannot place earns nothing and says nothing on its own row.
     const rows = mealAllowanceRows(result)
     expect(rows[1].values[0]).toBe('0')
-    expect(rows[1].note).toContain('No overtime')
+    expect(rows[1].note).toContain('No 10-hour shift')
     expect(rows[2].values[0]).toBe(0)
   })
 })
 
-describe('mealPeriodsSentence', () => {
-  it('lists all four N36.3 windows in clock order', () => {
-    expect(mealPeriodsSentence()).toBe(
-      '00:00–01:00 · 07:00–09:00 · 12:00–14:00 · 18:00–19:00',
+describe('mealRuleSentence', () => {
+  it("states the rule using the engine's own thresholds", () => {
+    // Built from the constants rather than written out, so the sentence cannot
+    // drift away from what the engine actually does.
+    expect(mealRuleSentence()).toBe(
+      'A 10h shift that runs 1h or more over earns one allowance (EBA N36). Worked to time it earns nothing, whether or not you got a break.',
     )
   })
 })
