@@ -4,7 +4,13 @@ import { NO_DEDUCTIONS, computeDeductions, packagingFlags } from '../packaging'
 import { helpRepayment, ordinaryFortnightlyGross, paygWithholding } from '../tax'
 import { helpScheduleFor } from '../../data/help-thresholds'
 import { taxScaleFor } from '../../data/tax-scales'
-import { AP1_STEP_2, HOLIDAYS_2026, cents, shift } from './fixtures'
+import {
+  AP1_STEP_2,
+  HOLIDAYS_2026,
+  MEAL_SETTINGS,
+  cents,
+  shift,
+} from './fixtures'
 
 const SCALE_2 = taxScaleFor('2025-26', 2).scale
 const SCALE_1 = taxScaleFor('2025-26', 1).scale
@@ -16,6 +22,7 @@ const baseSettings = {
   helpSchedule: null,
   deductions: NO_DEDUCTIONS,
   holidays: HOLIDAYS_2026,
+  meals: MEAL_SETTINGS,
 }
 
 describe('paygWithholding', () => {
@@ -191,7 +198,7 @@ describe('calculateFortnight', () => {
   })
 
   it('keeps the fixed deduction constant but recomputes the percentage one', () => {
-    // §3.11: the two sides have to be internally consistent, and a percentage
+    // §3.12: the two sides have to be internally consistent, and a percentage
     // deduction genuinely would have been smaller without the overtime.
     const result = calculateFortnight([shift('2026-08-15', '09:00', '19:00')], {
       ...baseSettings,

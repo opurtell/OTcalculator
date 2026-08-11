@@ -4,7 +4,7 @@
  * Kept out of the component so the row-shaping is unit-testable without
  * rendering, the same way `warnings.ts` and `shifts.ts` keep their logic. Every
  * figure passes through unchanged from the engine — full precision held until
- * `FigureTable`/`formatMoney` round it for display (§3.12).
+ * `FigureTable`/`formatMoney` round it for display (§3.13).
  *
  * Three surfaces are built here:
  *
@@ -16,20 +16,32 @@
  *   unexplained figure" (§7): if the Overtime line says $1,110.33, the two
  *   shifts that made it are one tap away.
  * - **"How this was worked out"** (`ordinaryPayRows`, `overtimeRateRows`,
- *   `paygRows`) — the §5.7 trust-building derivation: concept first, clause
- *   reference second.
+ *   `paygRows`, `mealAllowanceRows`) — the §5.7 trust-building derivation:
+ *   concept first, clause reference second.
  */
 
 import type { Attendance } from '../engine/attendance'
 import { ordinaryFortnightlyGross, ROSTER_ADJUSTMENT_RATE } from '../engine/tax'
 import { otHourlyRate } from '../engine/overtime'
+import {
+  MEAL_ALLOWANCE_OVERRUN_MINUTES,
+  MEAL_ALLOWANCE_SHIFT_MINUTES,
+} from '../engine/meals'
+import type { MealOccasion } from '../engine/meals'
 import type { FortnightResult, FortnightSettings } from '../engine/fortnight'
 import { RATES_EFFECTIVE_FROM } from '../data'
 import { describeAttendance } from './shifts'
 import { formatIsoDateAu } from './inputs'
 import { formatShortDate } from './dates'
-import { formatMoney } from '../ui/format'
+import { formatHours, formatMoney } from '../ui/format'
 import type { FigureRow } from '../ui/FigureTable'
+
+/**
+ * How a meal allowance line names its clause. N36 rather than Annex C, because
+ * N36 is the clause that decides *whether* it is owed — Annex C only sets the
+ * figure — and the copy deck's rule is concept first, clause second.
+ */
+const MEAL_CLAUSE = 'EBA N36'
 
 /**
  * "Not applicable" in the without-OT column. A bare `0.00` would read as a
@@ -101,14 +113,48 @@ export function comparisonRows(result: FortnightResult): FigureTableData {
     })
   }
 
+  const meals = result.mealAllowance
+
   rows.push({
     label: 'Take-home',
     values: [withoutOt.net, withOt.net],
     tone: 'net',
-    total: true,
+    // The rule and the heavier weight belong to whichever line is the last
+    // one. With a meal allowance below it, take-home is a sub-total.
+    total: meals.total === 0,
   })
 
+  if (meals.total > 0) {
+    rows.push(mealAllowanceRow([NOT_APPLICABLE, meals.total], meals.occasions))
+    rows.push({
+      label: 'Total in the hand',
+      values: [withoutOt.net, result.netTotal],
+      tone: 'net',
+      total: true,
+    })
+  }
+
   return { columns: [...COMPARISON_COLUMNS], rows }
+}
+
+/**
+ * The meal allowance line, wherever it appears.
+ *
+ * It sits **below** the tax lines in every table, and that placement is the
+ * disclosure: an untaxed amount printed above PAYG reads as though PAYG was
+ * withheld on it. The note says so out loud as well, because the position is an
+ * argument only if you already know it is one.
+ */
+function mealAllowanceRow(
+  values: (number | string)[],
+  occasions: readonly MealOccasion[],
+): FigureRow {
+  return {
+    label: 'Meal allowance',
+    note: `Tax free · ${MEAL_CLAUSE}`,
+    values,
+    derivation: mealDerivationRows(occasions),
+  }
 }
 
 /**
@@ -150,12 +196,27 @@ export function breakdownRows(result: FortnightResult): FigureRow[] {
     })
   }
 
+  const meals = result.mealAllowance
+
   rows.push({
     label: 'Take-home',
     values: [withOt.net],
     tone: 'net',
-    total: true,
+    total: meals.total === 0,
   })
+
+  // No overtime means no N36 occasion, so this branch is unreachable today. It
+  // is here because the alternative is a table that would silently drop a
+  // figure if that ever stopped being true.
+  if (meals.total > 0) {
+    rows.push(mealAllowanceRow([meals.total], meals.occasions))
+    rows.push({
+      label: 'Total in the hand',
+      values: [result.netTotal],
+      tone: 'net',
+      total: true,
+    })
+  }
 
   return rows
 }
@@ -173,6 +234,85 @@ export function overtimeDerivationRows(
     note: describeAttendance(attendance).breakdown,
     values: [attendance.pay],
   }))
+}
+
+/**
+ * One row per earned allowance, beneath the Meal allowance line.
+ *
+ * The label carries the meal period as well as the date, because a long pickup
+ * earns one for each window it worked through and two rows dated the same day
+ * would otherwise be indistinguishable — and `FigureTable` keys its rows on the
+ * label, so they would also collide.
+ */
+export function mealDerivationRows(
+  occasions: readonly MealOccasion[],
+): FigureRow[] {
+  return occasions.map((occasion) => {
+    const rostered = formatHours(occasion.rosteredMinutes / 60)
+    const over = formatHours(occasion.overrunMinutes / 60)
+    // Which shift placed the boundary is part of the working, not decoration: on
+    // an overrun the shift was never entered, so a user checking this figure
+    // needs to see which pattern the app assumed before they can agree with it.
+    const shift = occasion.shiftInferred
+      ? `${occasion.rosterCode} shift it ran on from`
+      : `${occasion.rosterCode} shift`
+
+    return {
+      label: `${formatShortDate(occasion.date)} ${occasion.rosterCode} shift`,
+      note: `${over} past the ${rostered} ${shift} — a second meal break is owed`,
+      values: [occasion.amount],
+    }
+  })
+}
+
+/**
+ * §5.7 "Meal allowance" — the N36 rule, the Annex C rate, and this fortnight's
+ * count.
+ *
+ * Shown whether or not any were earned, unlike the comparison's row. A
+ * paramedic checking a payslip against this app needs to be able to see the
+ * four windows and decide for themselves whether payroll got it right, and a
+ * section that only appears once the app already agrees with them is no use for
+ * that. Zero occasions is a finding, not an empty state.
+ */
+export function mealAllowanceRows(result: FortnightResult): FigureRow[] {
+  const meals = result.mealAllowance
+  const count = meals.occasions.length
+
+  return [
+    {
+      label: 'Per occasion',
+      note: `${MEAL_CLAUSE} · Annex C · not taxed`,
+      values: [meals.ratePerOccasion],
+    },
+    {
+      label: 'Occasions',
+      note:
+        count === 0
+          ? 'No 10-hour shift ran an hour or more over'
+          : 'One per 10-hour shift that ran an hour or more over',
+      values: [String(count)],
+    },
+    {
+      label: 'Meal allowance',
+      note: 'Added after tax — the PAYG figure above does not include it',
+      values: [meals.total],
+      total: true,
+    },
+  ]
+}
+
+/**
+ * The rule under the meal allowance table, with its own figures in it.
+ *
+ * Built here rather than written into the component so the thresholds cannot
+ * drift apart from the engine's constants: if the ten hours or the hour ever
+ * change, this sentence changes with them.
+ */
+export function mealRuleSentence(): string {
+  const shift = formatHours(MEAL_ALLOWANCE_SHIFT_MINUTES / 60)
+  const over = formatHours(MEAL_ALLOWANCE_OVERRUN_MINUTES / 60)
+  return `A ${shift} shift that runs ${over} or more over earns one allowance (EBA N36). Worked to time it earns nothing, whether or not you got a break.`
 }
 
 /**

@@ -1,4 +1,6 @@
 import { calculateOvertime } from '../engine/attendance'
+import { mealOccasionsFor } from '../engine/meals'
+import type { MealAllowanceSettings } from '../engine/meals'
 import type { HolidayCalendar, PayBand } from '../engine/types'
 import {
   applyRosterShift,
@@ -21,6 +23,8 @@ import {
   SegmentedControl,
   Sheet,
   TextField,
+  formatHours,
+  formatMoney,
 } from '../ui/index'
 import type { ShiftKind } from '../ui/index'
 
@@ -31,6 +35,8 @@ export interface ShiftSheetProps {
   onClose: () => void
   band: PayBand
   holidays: HolidayCalendar
+  /** The Annex C rate and roster patterns, so the preview can price EBA N36. */
+  meals: MealAllowanceSettings
 }
 
 /**
@@ -59,6 +65,7 @@ export function ShiftSheet({
   onClose,
   band,
   holidays,
+  meals: mealSettings,
 }: ShiftSheetProps) {
   const editing = draft.id !== null
   const shift = toShift(draft)
@@ -67,6 +74,13 @@ export function ShiftSheet({
   const preview =
     shift === null ? null : calculateOvertime([shift], band, holidays).attendances[0]
   const description = preview === null ? null : describeAttendance(preview)
+  // Priced by the same function the fortnight uses, on this shift alone — the
+  // same reason the pay preview calls `calculateOvertime` rather than doing its
+  // own arithmetic. A shift that earns a meal allowance should say so here,
+  // where the times are still being chosen, and it should name the roster shift
+  // it was worked out from — on an overrun that shift was never entered, so the
+  // assumption is only checkable if it is stated.
+  const meals = preview === null ? [] : mealOccasionsFor(preview, mealSettings)
 
   /** Times drive the C9.5 default until the user overrules it (§3.6). */
   function updateTime(patch: Partial<ShiftDraft>) {
@@ -159,6 +173,15 @@ export function ShiftSheet({
               : 'Those times do not make a shift yet.'}
           </p>
         )}
+
+        {meals.length > 0 ? (
+          <p className="sl-hint">
+            + {formatMoney(meals[0].amount)} meal allowance, not taxed ·{' '}
+            {formatHours(meals[0].overrunMinutes / 60)} past the{' '}
+            {formatHours(meals[0].rosteredMinutes / 60)} {meals[0].rosterCode} shift
+            {meals[0].shiftInferred ? ' this ran on from' : ''} (EBA N36)
+          </p>
+        ) : null}
 
         {preview?.minimumApplied ? (
           <AssumptionNote>

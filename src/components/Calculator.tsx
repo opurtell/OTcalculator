@@ -351,10 +351,12 @@ export function Calculator({
               onClose={closeDraft}
               band={settings.band}
               holidays={settings.holidays}
+              meals={settings.meals}
             />
           ) : null}
           <FortnightPathway
             attendances={result.attendances}
+            mealOccasions={result.mealAllowance.occasions}
             shifts={shifts}
             warnings={warnings}
             storageNote={shiftStorageNote({

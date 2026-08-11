@@ -31,7 +31,7 @@ How to work it:
 2. **Re-enter each OT fortnight into the app** (or straight into
    `calculateFortnight` as a test fixture — faster, and it lands as a
    regression test either way).
-3. **Compare four things, in this order**, because they fail differently:
+3. **Compare five things, in this order**, because they fail differently:
    - **The OT hourly rate.** Wrong here means the base-vs-composite trap
      (gotcha 1) and everything downstream is ~34% out.
    - **The per-line categories.** Right total, wrong split means the ratchet's
@@ -40,19 +40,54 @@ How to work it:
      least visible.
    - **The four-hour minimum.** Whether payroll topped up a short standalone
      shift, and whether it ever topped up an overrun (it should not).
+   - **The `MEAL ALLOWANCE` line.** How many occasions payroll paid, against
+     what the app counted, and at what rate. This is the cheapest check on the
+     list and it settles the one open interpretation in `meals.ts` — see step 5.
    - **PAYG.** A cent or two is rounding convention; more than that is a wrong
-     scale or a stale coefficient set.
+     scale or a stale coefficient set. The meal allowance must **not** appear in
+     the figure PAYG was withheld on; if payroll taxed it, the app's whole
+     treatment of it is wrong and not just its count.
 4. **Settle the rounding question.** §4.5 prints $1,110.34 by summing two
    already-rounded lines; the engine carries full precision to display per
-   §3.12 and gets $1,110.33. If a real payslip sums rounded per-line amounts,
-   §3.12 needs an explicit exception for overtime lines — and
+   §3.13 and gets $1,110.33. If a real payslip sums rounded per-line amounts,
+   §3.13 needs an explicit exception for overtime lines — and
    `golden.test.ts` changes with it.
-5. **Anything that diverges gets a fixture, not a patch.** Add the real
+5. **Confirm the meal-allowance rule, and settle the 12-hour case.** The rule
+   the app implements is Oscar's, from practice: **a 10-hour shift that runs an
+   hour or more over earns one allowance, and nothing else earns anything.** The
+   break you were due during the shift counts as given; the allowance is for the
+   second break you are owed past eleven hours and will not get. Two things to
+   check against a payslip:
+
+   - **12-hour shifts.** D and PM are outside the rule as implemented, because
+     N35.7 gives them two Windows of Opportunity each so a second break is not
+     owed at the same point. That was a scoping decision, not something Oscar
+     stated — he named 06:30 and 21:00, the two 10-hour starts. Find a fortnight
+     with a D or PM overrun of an hour or more and see whether a `MEAL ALLOWANCE`
+     line appears. If it does, the rule becomes "the pattern's own length plus an
+     hour" and `MEAL_ALLOWANCE_SHIFT_MINUTES` stops being a single figure.
+   - **The count.** `MEAL ALLOWANCE` carries **date-prefixed sub-rows**, one per
+     occasion, exactly like the OT detail lines (see the interpretation guide's
+     payment-line table). One sub-row per qualifying shift is what the app
+     predicts. Two would mean the count scales with something.
+
+   While you are there: the allowance must **not** appear in the figure Tax was
+   withheld on. If it does, the app's whole treatment of it is wrong rather than
+   just its thresholds.
+
+   **Do not re-derive this from N36.2's words.** Two implementations did, and both
+   disagreed with payroll — one paid every standalone pickup, the other paid
+   nothing on any overrun under two hours. `IMPLEMENTATION_PLAN.md` §3.11 records
+   both, and why N37.2 looks like it extends the clause when its cross-references
+   are simply off by one.
+
+6. **Anything that diverges gets a fixture, not a patch.** Add the real
    fortnight as a test case first, watch it fail, then fix the engine.
 
-Two things Phase 10 may also settle, both flagged in the plan's §8: whether
-the meal allowance (N36) shows up often enough on OT lines to belong in v1, and
-whether "current rates only" is the right v1 answer for historical fortnights.
+One thing Phase 10 may also settle, flagged in the plan's §8: whether "current
+rates only" is the right v1 answer for historical fortnights. (The other item
+that used to sit here — whether the meal allowance belongs in v1 — is closed: it
+is built. See `IMPLEMENTATION_PLAN.md` §3.11.)
 
 ---
 
@@ -176,6 +211,14 @@ anyone. If the golden fixture moves, the preview cards need re-capturing.
 
 One figure has already moved by a cent: the overtime delta is **$1,110.33 →
 $698.33**, not the `$1,110.34 → $698.34` printed in §4.5. The engine carries
-full precision to display per §3.12; the plan's figure sums two already-rounded
+full precision to display per §3.13; the plan's figure sums two already-rounded
 line items. Do not "fix" a preview or a test back to the plan's number — which
 convention is right is a question for A, not a typo.
+
+The N36 meal allowance **does not touch the §4.5 pair** — the Saturday matches
+the D shift's start, a 12-hour pattern outside the rule, and the Wednesday overrun
+starts at a time no roster shift ends at — so the fixture's figures are exactly as
+they were. A preview or mockup that wants to show the `Meal allowance` and `Total
+in the hand` rows needs a shift that earns one: an AM picked up and entered whole
+as `06:30–18:00`, or a 16:30–18:00 overrun off an AM. Either is $35.38 untaxed.
+§3.11 has the rule, including the two readings that preceded it.

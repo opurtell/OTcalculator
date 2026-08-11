@@ -1,10 +1,24 @@
 /**
  * The four shift patterns of the ACTAS 44-hour roster.
  *
- * These are not pay rules and nothing in `src/engine/` reads them. They are the
- * roster's own vocabulary — the codes a paramedic already uses to say which
- * shift they picked up — kept here because they are a table of figures and this
- * is where tables of figures live.
+ * They are the roster's own vocabulary — the codes a paramedic already uses to
+ * say which shift they picked up — kept here because they are a table of figures
+ * and this is where tables of figures live.
+ *
+ * **The money now depends on them.** They started as a quick-fill for the shift
+ * sheet and nothing else, but the N36 meal allowance turns on a 10-hour shift
+ * running an hour over, and on an overrun the only thing that can place that
+ * shift is the pattern the overtime ran on from. `src/app/settings.ts` passes
+ * this table to the engine as `meals.rosterShifts`; the engine still holds none
+ * of it. Three consequences:
+ *
+ * - a mistyped time here silently removes someone's meal allowance (`dutyFor`
+ *   returns `null` rather than guessing);
+ * - the four **end** times have to stay distinct from each other, or an overrun
+ *   cannot be attributed;
+ * - the **durations** decide eligibility, not just the times. AM and N are the
+ *   two 10-hour patterns and the only ones inside the rule; changing D or PM to
+ *   ten hours would start paying allowances that payroll does not.
  *
  * The four durations sum to 44 hours, which is where the roster gets its name
  * and is the one checkable property of the transcription. `roster-shifts.test.ts`

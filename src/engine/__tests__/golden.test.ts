@@ -16,7 +16,13 @@ import { calculateFortnight } from '../fortnight'
 import { NO_DEDUCTIONS } from '../packaging'
 import { ordinaryFortnightlyGross } from '../tax'
 import { taxScaleFor } from '../../data/tax-scales'
-import { AP1_STEP_2, HOLIDAYS_2026, cents, shift } from './fixtures'
+import {
+  AP1_STEP_2,
+  HOLIDAYS_2026,
+  MEAL_SETTINGS,
+  cents,
+  shift,
+} from './fixtures'
 
 // 15 August 2026 is a Saturday and 19 August 2026 a Wednesday. §4.5 names the
 // days rather than the dates; these are the first pair in the fortnight the
@@ -60,14 +66,14 @@ describe('golden fixture — overtime', () => {
   it('grosses $1,110.33 — one cent under the figure printed in §4.5', () => {
     // ⚠️ Known divergence, and it is the plan that is out rather than the code.
     //
-    // §3.12 says to carry full precision and round only at display. Doing that
+    // §3.13 says to carry full precision and round only at display. Doing that
     // gives 1110.3349…, which displays as $1,110.33. The §4.5 headline of
     // $1,110.34 is the sum of the two *already-rounded* line items
     // (965.51 + 144.83), which is a different rule applied one step earlier.
     //
     // Both line items are exact, so the disagreement is purely about where
     // rounding happens. Which one payroll actually does is a Phase 10 question
-    // — if a real payslip sums rounded lines, §3.12 needs an exception for
+    // — if a real payslip sums rounded lines, §3.13 needs an exception for
     // per-line overtime and this expectation changes to 1110.34.
     expect(cents(result.gross)).toBe(1110.33)
     expect(cents(saturday.pay) + cents(wednesday.pay)).toBe(1110.34)
@@ -97,6 +103,7 @@ describe('golden fixture — the whole fortnight', () => {
     helpSchedule: null,
     deductions: NO_DEDUCTIONS,
     holidays: HOLIDAYS_2026,
+    meals: MEAL_SETTINGS,
   })
 
   it('derives ordinary fortnightly gross of $4,908.32', () => {
@@ -123,11 +130,29 @@ describe('golden fixture — the whole fortnight', () => {
 
   it('turns $1,110.33 of overtime into $698.33 of take-home, 62.9% kept', () => {
     // §4.5 prints $1,110.34 → $698.34. Both are a cent higher because the plan
-    // sums already-rounded line items; §3.12 says full precision until display.
+    // sums already-rounded line items; §3.13 says full precision until display.
     // Oscar has accepted the divergence — see the note in the overtime block.
     expect(cents(result.otGrossDelta)).toBe(1110.33)
     expect(cents(result.otNetDelta)).toBe(698.33)
     expect(Math.round(result.retention * 1000) / 10).toBe(62.9)
+  })
+
+  it('earns no meal allowance — neither shift is past a rostered end', () => {
+    // §4.5's figures are untouched by N36, and that is the answer rather than an
+    // omission. The Saturday is a 09:00–19:00 pickup: it matches the D shift's
+    // start but knocks off two hours before its 21:00 end, so there is no
+    // overtime "after the end of ordinary duty for the day" (N36.2). The
+    // Wednesday overrun starts at 09:00, which is no roster shift's end, so the
+    // boundary cannot be placed at all and the calculation is skipped.
+    expect(result.mealAllowance.occasions).toEqual([])
+    expect(result.mealAllowance.total).toBe(0)
+    expect(result.mealAllowance.ratePerOccasion).toBe(35.38)
+  })
+
+  it('leaves the tax-free totals equal to the taxed ones when none is earned', () => {
+    expect(cents(result.netTotal)).toBe(4398.66)
+    expect(cents(result.otEarnedTotal)).toBe(1110.33)
+    expect(cents(result.otNetTotal)).toBe(698.33)
   })
 
   it('withholds no HELP when there is no study debt', () => {
@@ -137,5 +162,69 @@ describe('golden fixture — the whole fortnight', () => {
 
   it('raises no flags', () => {
     expect(result.flags).toEqual([])
+  })
+})
+
+/**
+ * The allowance case, since the §4.5 pair does not reach it.
+ *
+ * An AM shift picked up and entered as one period that ran an hour and a half
+ * over — Oscar's example. Same band and settings as above, so the only thing
+ * that differs is the shift, and the untaxed line can be read against the taxed
+ * ones without a second variable.
+ */
+describe('a fortnight that does earn the meal allowance', () => {
+  const AM_RUN_ON = shift('2026-08-19', '06:30', '18:00', 'separate')
+
+  const result = calculateFortnight([AM_RUN_ON], {
+    band: AP1_STEP_2,
+    taxScale: taxScaleFor('2025-26', 2).scale,
+    helpSchedule: null,
+    deductions: NO_DEDUCTIONS,
+    holidays: HOLIDAYS_2026,
+    meals: MEAL_SETTINGS,
+  })
+
+  it('earns one occasion at $35.38', () => {
+    // A 10-hour AM shift taken to 11.5 hours: an hour and a half over, so a
+    // second meal break is owed. One allowance, however far over it ran.
+    const { occasions, total } = result.mealAllowance
+    expect(occasions).toHaveLength(1)
+    expect(occasions[0].rosterCode).toBe('AM')
+    expect(occasions[0].rosteredMinutes).toBe(600)
+    expect(occasions[0].overrunMinutes).toBe(90)
+    // Entered whole, so nothing about the shift was inferred.
+    expect(occasions[0].shiftInferred).toBe(false)
+    expect(cents(total)).toBe(35.38)
+  })
+
+  it('withholds nothing on it — the tax figures ignore the allowance', () => {
+    // The one property that must hold whatever the occasion count turns out to
+    // be: PAYG is computed on gross alone, so the allowance arrives whole.
+    expect(cents(result.withOt.taxableGross)).toBe(cents(result.withOt.gross))
+    expect(cents(result.netTotal - result.withOt.net)).toBe(35.38)
+    expect(cents(result.otNetTotal - result.otNetDelta)).toBe(35.38)
+    expect(cents(result.otEarnedTotal - result.otGrossDelta)).toBe(35.38)
+  })
+
+  it('keeps more of the overtime than the taxed pay alone would', () => {
+    // A tax-free dollar is kept whole, so retention has to rise once it is in.
+    expect(result.otNetTotal / result.otEarnedTotal).toBeGreaterThan(
+      result.otNetDelta / result.otGrossDelta,
+    )
+  })
+
+  it('earns nothing from the same shift worked to its rostered end', () => {
+    // The control: 06:30–16:30 is the same pickup without the run-on, and it is
+    // the case Oscar said should pay no allowance — break or no break.
+    const onTime = calculateFortnight([shift('2026-08-19', '06:30', '16:30', 'separate')], {
+      band: AP1_STEP_2,
+      taxScale: taxScaleFor('2025-26', 2).scale,
+      helpSchedule: null,
+      deductions: NO_DEDUCTIONS,
+      holidays: HOLIDAYS_2026,
+      meals: MEAL_SETTINGS,
+    })
+    expect(onTime.mealAllowance.total).toBe(0)
   })
 })

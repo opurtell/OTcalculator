@@ -15,14 +15,16 @@ Two pathways:
 
 | Pathway | Input | Use |
 | --- | --- | --- |
-| **Quick calculation** | Hours worked, one shift | Standing in the mess room deciding whether to take a shift. Assumes Mon–Sat rates. |
+| **Quick calculation** | Hours worked, one shift | Standing in the mess room deciding whether to take a shift. Assumes Mon–Fri rates. |
 | **Fortnight calculator** (primary) | Date + start/end for each OT shift, any number of shifts | Planning or checking a full fortnight of mixed incidental and full OT shifts. |
 
 Both add the OT to the user's ordinary fortnightly pay, apply pre-tax deductions, compute PAYG withholding, and report **pre-tax income, tax, and net income for the fortnight**, plus the marginal take-home the OT actually generated.
 
 ### Explicitly out of scope for v1
 
-Payslip upload/parsing, verification against actual payslips, leave and time-bank accrual, forecasting, accounts and sync, part-time and casual patterns, on-call/close-call allowances, HDA, meal allowances, 10/14 legacy roster. All of these live in the sibling project. If v1 succeeds, meal allowances (N36) and HDA are the two most likely additions.
+Payslip upload/parsing, verification against actual payslips, leave and time-bank accrual, forecasting, accounts and sync, part-time and casual patterns, on-call/close-call allowances, HDA, 10/14 legacy roster. All of these live in the sibling project. HDA is the most likely next addition.
+
+**The overtime meal allowance (N36) was on this list and has been built** — see §3.11. It came in because it is the one allowance the app already had the inputs for: it turns on the times of the shift and nothing else, so no new question had to be asked. Every other allowance in Annex C needs a fact the app does not hold — a qualification, a roster station, a distance — and adding one means adding a field.
 
 ### What it is not
 
@@ -199,7 +201,70 @@ PAYG and HELP are both computed on `taxableGross`. Net pay is `grossIncludingOt 
 
 Post-tax deductions are out of scope for v1; the user asked for pre-tax specifically. If added later they subtract after tax and don't affect withholding.
 
-### 3.11 The OT delta
+### 3.11 Overtime meal allowance — the one untaxed figure
+
+**Rate: $35.38 per occasion**, from Annex C ("Overtime Meal", Rate/Frequency "Per occasion", the 1.93% column effective 4 December 2025). The whole C20.2 progression is in `src/data/allowances.ts` and is looked up by pay date, so an older fortnight prices against the rate that was in force when it was worked.
+
+**The rule, as ACTAS applies it: a 10-hour shift that runs an hour or more over earns one allowance. Nothing else earns anything.**
+
+Not the meal periods, not whether a break was taken, not how many windows the duty crossed. The reasoning — Oscar's, from practice — is that the system takes the break you were entitled to during the shift as having been given: N35.3 entitles you to 30 minutes within five hours of continuous duty, and N35.7 gives a 10-hour shift exactly **one** Window of Opportunity to take it in (AM 0930–1130, N 0000–0200). Once the shift passes eleven hours a *second* break falls due, and that is the one you will not get — so the allowance stands in for the meal you have to buy instead.
+
+Consequences:
+
+- **A shift worked to time earns nothing**, break or no break.
+- **An hour or more past it earns exactly one allowance**, however far past. Four hours over pays the same as one.
+- **A picked-up shift is treated exactly as a normal one.** An AM entered as `06:30–17:30` earns one; `06:30–16:30` earns nothing. The two 10-hour patterns start at **06:30** and **21:00**.
+- The hour is measured on minutes **worked**, so an unpaid gap inside the attendance does not count towards it, and the C9.5 four-hour minimum cannot buy it — a 30-minute call-in pays four hours and still only kept you there thirty minutes.
+
+`dutyFor` places the boundary from the roster patterns in `src/data/roster-shifts.ts`, and there is no calculation at all without one:
+
+- **`overrun`** → the pattern whose **end** time is the overtime's start. The shift itself is never entered, so its length comes from the pattern.
+- **`separate`** → the pattern whose **start** time is the attendance's start: a picked-up shift entered as one period.
+- **Neither → nothing, in silence.** Guessing a boundary from times that match no pattern would invent the one fact the rule turns on. The §5.7 working states the rule so it stays discoverable; there is deliberately no per-shift warning.
+
+The C9.5 kind does double duty here and it now decides money: **21:00 is both the D shift's end and the N shift's start**, the only collision in the table. An overrun there ran on from a D (12 hours, outside the rule); a separate attendance there is a picked-up N (10 hours, inside it).
+
+**12-hour shifts are outside the rule, and that is the one part Phase 10 still owes.** D and PM get *two* Windows of Opportunity each under N35.7, so a second break is not owed at the same point and a third would not fall due until around fifteen hours. Oscar's rule was stated for 10-hour shifts and named 06:30 and 21:00 as the examples, so the implementation is scoped to them. The alternative — every pattern earning at its own length plus an hour — would pay a D overrun at thirteen hours. Erring towards no allowance keeps the app on the side it errs on everywhere else.
+
+**It is tax free, so it is added after tax.** Not in `gross`, not in `taxableGross`, not in `net`; PAYG and HELP never see it. The fortnight therefore has two bottom lines — the take-home the schedules produce, and `netTotal`, which is that plus the allowance. In every table the allowance sits *below* the tax lines: printed above PAYG it would read as an amount tax took a cut of.
+
+**This is practice, not literal clause text**, and it sits on the same footing as the midnight ratchet in §3.4: operational convention, confirmed by Oscar, that the agreement's own words do not spell out. Read literally N36.2 says something else —
+
+> An employee who works overtime is entitled to payment of overtime meal allowance where the overtime is worked after the end of ordinary duty for the day, to the completion of or beyond a meal period, and any subsequent meal period, without a break for a meal.
+
+— and N36.3 defines four meal periods (midnight–1:00 am, 7:00–9:00 am, 12 noon–2:00 pm, 6:00–7:00 pm). Those are kept in `src/engine/meals.ts` as `MEAL_PERIODS` with **nothing reading them**, on the same footing as `PACKAGING_CAPS`: transcribed source worth having, with the money deliberately not depending on it.
+
+> **Two earlier readings, both wrong about the money.** Recorded because a future
+> reader who goes back to the clause text will reconstruct one of them.
+>
+> **Reading A** attached "to the completion of or beyond a meal period" to the
+> overtime alone and ignored the shift kind, on the strength of N37.2. Every
+> standalone 10-hour pickup earned two occasions and no overrun under two hours
+> earned any — inverted in both directions.
+>
+> **Reading B** read the gate correctly (overtime past the end of a shift) and
+> attached the meal-period test to the whole duty. That matched the *gate* but
+> paid one allowance per window the shift covered — two for AM, D and PM, one for
+> N — and paid on a 30-minute overrun.
+>
+> What made N37.2 look like an extension in Reading A is that **its
+> cross-references are off by one**: the 10/14 section is the same text at +23
+> (N12↔N35, N13↔N36, N14↔N37), and N14.1/N14.2 cite N12.3/N12 — the meal *break*
+> clauses — where N37.1/N37.2 say N36.3/N36. Read as written N37.2 is nearly
+> tautological, since N36.1 already routes to Annex C.
+>
+> Annex C's own durations (1.5 hours, or 5 on a Saturday, Sunday or public
+> holiday, before **an unpaid meal break being taken**, then 0.5 after) never
+> applied either. The phrase "unpaid meal break" occurs exactly three times in
+> the agreement and all three are inside that one Annex C table; Section N never
+> characterises the N35 break as unpaid, and O12 is titled "Paid Meal Breaks" for
+> Patient Transport. For 44-hour road staff whose break sits inside a paid shift,
+> Annex C's conditions cannot be met at all — which is consistent with the
+> practice above treating the break as simply given.
+
+Three other meal allowances exist in the agreement and none reaches this cohort — **late meal** (O13/P15) and **spoilt meal** (O14/P16) are Sections O and P, and N43.1 lists what the 44-hour roster substitutes. The word "spoilt" does not appear in Section N at all. **N37** is Section N but is not a separate allowance; it obliges ACTAS to try to provide a break on a short-notice recall. `src/data/allowances.ts` records all three so nobody adds them from a table of contents.
+
+### 3.12 The OT delta
 
 Run the whole calculation twice — once with OT, once without — and report the difference:
 
@@ -211,11 +276,13 @@ retentionPct = otNetDelta / otGrossDelta
 
 The "without" run keeps the fixed pre-tax deduction constant but recomputes the percentage deduction on the smaller gross, so the comparison is internally consistent.
 
-### 3.12 Rounding
+The headline adds the §3.11 allowance to both sides — `otNetTotal` and `otEarnedTotal`. An untaxed dollar is the same dollar before and after tax, so leaving it out of the "before tax" figure would make the retention percentage a proportion of the wrong number. The comparison table below the headline is where the split between taxed pay and untaxed allowance is shown.
+
+### 3.13 Rounding
 
 Carry full precision through the entire calculation. Round to cents only at display. The single exception is PAYG withholding, where NAT 1004 mandates `round()` at the weekly step — that rounding is part of the specification, not a presentation choice.
 
-### 3.13 Deliberate simplifications
+### 3.14 Deliberate simplifications
 
 Each of these is stated in the UI where it could affect a number, not buried here:
 
@@ -265,12 +332,14 @@ OTcalculator/
 │   │   ├── calendar.ts          date utils, day-of-week, PH lookup, DST flags
 │   │   ├── overtime.ts          ratchet categorisation + OT dollars
 │   │   ├── attendance.ts        grouping + C9.5 four-hour minimum
+│   │   ├── meals.ts             the N36 meal-allowance windows (§3.11)
 │   │   ├── tax.ts               NAT 1004 PAYG + HELP
 │   │   ├── packaging.ts         pre-tax deductions
 │   │   ├── fortnight.ts         orchestrator + delta
 │   │   └── __tests__/
 │   ├── data/
 │   │   ├── pay-rates.ts         AP1/AP2/ICP1/ICP2 × steps
+│   │   ├── allowances.ts        Annex C overtime meal allowance by date (§3.11)
 │   │   ├── tax-scales.ts        NAT 1004 by FY
 │   │   ├── help-thresholds.ts
 │   │   ├── public-holidays.ts   ACT
@@ -321,7 +390,7 @@ An OT shift is `{ date: IsoDate, startMin: Minutes, endMin: Minutes, endsNextDay
 
 The ratchet walk operates on integer minute offsets from the attendance start, converting to a calendar date by integer division. Day-of-week comes from `new Date(y, m-1, d).getDay()` — constructed with local components, which avoids the UTC-parsing trap of `new Date('2026-08-07')`.
 
-No timezone conversion happens anywhere, which is correct because every time in this app is ACT wall-clock. The cost is DST, handled per §3.13.
+No timezone conversion happens anywhere, which is correct because every time in this app is ACT wall-clock. The cost is DST, handled per §3.14.
 
 ### 4.4 Persistence
 
@@ -393,11 +462,23 @@ Add one Saturday 09:00–19:00 pickup (10 h @ 2× = $965.51) and one Wednesday 2
 
 > **Correction, resolved in Phase 3.** The implemented figures are **$1,110.33 →
 > $698.33**. Both line items above are exact; the totals here sum them *after*
-> rounding, while §3.12 requires full precision until display. One cent, in the
+> rounding, while §3.13 requires full precision until display. One cent, in the
 > plan's favour, and accepted — but the tests assert the .33 figures and should
 > not be "fixed" back. Which convention payroll actually uses is a Phase 10
-> question: if a real payslip sums rounded lines, §3.12 needs an exception for
+> question: if a real payslip sums rounded lines, §3.13 needs an exception for
 > per-line overtime.
+
+> **The meal allowance does not touch this fixture, and that is the answer
+> rather than an omission.** The Saturday is a 09:00–19:00 pickup: it matches the
+> D shift's start, which is a 12-hour pattern outside the rule, and it finishes
+> two hours early besides. The Wednesday overrun starts at 09:00, which is no
+> roster shift's end, so the boundary cannot be placed at all and the calculation
+> is skipped (§3.11). Every figure above stands unchanged.
+>
+> The allowance case is covered separately, by an AM shift picked up and entered
+> as one period running to 18:00 — `06:30–18:00`, a 10-hour shift taken to 11.5,
+> **$35.38 untaxed**, PAYG unaffected. Same shift entered as `06:30–16:30` earns
+> nothing. Both are in `golden.test.ts`.
 
 These figures are computed from the EBA tables and the FY2025-26 NAT 1004 coefficients in the sibling project. They must be **re-verified against a real payslip in Phase 10** before the app is shared with anyone else.
 
@@ -411,6 +492,7 @@ Other required coverage:
 - PAYG at bracket boundaries and at zero income.
 - Packaging: fixed only, percent only, both; no cap warning at any amount.
 - Delta consistency: zero OT ⇒ zero delta.
+- Meal allowance (§3.11): the 30/59/60-minute boundary on the overrun; every roster pattern worked to its rostered end earning nothing; one allowance however far over; 12-hour patterns earning nothing at any length; a pickup entered whole reaching the same answer as the equivalent overrun; the hour measured on minutes worked rather than elapsed; the C9.5 four-hour minimum not buying the hour; unrecognised times and an empty roster table dropping silently; 21:00 resolved by the C9.5 kind, D against N; the occasion dated where the overtime was worked; `MEAL_PERIODS` matching N36.3, differing from N35.7, and **not changing the answer**; and the allowance never reaching `taxableGross`.
 - Storage: corrupt JSON, unknown schema version, missing keys all fall back cleanly.
 
 Property test worth having: OT dollars are monotonic in hours, and net pay is monotonic in gross.
@@ -500,7 +582,20 @@ One number in, one number out. Inputs: hours worked (and the remembered pay band
 
 Assumptions, **stated on screen, not hidden**:
 
-> Assumes a single Mon–Sat shift: first 2 hours at time and a half, the rest at double time. No public holiday or Sunday rates, no 4-hour minimum applied. For an accurate figure use the fortnight calculator.
+> Assumes one Mon–Fri shift: 2h at time and a half, then double time. No Saturday, Sunday, public holiday or 4-hour minimum applied — every one of those pays more.
+>
+> No meal allowance either. That depends on the times the shift ran, not on how many hours it was.
+
+> **Corrected in Phase 6: "Mon–Sat" was wrong.** N34 overrides C9.12 for this
+> cohort and puts Saturday at double time from the first minute (§3.3, and
+> gotcha 4 in `CLAUDE.md`), so the 1.5× opening tier is a Mon–**Fri** assumption
+> only. Describing it as Mon–Sat understates a Saturday by the difference
+> between 1.5× and 2× on the first two hours — about $48 on the §4.5 pickup, in
+> the copy whose whole job is to say which way the estimate errs.
+>
+> The meal-allowance line was added with §3.11. It is the one item on the list
+> the hours alone could never imply: N36 turns on *when* the shift ran, so two
+> hours across dinner earns it and eight hours between 09:00 and 17:00 does not.
 
 Hours split: `min(hours, 2)` at 1.5×, remainder at 2×.
 

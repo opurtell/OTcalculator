@@ -3,7 +3,7 @@
  *
  * Scale 1 is "tax-free threshold not claimed", Scale 2 is "claimed". Both are
  * resident scales with standard Medicare; the app does not model exemptions or
- * the surcharge (§3.13).
+ * the surcharge (§3.14).
  *
  * Source: NAT 1004, Sheet 2 of the ATO software developers' workbook, via the
  * ACTAS Pay Tracker's `tax-scales.json`, where every coefficient is recorded as

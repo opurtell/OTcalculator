@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { AP1_STEP_2, HOLIDAYS_2026 } from '../../engine/__tests__/fixtures'
+import {
+  AP1_STEP_2,
+  HOLIDAYS_2026,
+  MEAL_SETTINGS,
+} from '../../engine/__tests__/fixtures'
 import { calculateFortnight } from '../../engine/fortnight'
 import { NO_DEDUCTIONS } from '../../engine/packaging'
 import type { FortnightSettings, OtShift } from '../../engine'
@@ -12,6 +16,7 @@ const SETTINGS: FortnightSettings = {
   helpSchedule: null,
   deductions: NO_DEDUCTIONS,
   holidays: HOLIDAYS_2026,
+  meals: MEAL_SETTINGS,
 }
 
 function shift(over: Partial<OtShift> & Pick<OtShift, 'id' | 'date'>): OtShift {

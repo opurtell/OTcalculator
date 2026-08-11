@@ -1,6 +1,6 @@
 /**
  * The orchestrator: a fortnight's shifts and settings in, take-home out —
- * twice, so the app can say what the overtime was actually worth (§3.11).
+ * twice, so the app can say what the overtime was actually worth (§3.12).
  *
  * Running the whole calculation with and without the overtime is the only
  * honest way to answer "what did that shift add?". The marginal rate on the
@@ -9,6 +9,8 @@
  */
 
 import { calculateOvertime } from './attendance'
+import { mealAllowanceFor } from './meals'
+import type { MealAllowanceResult, MealAllowanceSettings } from './meals'
 import { computeDeductions, packagingFlags } from './packaging'
 import type { DeductionSettings, FortnightFlag } from './packaging'
 import { helpRepayment, ordinaryFortnightlyGross, paygWithholding } from './tax'
@@ -28,6 +30,13 @@ export interface FortnightSettings {
   helpSchedule: HelpSchedule | null
   deductions: DeductionSettings
   holidays: HolidayCalendar
+  /**
+   * The Annex C rate and the roster patterns EBA N36's boundary is placed from.
+   * Required rather than optional: it is money, and a defaulted zero would be a
+   * figure quietly missing from someone's fortnight rather than a wiring bug
+   * anyone would notice.
+   */
+  meals: MealAllowanceSettings
   /**
    * Overrides the derived ordinary gross. For someone part-way through a step,
    * acting up, or simply reading a different number off their payslip — §6
@@ -66,6 +75,30 @@ export interface PayComparison {
 export interface FortnightResult extends PayComparison {
   attendances: ReturnType<typeof calculateOvertime>['attendances']
   flags: FortnightFlag[]
+  /**
+   * The EBA N36 overtime meal allowance this fortnight earned.
+   *
+   * It sits outside `PayComparison` on purpose. Everything in there is the tax
+   * schedules' business, and this is money the schedules never see: it is not
+   * in `gross`, not in `taxableGross`, and not in `net`. Folding it into gross
+   * would have PAYG withheld on it, which is the one thing that must not
+   * happen — see `netTotal` for where it does land.
+   */
+  mealAllowance: MealAllowanceResult
+  /**
+   * Take-home plus the tax-free allowance — what actually reaches the account.
+   *
+   * `withOt.net` remains the figure the tax lines add up to, so the comparison
+   * table still balances column by column; this is the line under it.
+   */
+  netTotal: number
+  /** What the overtime earned in total, allowance included. */
+  otEarnedTotal: number
+  /**
+   * What the overtime added in the hand, allowance included. The headline
+   * figure — the whole reason for the app — once N36 is in it.
+   */
+  otNetTotal: number
 }
 
 function runPay(gross: number, settings: FortnightSettings): PayRun {
@@ -133,6 +166,11 @@ export function calculateFortnight(
 
   const deductions = computeDeductions(comparison.withOt.gross, settings.deductions)
 
+  // Priced from the attendances rather than the shifts, because the N36 test
+  // needs both the C9.5 kind (which places the boundary) and the unpaid gaps
+  // inside one continuous attendance (which suppress a window).
+  const mealAllowance = mealAllowanceFor(overtime.attendances, settings.meals)
+
   return {
     ...comparison,
     attendances: overtime.attendances,
@@ -140,5 +178,9 @@ export function calculateFortnight(
       ...overtime.flags,
       ...packagingFlags(deductions, settings.helpSchedule !== null),
     ],
+    mealAllowance,
+    netTotal: comparison.withOt.net + mealAllowance.total,
+    otEarnedTotal: comparison.otGrossDelta + mealAllowance.total,
+    otNetTotal: comparison.otNetDelta + mealAllowance.total,
   }
 }

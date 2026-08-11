@@ -44,6 +44,17 @@ const WEDNESDAY: OtShift = {
   kind: 'overrun',
 }
 
+/** An AM shift picked up and entered as one period that ran to 18:00 — a 10-hour
+ * shift taken to 11.5, which earns the one N36 occasion the §4.5 pair does not. */
+const AM_RUN_ON: OtShift = {
+  id: 'am-run-on',
+  date: '2026-08-19',
+  startMin: 6 * 60 + 30,
+  endMin: 18 * 60,
+  endsNextDay: false,
+  kind: 'separate',
+}
+
 const summary = summaryText({
   result: calculateFortnight([SATURDAY, WEDNESDAY], settings),
   bandSummary: 'AP1 Step 2',
@@ -68,6 +79,33 @@ describe('summaryText', () => {
     expect(summary).toContain('1,620.00')
     expect(summary).toContain('3,700.32')
     expect(summary).toContain('4,398.66')
+  })
+
+  it('leaves the allowance out when no shift earned one', () => {
+    // Neither §4.5 shift is past a rostered end, so there is no N36 occasion and
+    // no line for one — a zero would be a figure claiming to be disclosure.
+    expect(summary).not.toContain('Meal allowance')
+    expect(summary).not.toContain('Total in the hand')
+  })
+
+  it('carries the meal allowance with its clause and its shift when there is one', () => {
+    // What leaves the device is read beside a payslip. "$35.38" on its own would
+    // be the screenshot problem again, so the line names the shift, how far over
+    // it ran, and the clause.
+    const withMeal = summaryText({
+      result: calculateFortnight([AM_RUN_ON], settings),
+      bandSummary: 'AP1 Step 2',
+    })
+
+    expect(withMeal).toContain('Meal allowance (tax free, EBA N36)')
+    expect(withMeal).toContain('Wed 19 Aug AM shift · 1h 30m over')
+    expect(withMeal).toContain('$35.38')
+
+    // Below the tax lines, for the same reason it sits there on screen.
+    expect(withMeal.indexOf('Meal allowance     ')).toBeGreaterThan(
+      withMeal.indexOf('PAYG tax'),
+    )
+    expect(withMeal).toContain('Total in the hand')
   })
 
   it('never leaves without the disclaimer', () => {

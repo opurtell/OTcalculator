@@ -11,6 +11,7 @@
  * directory should ever acquire a figure without one.
  */
 
+export * from './allowances'
 export * from './pay-rates'
 export * from './pay-periods'
 export * from './public-holidays'

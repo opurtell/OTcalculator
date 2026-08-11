@@ -18,12 +18,15 @@
 
 import {
   ACT_HOLIDAY_CALENDAR,
+  ROSTER_SHIFTS,
   fallbackCaption,
   helpFallbackCaption,
   helpScheduleFor,
+  otMealAllowanceFor,
   payBandFor,
   taxScaleFor,
 } from '../data'
+import type { AllowanceRate } from '../data'
 import { financialYearFor, toIsoDate } from '../engine/calendar'
 import type { FortnightSettings } from '../engine/fortnight'
 import type { DeductionSettings } from '../engine/packaging'
@@ -93,6 +96,13 @@ export interface ResolvedSettings {
   /** The derived ordinary fortnightly gross, before any override. */
   derivedFortnightlyGross: number
   /**
+   * The Annex C meal-allowance row this fortnight was priced at, kept whole so
+   * the §5.7 working can name the rate *and* the date it took effect. Same rule
+   * as the pay band: never a table-derived figure with nothing said about which
+   * version of the table produced it.
+   */
+  mealAllowanceRate: AllowanceRate
+  /**
    * Quiet captions the UI is obliged to show — currently the §3.8 tax fallback
    * and its §3.9 study-loan counterpart. Empty when nothing is stale.
    */
@@ -144,9 +154,15 @@ export function resolveSettings(
     helpSelection === null ? null : helpFallbackCaption(helpSelection),
   ].filter((caption): caption is string => caption !== null)
 
+  // Looked up by the pay date rather than pinned to "current", so a fortnight
+  // worked before an Annex C increase still prices at the rate that was in
+  // force when it was worked (EBA C20.2).
+  const mealAllowanceRate = otMealAllowanceFor(payDate)
+
   return {
     tableBand,
     derivedFortnightlyGross: ordinaryFortnightlyGross(band),
+    mealAllowanceRate,
     captions,
     settings: {
       band,
@@ -154,6 +170,13 @@ export function resolveSettings(
       helpSchedule: helpSelection?.schedule ?? null,
       deductions: choices.deductions,
       holidays: ACT_HOLIDAY_CALENDAR,
+      meals: {
+        ratePerOccasion: mealAllowanceRate.amount,
+        // The roster patterns are what let the engine place N36.2's "end of
+        // ordinary duty for the day" from an overtime entry alone. Passed in
+        // rather than reached for, like every other table.
+        rosterShifts: ROSTER_SHIFTS,
+      },
       // `undefined` rather than `null`: the engine's field is optional, and
       // `??` on an explicit null would silently mean "no override" anyway.
       ordinaryGrossOverride: choices.band.fortnightlyGross ?? undefined,

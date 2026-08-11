@@ -18,13 +18,14 @@ analytics; every figure stays in your browser's `localStorage`.
 Phases 0 to 9 of `IMPLEMENTATION_PLAN.md` are complete — **the app works end to
 end and the §4.5 acceptance fixture renders through the real UI.**
 `src/engine/` computes overtime (rate categories, the midnight ratchet,
-attendance grouping, the C9.5 four-hour minimum) and then the money (PAYG,
-HELP, pre-tax deductions, and what the overtime added to take-home).
-`src/data/` holds the Annex A pay tables, ACT public holidays, NAT 1004
-coefficients, HELP thresholds and FBT caps. `src/storage/` remembers the
-settings across reloads, and this pay fortnight's shifts until the fortnight
-ends. `src/components/` is the app: both pathways, the shift list, the results
-and the working behind them. 472 tests.
+attendance grouping, the C9.5 four-hour minimum), the tax-free N36 meal
+allowance, and then the money (PAYG, HELP, pre-tax deductions, and what the
+overtime added to take-home). `src/data/` holds the Annex A pay tables, ACT
+public holidays, NAT 1004 coefficients, HELP thresholds, the Annex C meal
+allowance and FBT caps. `src/storage/` remembers the settings across reloads, and
+this pay fortnight's shifts until the fortnight ends. `src/components/` is the
+app: both pathways, the shift list, the results and the working behind them.
+537 tests.
 
 Phase 9 added the polish layer — keyboard operation, touch targets, an
 installable offline build, a print stylesheet, a shareable text summary, an
@@ -37,8 +38,10 @@ to FY2025-26 and captions it, exactly as §3.8 specifies. Adding the real rows t
 `src/data/tax-scales.ts` is the whole fix.
 
 Phase 10 is next, and it is the one that matters: reconcile against real
-payslips with OT lines. **Until it passes, this is a well-tested hypothesis and
-should not be shared with colleagues.**
+payslips with OT lines — including the `MEAL ALLOWANCE` line, whose date-prefixed
+sub-rows confirm the N36 rule and settle whether 12-hour shifts earn one at all
+(see §3.11). **Until it passes, this is
+a well-tested hypothesis and should not be shared with colleagues.**
 
 ## Working on it
 

@@ -187,10 +187,14 @@ The privacy line is not fine print. It's a feature and it sits in normal body te
 │  └─────────────────────────────┘    │
 │                                     │
 │  ⚠ Rough estimate. Assumes one      │
-│    Mon–Sat shift: 2h at time and    │
+│    Mon–Fri shift: 2h at time and    │
 │    a half, then double time. No     │
-│    Sunday, public holiday or        │
-│    4-hour minimum applied.          │
+│    Saturday, Sunday, public holiday │
+│    or 4-hour minimum applied.       │
+│                                     │
+│    No meal allowance either. That   │
+│    depends on the times the shift   │
+│    ran, not on how many hours.      │
 │                                     │
 │    Use the fortnight calculator     │
 │    for an accurate figure. →        │
@@ -243,17 +247,19 @@ This is where the product lives. It must show a genuinely mixed fortnight.
 │  ┌─────────────────────────────┐    │
 │  │  Your OT adds               │    │
 │  │                             │    │
-│  │    $ 6 9 8 . 3 4            │    │
+│  │    $ 6 9 8 . 3 3            │    │
 │  │    take-home                │    │
 │  │                             │    │
-│  │  from $1,110.34 before tax  │    │
+│  │  from $1,110.33 before tax  │    │
 │  │  63% kept                   │    │
 │  ├─────────────────────────────┤    │
 │  │  Fortnight   no OT   with   │    │
 │  │  Pre-tax    4,908.32  6,018.66  │
 │  │  PAYG tax  −1,208.00 −1,620.00  │
+│  │  Take-home  3,700.32  4,398.66  │
+│  │  Meal allow.       —      35.38 │
 │  │  ─────────────────────────  │    │
-│  │  Net        3,700.32  4,398.66  │
+│  │  In the hand 3,700.32 4,434.04  │
 │  │                             │    │
 │  │  How this was worked out ▸  │    │
 │  └─────────────────────────────┘    │
@@ -265,9 +271,10 @@ This is where the product lives. It must show a genuinely mixed fortnight.
 │  │ 10h · all at 2×             │    │
 │  │ Separate shift      $965.51 │    │
 │  ├─────────────────────────────┤    │
-│  │ Wed 19 Aug   18:00–20:00    │    │
-│  │ 2h · 2h at 1.5×             │    │
-│  │ Shift overrun       $144.83 │    │
+│  │ Wed 19 Aug   16:30–18:00    │    │
+│  │ 1.5h · all at 1.5×          │    │
+│  │ · + $35.38 meal allowance   │    │
+│  │ Shift overrun       $108.62 │    │
 │  └─────────────────────────────┘    │
 │                                     │
 │  ┌─────────────────────────────┐    │
@@ -283,7 +290,8 @@ Design notes:
 
 - **The result panel sits at the top and scrolls with the page.** It was sticky on mobile at first, on the theory that watching the number move as shifts are added is the whole point — but pinned over a single column it overlaps the fields underneath it, and the overlap is what you notice. It pins only in the desktop layout, where it has a column of its own.
 - Shift rows are tappable to edit, swipe-to-delete on mobile, with a duplicate action in the row menu.
-- The rate breakdown line (`10h · all at 2×`) is where the app teaches the EBA rules without a tutorial.
+- The rate breakdown line (`10h · all at 2×`) is where the app teaches the EBA rules without a tutorial. It also carries the meal allowance when the shift earned one — beside the rate breakdown, never folded into the row's amount, because the row's amount is overtime pay and the payslip lists the allowance on its own line.
+- **The comparison table has two bottom lines now**, and the order is an argument: `Take-home` is what the tax lines add up to, `Meal allowance` sits below them because it is untaxed, and `Total in the hand` is what lands. Printed above PAYG, the allowance would read as an amount tax took a cut of.
 - `Separate shift` / `Shift overrun` is the C9.5 toggle rendered as a status. It must be visible in the collapsed row because it changes the money.
 - The number transition when a shift is added should be a fast fade or count, ~200ms. Long enough to notice the change, short enough not to be waited on.
 
@@ -442,6 +450,9 @@ Approved phrasing. Consistency here matters more than elegance.
 | Base pay | "Base pay" | "Ordinary time earnings", "Composite" |
 | Privacy | "Nothing you enter leaves this device." | "Secure", "Encrypted", "Private" |
 | Rate currency | "Rates effective 04/12/2025" | Nothing at all |
+| Meal allowance | "Meal allowance · Tax free · EBA N36" | "Overtime meal", "OT meal", the bare Annex C code |
+| Meal allowance, earned | "1h 30m past the 10h AM shift" | "Meal window missed", "No break taken" |
+| The two bottom lines | "Take-home" then "Total in the hand" | Two rows both called take-home; the allowance above the tax lines |
 
 ### The disclaimer
 
@@ -495,7 +506,11 @@ Priority order. The first five are enough to start building.
 8. "How this was worked out" (§5.7)
 9. Desktop layout (§5.9)
 
-Use the real numbers from `IMPLEMENTATION_PLAN.md` §4.5 throughout — AP1 Step 2, $4,908.32 base, the Saturday 10h and Wednesday 2h shifts, $698.34 net delta. Mockups with plausible real figures surface layout problems that lorem-ipsum numbers hide, and these particular figures are the ones the engine will be tested against.
+Use the real numbers from `IMPLEMENTATION_PLAN.md` §4.5 throughout — AP1 Step 2, $4,908.32 base, the Saturday 10h and Wednesday 18:00–20:00 shifts. Mockups with plausible real figures surface layout problems that lorem-ipsum numbers hide, and these particular figures are the ones the engine is tested against.
+
+One correction to §4.5 that the shipped app carries and a mockup should too: the net delta is **$698.33**, not $698.34 (§3.13 keeps full precision to display; the plan sums two already-rounded lines).
+
+To show the `Meal allowance` and `Total in the hand` rows you need a shift that earns one, because **neither §4.5 shift does** — the allowance needs a 10-hour shift running an hour or more over (§3.11). The wireframe above uses a 16:30–18:00 overrun off an AM shift: one allowance, **$35.38 untaxed**, taking the fortnight to $4,434.04. A pickup entered whole as `06:30–18:00` gives the same.
 
 ---
 

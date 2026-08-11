@@ -6,7 +6,10 @@
  * to exercise the rules without waiting on Phase 1.
  */
 
+import { otMealAllowanceFor } from '../../data/allowances'
 import { ACT_HOLIDAY_CALENDAR } from '../../data/public-holidays'
+import { ROSTER_SHIFTS } from '../../data/roster-shifts'
+import type { MealAllowanceSettings } from '../meals'
 import type { HolidayCalendar, OtShift, PayBand, ShiftKind } from '../types'
 
 /**
@@ -34,6 +37,27 @@ export const AP1_STEP_2: PayBand = {
  * rather than quietly pay a weekday rate.
  */
 export const HOLIDAYS_2026: HolidayCalendar = ACT_HOLIDAY_CALENDAR
+
+/**
+ * The Annex C rate and the roster patterns EBA N36 needs — $35.38 per occasion
+ * from 4 December 2025, and the real AM/D/PM/N table.
+ *
+ * Both are taken from `src/data/` rather than written out, on the same principle
+ * as the holiday calendar above: a fixture that invents a rate or a shift pattern
+ * proves only that the engine agrees with the fixture. The roster patterns matter
+ * more than usual here — N36.2's boundary is placed from them, so a hand-written
+ * stand-in would test a roster nobody works.
+ */
+export const MEAL_SETTINGS: MealAllowanceSettings = {
+  ratePerOccasion: otMealAllowanceFor('2026-08-15').amount,
+  rosterShifts: ROSTER_SHIFTS,
+}
+
+/** No roster patterns at all — isolates the "cannot place the shift" path. */
+export const NO_ROSTER: MealAllowanceSettings = {
+  ...MEAL_SETTINGS,
+  rosterShifts: [],
+}
 
 /** No public holidays at all — isolates the weekday and weekend rules. */
 export const NO_HOLIDAYS: HolidayCalendar = {

@@ -25,8 +25,13 @@ export interface QuickHoursFieldProps {
  *
  * The assumption note is always expanded and never dismissible. It is not
  * decoration — this pathway knows no date and no shift kind, so it cannot see
- * a Saturday, a Sunday, a public holiday or the four-hour minimum, and every
- * one of those pays *more* than what it shows.
+ * a Saturday, a Sunday, a public holiday, the four-hour minimum or the N36
+ * meal allowance, and every one of those pays *more* than what it shows.
+ *
+ * The meal allowance is the one on that list the hours alone could never
+ * imply: N36 turns on *when* the shift ran, not how long — two hours across
+ * dinner earns it and eight hours between 09:00 and 17:00 does not — so the
+ * only honest thing this pathway can do is name it and point at the other tab.
  *
  * **The brief's copy says "Mon–Sat" here and that is wrong.** N34 overrides
  * C9.12 for this cohort and puts Saturday at double time from the first
@@ -54,6 +59,10 @@ export function QuickHoursField({
             Rough estimate. Assumes one Mon–Fri shift: 2h at time and a half,
             then double time. No Saturday, Sunday, public holiday or 4-hour
             minimum applied — every one of those pays more.
+          </p>
+          <p>
+            No meal allowance either. That depends on the times the shift ran,
+            not on how many hours it was.
           </p>
           <p>
             <Button variant="ghost" onClick={onUseFortnight}>

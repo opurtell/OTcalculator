@@ -3,7 +3,7 @@
  *
  * This file predicts the *payslip*, not the tax return. A big overtime
  * fortnight over-withholds and comes back at tax time; that is what payroll
- * actually does and it is what the user asked to see (§3.13).
+ * actually does and it is what the user asked to see (§3.14).
  *
  * Both schedules arrive as parameters. Neither is stored here, so a fortnight
  * worked in an earlier financial year keeps computing against that year's
@@ -31,7 +31,7 @@ import {
  *
  * The `round` is the one place the engine rounds mid-calculation. That is not a
  * presentation choice — it is mandated by the schedule, and computing in full
- * precision here would disagree with payroll by a dollar or so (§3.12).
+ * precision here would disagree with payroll by a dollar or so (§3.13).
  */
 export function paygWithholding(
   fortnightlyTaxableGross: number,
