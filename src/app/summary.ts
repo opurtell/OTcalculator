@@ -3,6 +3,7 @@ import type { FortnightResult } from '../engine/fortnight'
 import { advancedBreakdown, spendableTotal } from '../engine/packaging'
 import type { AdvancedDeductions } from '../engine/packaging'
 import { formatHours, formatKept, formatMoney } from '../ui/index'
+import { overtimeSuperSentence } from './breakdown'
 import { formatShortDate, formatTimeRange } from './dates'
 import { describeAttendance } from './shifts'
 
@@ -116,12 +117,18 @@ function spendableLines(
   const line = (label: string, amount: number) =>
     `${label.padEnd(26)}${formatMoney(amount).padStart(11)}`
 
+  // What the overtime did to super, in the same words the panel uses. It is the
+  // one line of the split that moves with the overtime, and this text is read
+  // away from the app where the two columns cannot be seen side by side.
+  const superSentence = overtimeSuperSentence(result, advanced)
+
   return [
     'Pre-tax deductions',
     line('Super', breakdown.superannuation),
     line('Living expenses', breakdown.livingExpenses),
     line('Meals and entertainment', breakdown.mealsAndEntertainment),
     line('Union fees', breakdown.unionFees),
+    ...(superSentence === undefined ? [] : [superSentence]),
     '',
     line(
       result.mealAllowance.total > 0 ? 'Total in the hand' : 'Take-home',

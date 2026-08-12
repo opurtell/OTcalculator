@@ -1,7 +1,11 @@
 import { advancedBreakdown, spendableTotal } from '../engine/packaging'
 import type { AdvancedDeductions } from '../engine/packaging'
 import type { FortnightResult } from '../engine/fortnight'
-import { advancedDeductionRows, spendableRows } from '../app/breakdown'
+import {
+  advancedDeductionRows,
+  overtimeSuperSentence,
+  spendableRows,
+} from '../app/breakdown'
 import { Disclosure, FigureTable, formatMoney } from '../ui/index'
 
 export interface WhereYourMoneyGoesProps {
@@ -40,8 +44,12 @@ export function WhereYourMoneyGoes({
 }: WhereYourMoneyGoesProps) {
   // Against the fortnight's own gross, overtime included — the same figure the
   // deductions panel does its arithmetic on, so the two never disagree about
-  // what a percentage came to.
+  // what a percentage came to. It is also the side the Spendable figure is
+  // asked from: what there is to spend is a question about this fortnight, not
+  // about the one without the shifts in it.
   const breakdown = advancedBreakdown(result.withOt.gross, advanced)
+  const deductions = advancedDeductionRows(result, advanced, superNote)
+  const superSentence = overtimeSuperSentence(result, advanced)
 
   return (
     <Disclosure
@@ -52,13 +60,28 @@ export function WhereYourMoneyGoes({
         <section>
           <h4 className="sl-workings__heading">Taken before tax</h4>
           <FigureTable
-            caption="Where the pre-tax deductions went"
-            rows={advancedDeductionRows(breakdown, superNote)}
+            // The accessible name follows the shape. A caption promising a
+            // comparison over a single column would send a screen-reader user
+            // looking for a column that is not there.
+            caption={
+              deductions.columns
+                ? 'Where the pre-tax deductions went, with and without overtime'
+                : 'Where the pre-tax deductions went'
+            }
+            columns={deductions.columns}
+            rows={deductions.rows}
           />
+          {/* The one line in this panel that moves with the overtime is super,
+              and only when it is a percentage. A column that changed with
+              nothing said about it would be exactly the unexplained figure the
+              app refuses everywhere else. */}
+          {superSentence ? <p className="sl-caption">{superSentence}</p> : null}
+          {/* "Overtime included" lives in the sentence above when there is any,
+              so this line says the part that holds either way rather than
+              repeating it a second time. */}
           <p className="sl-caption">
-            Super is worked out on your whole fortnight before tax, overtime
-            included, and before anything else comes out. The rest are set
-            amounts.
+            Super comes out of your whole fortnight before tax, before anything
+            else does. The other three are set amounts.
           </p>
         </section>
         <section>
