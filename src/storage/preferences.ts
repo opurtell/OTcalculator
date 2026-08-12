@@ -29,13 +29,39 @@ export const SCHEMA_VERSION = 2
 /** Which calculator the user was last in (§5). */
 export type Pathway = 'quick' | 'fortnight'
 
+/** Mirrors `AdvancedDeductionChoice` in `app/settings.ts`. */
+export interface StoredAdvancedDeductions {
+  enabled: boolean
+  superMode: 'percent' | 'amount'
+  superPercentOfGross: number
+  superPerFortnight: number
+  livingExpenses: number
+  mealsAndEntertainment: number
+  unionFees: number
+}
+
 export interface Preferences {
   payBand: { classification: string; step: number }
   /** Set when the user's own payslip disagrees with the table. `null` = derive. */
   overrides: { annualBase: number | null; fortnightlyGross: number | null }
   tax: { claimsTaxFreeThreshold: boolean; hasStudyDebt: boolean }
-  /** Mirrors `DeductionSettings` in `engine/packaging.ts`. */
-  deductions: { fixedPerFortnight: number; percentOfGross: number }
+  /**
+   * Mirrors `DeductionChoice` in `app/settings.ts` — the two figures the
+   * withholding calculation takes, and the advanced split when there is one.
+   *
+   * **`advanced` is absent, not zeroed, when the user has never opened advanced
+   * mode**, and that is what let the feature ship without a `SCHEMA_VERSION`
+   * bump. A bump discards every stored record wholesale, so every existing user
+   * would have lost the pay band they set. An added optional key costs them
+   * nothing instead: a record written before it existed still normalises to
+   * itself, so the read is `'ok'` rather than `'repaired'` and nobody is told
+   * their settings were damaged by an upgrade.
+   */
+  deductions: {
+    fixedPerFortnight: number
+    percentOfGross: number
+    advanced?: StoredAdvancedDeductions
+  }
   lastPathway: Pathway
 }
 
@@ -130,6 +156,32 @@ function payBand(value: unknown): Preferences['payBand'] {
   return { classification, step }
 }
 
+/**
+ * The advanced split, or `undefined` for "there wasn't one".
+ *
+ * Absent stays absent — that is the whole no-bump upgrade path, and it is why
+ * this returns `undefined` rather than a block of zeroes. Anything else stored
+ * under the key is repaired field by field like everything else: a corrupt
+ * `livingExpenses` should not cost the user the super percentage they set.
+ */
+function advancedDeductions(value: unknown): StoredAdvancedDeductions | undefined {
+  if (value === undefined) return undefined
+
+  // Not a record at all — including `null`, which is corruption rather than a
+  // stored "no split". `fieldsSurvived` will see the difference and report it.
+  const stored = isRecord(value) ? value : {}
+
+  return {
+    enabled: bool(stored.enabled, false),
+    superMode: stored.superMode === 'amount' ? 'amount' : 'percent',
+    superPercentOfGross: fraction(stored.superPercentOfGross, 0),
+    superPerFortnight: money(stored.superPerFortnight, 0),
+    livingExpenses: money(stored.livingExpenses, 0),
+    mealsAndEntertainment: money(stored.mealsAndEntertainment, 0),
+    unionFees: money(stored.unionFees, 0),
+  }
+}
+
 function pathway(value: unknown): Pathway {
   return value === 'quick' || value === 'fortnight'
     ? value
@@ -175,6 +227,10 @@ export function normalisePreferences(value: unknown): Preferences {
         deductions.percentOfGross,
         defaults.deductions.percentOfGross,
       ),
+      // `undefined` here is dropped by `JSON.stringify` on both sides of
+      // `fieldsSurvived`, so a record from before advanced mode still reads
+      // back as `'ok'` — and is written back out in the same shape.
+      advanced: advancedDeductions(deductions.advanced),
     },
     lastPathway: pathway(value.lastPathway),
   }

@@ -1,5 +1,7 @@
 import type { Attendance } from '../engine/attendance'
 import type { FortnightResult } from '../engine/fortnight'
+import { advancedBreakdown, spendableTotal } from '../engine/packaging'
+import type { AdvancedDeductions } from '../engine/packaging'
 import { formatHours, formatKept, formatMoney } from '../ui/index'
 import { formatShortDate, formatTimeRange } from './dates'
 import { describeAttendance } from './shifts'
@@ -14,6 +16,14 @@ export interface SummaryInput {
   bandSummary: string
   /** The §3.8 fallback captions, if any. They change what the figures mean. */
   captions?: readonly string[]
+  /**
+   * The advanced deduction split, when the user has one. Its Spendable figure
+   * travels with the text for the same reason the shifts and the tax line do: it
+   * is the figure someone in advanced mode is actually quoting, and a
+   * take-home-only summary would understate what they have by the packaged
+   * amount they still spend.
+   */
+  advancedDeductions?: AdvancedDeductions | null
 }
 
 /**
@@ -30,7 +40,12 @@ export interface SummaryInput {
  * chat; "nothing you enter leaves this device" is a promise the app keeps by
  * having no such feature.
  */
-export function summaryText({ result, bandSummary, captions = [] }: SummaryInput): string {
+export function summaryText({
+  result,
+  bandSummary,
+  captions = [],
+  advancedDeductions = null,
+}: SummaryInput): string {
   const lines: string[] = ['ACTAS OT Calculator — estimate', '']
 
   if (result.overtimeGross > 0) {
@@ -69,6 +84,10 @@ export function summaryText({ result, bandSummary, captions = [] }: SummaryInput
     )
   }
 
+  if (advancedDeductions !== null) {
+    lines.push('', ...spendableLines(result, advancedDeductions))
+  }
+
   lines.push('', bandSummary, ...captions, '', DISCLAIMER)
 
   // Collapse the runs of blank lines a missing section can leave behind.
@@ -76,6 +95,43 @@ export function summaryText({ result, bandSummary, captions = [] }: SummaryInput
     .filter((line, at) => line !== '' || lines[at - 1] !== '')
     .join('\n')
     .trim()
+}
+
+/**
+ * The advanced split's Spendable block.
+ *
+ * Every category is named, including the two that are not added in — a Spendable
+ * figure with no account of what was left out is exactly the unexplained figure
+ * this text exists to avoid, and it is read away from the app where nothing can
+ * be tapped to find out.
+ */
+function spendableLines(
+  result: FortnightResult,
+  advanced: AdvancedDeductions,
+): string[] {
+  const breakdown = advancedBreakdown(result.withOt.gross, advanced)
+  // 26 clears the longest label here — `+ Meals and entertainment` — so the
+  // figures stay in one column. A label that outgrew the pad would push its own
+  // amount right and break the alignment for that line alone.
+  const line = (label: string, amount: number) =>
+    `${label.padEnd(26)}${formatMoney(amount).padStart(11)}`
+
+  return [
+    'Pre-tax deductions',
+    line('Super', breakdown.superannuation),
+    line('Living expenses', breakdown.livingExpenses),
+    line('Meals and entertainment', breakdown.mealsAndEntertainment),
+    line('Union fees', breakdown.unionFees),
+    '',
+    line(
+      result.mealAllowance.total > 0 ? 'Total in the hand' : 'Take-home',
+      result.netTotal,
+    ),
+    line('+ Living expenses', breakdown.livingExpenses),
+    line('+ Meals and entertainment', breakdown.mealsAndEntertainment),
+    line('Spendable', spendableTotal(result.netTotal, breakdown)),
+    'Super and union fees are not in this — one is locked away, the other is already spent.',
+  ]
 }
 
 /** `Wed 19 Aug AM shift · 1.5h over        $35.38`, one per occasion. */

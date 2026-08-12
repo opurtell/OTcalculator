@@ -27,17 +27,17 @@ Phases against `IMPLEMENTATION_PLAN.md` §6:
 | **2** OT engine | **Done.** `src/engine/` — ratchet, categories, attendance grouping, C9.5 minimum, OT dollars |
 | **3** Money engine | **Done.** `tax.ts`, `packaging.ts`, `fortnight.ts` — PAYG, HELP, pre-tax deductions, the with/without-OT delta. **The §4.5 golden fixture passes end to end** |
 | **4** Persistence | **Done.** `src/storage/` — versioned `localStorage` per §4.4, defensive reads, debounced writes, clear-settings. `preferences.ts` holds the settings; `shifts.ts` holds this pay fortnight's shifts and lets go of them when it ends |
-| **5** Shell + setup | **Done.** `src/components/` + `src/app/` — app frame, pathway switcher, pay band picker with editable overrides, deductions and tax panel, disclaimer, clear-settings. `App.tsx` wires the calculator to persistence |
+| **5** Shell + setup | **Done.** `src/components/` + `src/app/` — app frame, pathway switcher, pay band picker with editable overrides, deductions and tax panel (simple and advanced — see "Advanced deductions"), disclaimer, clear-settings. `App.tsx` wires the calculator to persistence |
 | **6** Quick pathway | **Done.** One hours field, the §5.1 two-tier split, the low-estimate note. Adds `quickOvertime` and the behaviour-preserving `comparePay` extraction in `src/engine/` |
 | **7** Fortnight pathway | **Done.** Shift list, add/edit sheet with live preview, delete-with-undo, duplicate, the roster quick-fill, and the five non-blocking warnings. A row is an attendance, not an entry |
-| **8** Results | **Done.** The with/without comparison table, an inspectable per-shift Overtime breakdown, the tax-free meal allowance line and its per-occasion derivation, and the §5.7 "how this was worked out" disclosure. Row logic lives in `src/app/breakdown.ts`; `HowItWasWorkedOut.tsx` wraps the §5.7 derivation |
+| **8** Results | **Done.** The with/without comparison table, an inspectable per-shift Overtime breakdown, the tax-free meal allowance line and its per-occasion derivation, the §5.7 "how this was worked out" disclosure, and the advanced split's "Where your money goes" / Spendable disclosure. Row logic lives in `src/app/breakdown.ts`; `HowItWasWorkedOut.tsx` and `WhereYourMoneyGoes.tsx` wrap the two disclosures |
 | **9** Polish | **Done; verified in a browser at desktop width only.** Keyboard operation of the tabs and segmented control, the tab panel, a narrowed live region, Escape and focus return on the sheet and row menu; 44px targets, 16px inputs, a capped sticky result on desktop, safe areas; PWA with a hand-rolled service worker; print stylesheet and a shareable text summary; an error boundary and the settings-repair notice; a copy sweep against the §6 deck |
 | **10** Validation | **Not started, and it is the gate.** Reconcile against the 35 payslips in the sibling repo. Needs the local machine — they are deliberately not on GitHub. Method in `NEXT_SESSION.md` |
 
 `calculateFortnight(shifts, settings)` in `src/engine/fortnight.ts` is the entry
 point — shifts and settings in, take-home and the overtime delta out. It calls
 `calculateOvertime` underneath, which is usable alone if you only want gross OT.
-537 tests. All seven crossover worked examples pass. Four things to know:
+578 tests. All seven crossover worked examples pass. Four things to know:
 
 - **The meal allowance is the one untaxed figure, and it sits outside
   `PayComparison` deliberately.** `src/engine/meals.ts` pays $35.38 once when a
@@ -92,6 +92,66 @@ things it settles:
 Storage validates shape, not meaning: a stored band of `AP9 Step 99` round
 trips, because `payBandFor` already returns `undefined` for stale settings and
 duplicating Annex A behind a browser API would be the worse coupling.
+
+## Advanced deductions, and Spendable
+
+The "Advanced" toggle in the Deductions & tax panel splits the one pre-tax field
+four ways — **pre-tax super, living expenses, meals and entertainment, union
+fees** — and unlocks the "Where your money goes" disclosure in the result panel,
+whose bottom line is **Spendable**.
+
+**It changes no tax figure, and that is the design.** `advancedDeductionSettings`
+in `src/engine/packaging.ts` collapses the four categories back to the two knobs
+the withholding calculation has always taken: the three value-only categories
+plus a dollar super contribution become `fixedPerFortnight`, and a percentage
+super contribution becomes `percentOfGross`. Advanced mode is a different set of
+*questions*, not a different sum, which is why nothing in the tax path had to
+learn about it. `src/app/settings.ts` (`deductionSettingsFor`) is the one place
+that collapse happens.
+
+Six things about it:
+
+- **Spendable is take-home plus living expenses plus meals and entertainment,
+  and nothing else.** Those two leave the payslip and come back — to a mortgage,
+  a rent payment, a packaging card — and get spent like any other dollar. Super
+  is locked away and union fees have already been spent, so both are shown in
+  the breakdown and then deliberately left out of the total. It starts from
+  `netTotal`, not `withOt.net`: the tax-free meal allowance is in the account by
+  the same test as the rest of take-home.
+- **Only super has a percentage option, and it bites on the whole gross** —
+  overtime included, before anything else comes out, exactly as the single
+  percentage field always has. The other three are amounts, because nobody
+  states a rent payment or a union fee as a share of their salary.
+- **Both super figures are stored, and `superMode` decides which is live.**
+  Switching between percentage and set amount must not be destructive, so the
+  unselected figure is remembered — and `activeAdvancedDeductions` zeroes it on
+  the way to the engine, so a remembered keystroke can never reach a figure. Same
+  reasoning as the pay band keeping `annualBase` and `fortnightlyGross` together.
+  The simple mode's two fields survive a trip through advanced mode for the same
+  reason.
+- **It shipped without a `SCHEMA_VERSION` bump, and the mechanism is load-bearing.**
+  `deductions.advanced` is an *optional* key: absent on a record written before
+  the feature, and absent on a record belonging to someone who never opened the
+  toggle (`deductionChoiceFrom` omits it when it holds nothing). `undefined` is
+  dropped by `JSON.stringify` on both sides of `fieldsSurvived`, so those records
+  still read back `'ok'` rather than `'repaired'`. A bump would have discarded
+  every stored record and cost every existing user the pay band they set. Do not
+  turn the key into a required field of zeroes.
+- **The cap is allocated proportionally.** `computeDeductions` caps the total at
+  gross; `advancedBreakdown` scales every category by the same factor so its
+  lines still sum to that total. A breakdown that summed past its own total would
+  be the app contradicting itself on screen — the failure the deductions panel
+  exists to prevent. `money.test.ts` holds the two totals equal across a range of
+  grosses.
+- **No Spendable figure in simple mode.** One field over several unrelated things
+  cannot tell packaged living expenses from salary-sacrificed super (trap 6), so
+  the disclosure is not rendered at all rather than guessing. Same reason trap 6
+  gives for having no FBT-cap warning.
+
+The Spendable block also travels in the shared text summary (`src/app/summary.ts`),
+naming all four categories including the two it does not add back — read away
+from the app, a Spendable figure with no account of what was left out is exactly
+the unexplained figure that file exists to avoid.
 
 ## The meal allowance
 
@@ -326,7 +386,15 @@ effect on the window — and what someone should still actually try:
   the single-column layout end to end rather than a width-constrained element
   inside a wide one.
 - **The capped sticky result at ≥900px** with the derivation open — that it
-  scrolls within itself rather than hiding its own bottom.
+  scrolls within itself rather than hiding its own bottom. **Advanced mode makes
+  this taller**: a second disclosure sits above the §5.7 one, so the result
+  column now has more to scroll than the pass on 8 August ever saw.
+
+**Advanced deductions has not been in a browser at all.** Its five fields, the
+super percentage/set-amount segmented control and the "Where your money goes"
+disclosure were built and tested the way Phase 9 was — from node. Drive the
+toggle both ways, arrow the super control, and check the deductions panel does
+not outgrow a 320px column with five fields in it.
 
 `src/ui/__tests__/contrast.test.ts` does hold the line on §8's contrast
 requirement in both themes, and asserts the three copies of the palette in
@@ -485,6 +553,9 @@ occasion from 4 December 2025.
    overstepping. `PACKAGING_CAPS` stays in `src/data/` as transcribed reference
    data with nothing reading it; `packagingFlags` carries the note. If a future
    version wants the check, it needs the field split by purpose first.
+   **Advanced mode is that split**, and it is what makes the Spendable figure
+   possible — but it is opt-in, so the cap check still cannot come back for
+   everyone, and it stays out. See "Advanced deductions, and Spendable".
 
 7. **The meal allowance is a 10-hour shift going an hour over, and nothing
    else.** It is ACTAS practice, not N36.2's words — a paramedic's break is taken

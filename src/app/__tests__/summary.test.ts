@@ -141,3 +141,67 @@ describe('summaryText', () => {
     expect(captioned).toContain('Using 2025–26 tax rates')
   })
 })
+
+/**
+ * The advanced split, in the text that leaves the device.
+ *
+ * Same rule as the shifts and the tax line: what is on screen and what gets
+ * pasted into a message thread are the same figures. Someone in advanced mode
+ * is quoting Spendable, and a take-home-only summary would understate what they
+ * have by the packaged amount they still spend.
+ */
+describe('summaryText with the advanced deduction split', () => {
+  const ADVANCED = {
+    superPercentOfGross: 0.05,
+    superPerFortnight: 0,
+    livingExpenses: 800,
+    mealsAndEntertainment: 100,
+    unionFees: 30,
+  }
+
+  const result = calculateFortnight([SATURDAY, WEDNESDAY], {
+    ...settings,
+    deductions: { fixedPerFortnight: 930, percentOfGross: 0.05 },
+  })
+  const text = summaryText({
+    result,
+    bandSummary: 'AP1 Step 2',
+    advancedDeductions: ADVANCED,
+  })
+
+  it('names every category, including the two it does not add back', () => {
+    // A Spendable figure with no account of what was left out is exactly the
+    // unexplained figure this text exists to avoid — and it is read away from
+    // the app, where nothing can be tapped to find out.
+    expect(text).toContain('Super')
+    expect(text).toContain('Living expenses')
+    expect(text).toContain('Meals and entertainment')
+    expect(text).toContain('Union fees')
+    expect(text).toContain('one is locked away, the other is already spent')
+  })
+
+  it('adds the two that come back, and nothing else', () => {
+    expect(text).toContain('Spendable')
+    const spendable = /Spendable\s+\$([\d,]+\.\d\d)/.exec(text)
+    expect(spendable, 'no Spendable line in the summary').not.toBeNull()
+    expect(spendable![1]).toBe(
+      formatSummaryMoney(result.netTotal + 900),
+    )
+  })
+
+  it('still carries its disclaimer', () => {
+    expect(text.trimEnd().endsWith(DISCLAIMER)).toBe(true)
+  })
+
+  it('says nothing about spendable money in simple mode', () => {
+    expect(summary).not.toContain('Spendable')
+  })
+})
+
+/** `4,600.32` — the summary's own money format, without the `$`. */
+function formatSummaryMoney(value: number): string {
+  return new Intl.NumberFormat('en-AU', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)
+}

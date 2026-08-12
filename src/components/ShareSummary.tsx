@@ -16,6 +16,10 @@ import type { SummaryInput } from '../app/summary'
  * The share text is built from a pure function and nothing is encoded into the
  * URL — the app's promise is that nothing leaves the device unless the user
  * sends it, and a link carrying someone's pay band would break that quietly.
+ *
+ * Every prop goes straight to `summaryText`, including the advanced deduction
+ * split: what is on screen and what leaves the device are the same figures, or
+ * the printout beside the payslip disagrees with the app that produced it.
  */
 export function ShareSummary(props: SummaryInput) {
   // Capability is read after mount rather than at render: `navigator` does not

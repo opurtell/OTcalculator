@@ -1,8 +1,10 @@
 import type { FortnightResult, FortnightSettings } from '../engine/fortnight'
+import type { AdvancedDeductions } from '../engine/packaging'
 import { FigureTable, Money, Panel, ResultPanel } from '../ui/index'
 import { breakdownRows, comparisonRows } from '../app/breakdown'
 import { HowItWasWorkedOut } from './HowItWasWorkedOut'
 import { ShareSummary } from './ShareSummary'
+import { WhereYourMoneyGoes } from './WhereYourMoneyGoes'
 
 export interface FortnightResultPanelProps {
   result: FortnightResult
@@ -21,6 +23,15 @@ export interface FortnightResultPanelProps {
    * per-shift derivation do not need it, only the rate-and-clause working does.
    */
   settings?: FortnightSettings
+  /**
+   * The advanced deduction split, when the user has switched it on. `null` or
+   * absent leaves the "Where your money goes" disclosure out entirely — in
+   * simple mode the app cannot tell packaged living expenses from sacrificed
+   * super, so it has nothing honest to say about what is spendable.
+   */
+  advancedDeductions?: AdvancedDeductions | null
+  /** `5% of pay before tax`, when that is how the super figure was entered. */
+  superNote?: string
 }
 
 /**
@@ -44,14 +55,32 @@ export function FortnightResultPanel({
   bandSummary,
   captions = [],
   settings,
+  advancedDeductions = null,
+  superNote,
 }: FortnightResultPanelProps) {
   const hasOvertime = result.overtimeGross > 0
   const workings =
     settings === undefined ? null : (
       <HowItWasWorkedOut settings={settings} result={result} />
     )
+  // Above the §5.7 derivation: this answers "what have I got", which is the
+  // question that brought the user here, where that one answers "how do you
+  // know". Both are collapsed, so the order is what decides which is found.
+  const spendable =
+    advancedDeductions === null ? null : (
+      <WhereYourMoneyGoes
+        result={result}
+        advanced={advancedDeductions}
+        superNote={superNote}
+      />
+    )
   const share = (
-    <ShareSummary result={result} bandSummary={bandSummary} captions={captions} />
+    <ShareSummary
+      result={result}
+      bandSummary={bandSummary}
+      captions={captions}
+      advancedDeductions={advancedDeductions}
+    />
   )
 
   if (!hasOvertime) {
@@ -78,6 +107,7 @@ export function FortnightResultPanel({
             rows={breakdownRows(result)}
           />
           <Captions lines={captions} />
+          {spendable}
           {workings}
           {share}
         </div>
@@ -112,6 +142,7 @@ export function FortnightResultPanel({
         rows={comparison.rows}
       />
       <Captions lines={captions} />
+      {spendable}
       {workings}
       {share}
     </ResultPanel>

@@ -29,7 +29,8 @@ import {
 import type { AllowanceRate } from '../data'
 import { financialYearFor, toIsoDate } from '../engine/calendar'
 import type { FortnightSettings } from '../engine/fortnight'
-import type { DeductionSettings } from '../engine/packaging'
+import { advancedDeductionSettings } from '../engine/packaging'
+import type { AdvancedDeductions, DeductionSettings } from '../engine/packaging'
 import { ordinaryFortnightlyGross } from '../engine/tax'
 import type { IsoDate, PayBand } from '../engine/types'
 
@@ -62,11 +63,106 @@ export interface TaxChoice {
   hasStudyDebt: boolean
 }
 
+/** Which super field advanced mode is calculating on. */
+export type SuperMode = 'percent' | 'amount'
+
+/**
+ * Advanced mode's four categories as the user left them, plus the two switches
+ * that say which of the figures are live.
+ *
+ * Both super figures are kept rather than one, for the same reason the pay band
+ * keeps `annualBase` and `fortnightlyGross` side by side: switching between a
+ * percentage and a set amount is a change of mind about how to say it, and
+ * discarding the other answer would make that switch destructive. `superMode`
+ * settles which one is applied, so the pair cannot disagree — only one of them
+ * is ever a figure, and the other is a remembered keystroke.
+ */
+export interface AdvancedDeductionChoice {
+  /** Whether the split is what the app calculates on. */
+  enabled: boolean
+  superMode: SuperMode
+  /** A fraction of gross, e.g. `0.05`. Live when `superMode` is `'percent'`. */
+  superPercentOfGross: number
+  /** Dollars per fortnight. Live when `superMode` is `'amount'`. */
+  superPerFortnight: number
+  livingExpenses: number
+  mealsAndEntertainment: number
+  unionFees: number
+}
+
+export const DEFAULT_ADVANCED_DEDUCTIONS: AdvancedDeductionChoice = {
+  enabled: false,
+  superMode: 'percent',
+  superPercentOfGross: 0,
+  superPerFortnight: 0,
+  livingExpenses: 0,
+  mealsAndEntertainment: 0,
+  unionFees: 0,
+}
+
+/**
+ * The deduction settings, plus the advanced split when the user has one.
+ *
+ * `advanced` is optional and absent means absent: a record written before
+ * advanced mode existed, or by someone who has never opened it, carries no key
+ * at all rather than a block of zeroes. That keeps the stored shape unchanged
+ * for every user who does not use the feature.
+ */
+export interface DeductionChoice extends DeductionSettings {
+  advanced?: AdvancedDeductionChoice
+}
+
 export interface CalculatorChoices {
   band: PayBandChoice
   tax: TaxChoice
-  deductions: DeductionSettings
+  deductions: DeductionChoice
   pathway: Pathway
+}
+
+/**
+ * The split as the engine takes it, with the super field that is not selected
+ * zeroed out. Nothing downstream should ever see the remembered one.
+ */
+export function activeAdvancedDeductions(
+  choice: AdvancedDeductionChoice,
+): AdvancedDeductions {
+  return {
+    superPercentOfGross:
+      choice.superMode === 'percent' ? choice.superPercentOfGross : 0,
+    superPerFortnight: choice.superMode === 'amount' ? choice.superPerFortnight : 0,
+    livingExpenses: choice.livingExpenses,
+    mealsAndEntertainment: choice.mealsAndEntertainment,
+    unionFees: choice.unionFees,
+  }
+}
+
+/** The advanced split when it is switched on, `null` when it is not. */
+export function advancedDeductionsFor(
+  deductions: DeductionChoice,
+): AdvancedDeductions | null {
+  const advanced = deductions.advanced
+  if (advanced === undefined || !advanced.enabled) return null
+  return activeAdvancedDeductions(advanced)
+}
+
+/**
+ * Which two knobs the withholding calculation gets.
+ *
+ * Rebuilt field by field rather than passed straight through: `DeductionChoice`
+ * is a `DeductionSettings` with a UI-only field bolted on, and handing that
+ * object to the engine would put `advanced` inside `FortnightSettings` where
+ * nothing may read it (see the `src/engine/` boundary rule).
+ */
+export function deductionSettingsFor(
+  deductions: DeductionChoice,
+): DeductionSettings {
+  const advanced = advancedDeductionsFor(deductions)
+  if (advanced !== null) return advancedDeductionSettings(advanced)
+
+  return {
+    fixedPerFortnight: deductions.fixedPerFortnight,
+    percentOfGross: deductions.percentOfGross,
+  }
 }
 
 /**
@@ -102,6 +198,13 @@ export interface ResolvedSettings {
    * version of the table produced it.
    */
   mealAllowanceRate: AllowanceRate
+  /**
+   * The advanced deduction split when the user has switched it on, `null`
+   * otherwise. It changes no figure in `settings` — `deductionSettingsFor` has
+   * already collapsed it — and is carried here only so the result panel can say
+   * where the deducted money went, and what is left to spend.
+   */
+  advancedDeductions: AdvancedDeductions | null
   /**
    * Quiet captions the UI is obliged to show — currently the §3.8 tax fallback
    * and its §3.9 study-loan counterpart. Empty when nothing is stale.
@@ -163,12 +266,16 @@ export function resolveSettings(
     tableBand,
     derivedFortnightlyGross: ordinaryFortnightlyGross(band),
     mealAllowanceRate,
+    advancedDeductions: advancedDeductionsFor(choices.deductions),
     captions,
     settings: {
       band,
       taxScale: taxSelection.scale,
       helpSchedule: helpSelection?.schedule ?? null,
-      deductions: choices.deductions,
+      // Advanced mode's four categories, collapsed back to the two knobs the
+      // withholding calculation has always taken. The split describes a
+      // deduction total; it never computes a different one.
+      deductions: deductionSettingsFor(choices.deductions),
       holidays: ACT_HOLIDAY_CALENDAR,
       meals: {
         ratePerOccasion: mealAllowanceRate.amount,

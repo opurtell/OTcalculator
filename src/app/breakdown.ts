@@ -28,6 +28,8 @@ import {
   MEAL_ALLOWANCE_SHIFT_MINUTES,
 } from '../engine/meals'
 import type { MealOccasion } from '../engine/meals'
+import { spendableTotal } from '../engine/packaging'
+import type { AdvancedBreakdown } from '../engine/packaging'
 import type { FortnightResult, FortnightSettings } from '../engine/fortnight'
 import { RATES_EFFECTIVE_FROM } from '../data'
 import { describeAttendance } from './shifts'
@@ -219,6 +221,113 @@ export function breakdownRows(result: FortnightResult): FigureRow[] {
   }
 
   return rows
+}
+
+/**
+ * The label each advanced category goes by, in the order they are shown.
+ *
+ * Super first because it is the biggest and the one nobody spends; union fees
+ * last because they are the smallest and the one nobody thinks about. The two
+ * in the middle are the two the Spendable line adds back, and keeping them
+ * adjacent is what makes that addition readable rather than a lookup.
+ */
+export const ADVANCED_CATEGORY_LABELS = {
+  superannuation: 'Super',
+  livingExpenses: 'Living expenses',
+  mealsAndEntertainment: 'Meals and entertainment',
+  unionFees: 'Union fees',
+} as const
+
+/**
+ * The four advanced categories as rows, in dollars at this fortnight's gross.
+ *
+ * Returned plain — no tone, no forced minus. The deductions panel shows the same
+ * four figures as money leaving and adds that treatment itself; the result
+ * panel's breakdown shows them as an account of where the total went, where a
+ * column of minus signs would be arguing the same point twice.
+ *
+ * `superNote` is passed in rather than derived because only the caller knows how
+ * the user said it — "5% of pay before tax" and "a set amount" are the same
+ * figure reached two ways, and the row has to say which.
+ */
+export function advancedCategoryRows(
+  breakdown: AdvancedBreakdown,
+  superNote?: string,
+): FigureRow[] {
+  return [
+    {
+      label: ADVANCED_CATEGORY_LABELS.superannuation,
+      note: superNote,
+      values: [breakdown.superannuation],
+    },
+    { label: ADVANCED_CATEGORY_LABELS.livingExpenses, values: [breakdown.livingExpenses] },
+    {
+      label: ADVANCED_CATEGORY_LABELS.mealsAndEntertainment,
+      values: [breakdown.mealsAndEntertainment],
+    },
+    { label: ADVANCED_CATEGORY_LABELS.unionFees, values: [breakdown.unionFees] },
+  ]
+}
+
+/**
+ * Where the pre-tax money went — the four categories and their total.
+ *
+ * Every category is shown whether or not it was used, unlike the comparison
+ * table's conditional rows. The point of opening this panel is to check a split
+ * you entered, and a category that silently vanishes when you clear it reads as
+ * the app having lost it rather than as a zero.
+ */
+export function advancedDeductionRows(breakdown: AdvancedBreakdown, superNote?: string): FigureRow[] {
+  return [
+    ...advancedCategoryRows(breakdown, superNote),
+    {
+      label: 'Taken before tax',
+      values: [breakdown.total],
+      total: true,
+    },
+  ]
+}
+
+/**
+ * Take-home, the packaged money added back, and what that leaves to spend.
+ *
+ * Living expenses and meals and entertainment are the only two added: they never
+ * reach the bank account, but they are paid to a mortgage, a rent payment or a
+ * packaging card and are spent all the same. Super is locked away and union fees
+ * are already spent, so counting either would overstate the answer by the
+ * amount most plainly not available — which is why both are named in the note
+ * rather than just left out.
+ */
+export function spendableRows(
+  result: FortnightResult,
+  breakdown: AdvancedBreakdown,
+): FigureRow[] {
+  // The same word the comparison table uses for the same figure. With a meal
+  // allowance in it the line is "Total in the hand" there, and two names for one
+  // number in one panel is how a user stops trusting either.
+  const inTheHandLabel =
+    result.mealAllowance.total > 0 ? 'Total in the hand' : 'Take-home'
+
+  return [
+    { label: inTheHandLabel, values: [result.netTotal], tone: 'net' },
+    {
+      label: ADVANCED_CATEGORY_LABELS.livingExpenses,
+      note: 'Paid to your mortgage, rent or card',
+      values: [breakdown.livingExpenses],
+    },
+    {
+      label: ADVANCED_CATEGORY_LABELS.mealsAndEntertainment,
+      note: 'Paid onto your card',
+      values: [breakdown.mealsAndEntertainment],
+    },
+    {
+      label: 'Spendable',
+      note: 'Super and union fees are not in this — one is locked away, the other is already spent',
+      values: [spendableTotal(result.netTotal, breakdown)],
+      tone: 'net',
+      total: true,
+    },
+  ]
 }
 
 /**

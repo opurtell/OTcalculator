@@ -10,12 +10,15 @@
 import { describe, expect, it } from 'vitest'
 import { calculateFortnight } from '../../engine/fortnight'
 import {
+  DEFAULT_ADVANCED_DEDUCTIONS,
   DEFAULT_CHOICES,
+  activeAdvancedDeductions,
+  deductionSettingsFor,
   isKnownBand,
   resolveSettings,
   todayIso,
 } from '../settings'
-import type { CalculatorChoices } from '../settings'
+import type { AdvancedDeductionChoice, CalculatorChoices } from '../settings'
 
 /** The golden fixture's band and settings: AP1 Step 2, Scale 2, nothing else. */
 const GOLDEN: CalculatorChoices = {
@@ -173,6 +176,90 @@ describe('resolveSettings', () => {
   it('resolves its own defaults', () => {
     expect(resolveSettings(DEFAULT_CHOICES, IN_FY_2025_26)).not.toBeNull()
     expect(isKnownBand(DEFAULT_CHOICES.band)).toBe(true)
+  })
+})
+
+describe('the advanced deduction split', () => {
+  /** Super at 5%, plus the three value-only categories. */
+  const SPLIT: AdvancedDeductionChoice = {
+    ...DEFAULT_ADVANCED_DEDUCTIONS,
+    enabled: true,
+    superMode: 'percent',
+    superPercentOfGross: 0.05,
+    superPerFortnight: 400,
+    livingExpenses: 800,
+    mealsAndEntertainment: 100,
+    unionFees: 30,
+  }
+
+  it('applies only the super field the mode selects', () => {
+    // Both figures are kept so switching between them is not destructive, and
+    // `superMode` is what settles which one is a figure — the other is a
+    // remembered keystroke and must reach nothing.
+    expect(activeAdvancedDeductions(SPLIT)).toMatchObject({
+      superPercentOfGross: 0.05,
+      superPerFortnight: 0,
+    })
+    expect(
+      activeAdvancedDeductions({ ...SPLIT, superMode: 'amount' }),
+    ).toMatchObject({ superPercentOfGross: 0, superPerFortnight: 400 })
+  })
+
+  it('hands the engine the split when it is switched on', () => {
+    expect(deductionSettingsFor({ ...GOLDEN.deductions, advanced: SPLIT })).toEqual({
+      fixedPerFortnight: 930,
+      percentOfGross: 0.05,
+    })
+  })
+
+  it('falls back to the two simple fields when it is switched off', () => {
+    // The simple figures survive a trip through advanced mode: turning the
+    // toggle on is not an instruction to forget what was already there.
+    const deductions = {
+      fixedPerFortnight: 611,
+      percentOfGross: 0.02,
+      advanced: { ...SPLIT, enabled: false },
+    }
+    expect(deductionSettingsFor(deductions)).toEqual({
+      fixedPerFortnight: 611,
+      percentOfGross: 0.02,
+    })
+  })
+
+  it('never leaks the split into the engine settings', () => {
+    // `DeductionChoice` is a `DeductionSettings` with a UI field bolted on.
+    // Passing it through unchanged would put `advanced` inside
+    // `FortnightSettings`, where nothing in `src/engine/` may read it.
+    const { settings, advancedDeductions } = resolveGolden({
+      deductions: { ...GOLDEN.deductions, advanced: SPLIT },
+    })
+
+    expect(settings.deductions).toEqual({
+      fixedPerFortnight: 930,
+      percentOfGross: 0.05,
+    })
+    expect(advancedDeductions).not.toBeNull()
+  })
+
+  it('reports no split for the result panel when the toggle is off', () => {
+    expect(resolveGolden().advancedDeductions).toBeNull()
+    expect(
+      resolveGolden({
+        deductions: { ...GOLDEN.deductions, advanced: { ...SPLIT, enabled: false } },
+      }).advancedDeductions,
+    ).toBeNull()
+  })
+
+  it('reaches the take-home figure — the split is not decoration', () => {
+    const plain = calculateFortnight([], resolveGolden().settings)
+    const packaged = calculateFortnight(
+      [],
+      resolveGolden({ deductions: { ...GOLDEN.deductions, advanced: SPLIT } })
+        .settings,
+    )
+
+    expect(packaged.withOt.taxableGross).toBeLessThan(plain.withOt.taxableGross)
+    expect(packaged.withOt.payg).toBeLessThan(plain.withOt.payg)
   })
 })
 

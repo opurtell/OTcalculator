@@ -34,6 +34,27 @@ const GOLDEN: CalculatorChoices = {
 
 const IN_FY_2025_26 = '2026-02-11'
 
+/**
+ * Advanced mode as a user would leave it: super at 5%, and the three value-only
+ * categories filled in. $4,908.32 gross ⇒ $245.42 super + $800 + $100 + $30.
+ */
+const ADVANCED: CalculatorChoices = {
+  ...GOLDEN,
+  deductions: {
+    fixedPerFortnight: 0,
+    percentOfGross: 0,
+    advanced: {
+      enabled: true,
+      superMode: 'percent',
+      superPercentOfGross: 0.05,
+      superPerFortnight: 0,
+      livingExpenses: 800,
+      mealsAndEntertainment: 100,
+      unionFees: 30,
+    },
+  },
+}
+
 function render(choices: CalculatorChoices, props = {}) {
   return renderToStaticMarkup(
     <Calculator
@@ -151,6 +172,81 @@ describe('Calculator', () => {
     expect(html).toContain('Your fortnight')
   })
 
+  it('offers the advanced split, and shows the simple fields until it is on', () => {
+    const simple = render(GOLDEN)
+    expect(simple).toContain('Set amount per fortnight')
+    expect(simple).not.toContain('Living expenses per fortnight')
+
+    const advanced = render(ADVANCED)
+    expect(advanced).not.toContain('Set amount per fortnight')
+    expect(advanced).toContain('Super, percentage of pay before tax')
+    expect(advanced).toContain('Living expenses per fortnight')
+    expect(advanced).toContain('Meals and entertainment per fortnight')
+    expect(advanced).toContain('Union fees per fortnight')
+  })
+
+  it('offers super two ways and shows only the one selected', () => {
+    // Both figures are kept so the switch is not destructive, but only one is
+    // ever a field — and only one is ever applied.
+    const asPercent = render(ADVANCED)
+    expect(asPercent).toContain('Super, percentage of pay before tax')
+    expect(asPercent).not.toContain('Super, set amount per fortnight')
+
+    const asAmount = render({
+      ...ADVANCED,
+      deductions: {
+        ...ADVANCED.deductions,
+        advanced: {
+          ...ADVANCED.deductions.advanced!,
+          superMode: 'amount',
+          superPerFortnight: 400,
+        },
+      },
+    })
+    expect(asAmount).toContain('Super, set amount per fortnight')
+    expect(asAmount).not.toContain('Super, percentage of pay before tax')
+    // $400, not 5% of gross — the remembered percentage reaches nothing.
+    expect(asAmount).toContain('Deductions (advanced): $1,330.00')
+  })
+
+  it('takes the super percentage on the whole fortnight before tax', () => {
+    // 5% of $4,908.32 is $245.42, not 5% of what is left after the other three.
+    // The split has to keep the rule the single percentage field always had.
+    const html = render(ADVANCED)
+    expect(html).toContain('245.42')
+    expect(html).toContain('5% of pay before tax')
+    // 4,908.32 − 245.42 − 800 − 100 − 30 = 3,732.90
+    expect(html).toContain('3,732.90')
+  })
+
+  it('shows what the split leaves to spend, and what it leaves out', () => {
+    const html = render(ADVANCED)
+
+    // Take-home is the wrong figure for someone who packages: the living
+    // expenses and meals money comes out of the payslip and gets spent anyway.
+    expect(html).toContain('Where your money goes')
+    expect(html).toContain('Spendable')
+    expect(html).toContain('spendable')
+    expect(html).toContain(
+      'Super and union fees are not in this — one is locked away, the other is already spent',
+    )
+  })
+
+  it('says nothing about spendable money in simple mode', () => {
+    // One field over several unrelated things cannot tell packaged living
+    // expenses from sacrificed super, so there is no honest figure to show.
+    const html = render(GOLDEN)
+    expect(html).not.toContain('Where your money goes')
+    expect(html).not.toContain('Spendable')
+  })
+
+  it('summarises the figures it is actually calculating on', () => {
+    // $245.42 of super + $930 fixed. A collapsed summary naming the two simple
+    // fields while the app calculated on four categories would be worse than
+    // no summary at all.
+    expect(render(ADVANCED)).toContain('Deductions (advanced): $930.00 + 5%')
+  })
+
   it('falls back to the setup screen when a stored band no longer exists', () => {
     const html = render({
       ...GOLDEN,
@@ -241,6 +337,51 @@ describe('choices round trip', () => {
     // goes back to deriving from the table.
     expect(cleared.band.annualBase).toBeNull()
     expect(cleared.band.fortnightlyGross).toBeNull()
+  })
+
+  it('keeps the advanced split through the trip, both super figures included', () => {
+    const both: CalculatorChoices = {
+      ...ADVANCED,
+      deductions: {
+        fixedPerFortnight: 611,
+        percentOfGross: 0.02,
+        advanced: {
+          enabled: true,
+          superMode: 'amount',
+          superPercentOfGross: 0.05,
+          superPerFortnight: 400,
+          livingExpenses: 800,
+          mealsAndEntertainment: 100,
+          unionFees: 30,
+        },
+      },
+    }
+
+    // The simple fields survive advanced mode and the unselected super figure
+    // survives the switch — turning something on is not an instruction to
+    // forget what was already there.
+    expect(choicesFrom(fieldsFrom(both))).toEqual(both)
+  })
+
+  it('stores no split for someone who has never opened it', () => {
+    // Absent, not a block of zeroes: an untouched record keeps the shape it
+    // had before advanced mode existed. See `Preferences.deductions`.
+    expect(choicesFrom(fieldsFrom(GOLDEN)).deductions).toEqual({
+      fixedPerFortnight: 0,
+      percentOfGross: 0,
+    })
+    expect(choicesFrom(fieldsFrom(GOLDEN)).deductions.advanced).toBeUndefined()
+  })
+
+  it('keeps a filled-in split that has been switched back off', () => {
+    const parked: CalculatorChoices = {
+      ...ADVANCED,
+      deductions: {
+        ...ADVANCED.deductions,
+        advanced: { ...ADVANCED.deductions.advanced!, enabled: false },
+      },
+    }
+    expect(choicesFrom(fieldsFrom(parked))).toEqual(parked)
   })
 
   it('sanitises a band that has outlived its pay table', () => {
