@@ -250,6 +250,113 @@ describe('field-level repair', () => {
   })
 })
 
+/**
+ * The advanced split arrived without a `SCHEMA_VERSION` bump, because a bump
+ * discards every stored record wholesale and every existing user would have
+ * lost the pay band they set. What that buys has to be held in place: a record
+ * written before the key existed must still read back as itself.
+ */
+describe('the advanced deduction split', () => {
+  const SPLIT = {
+    enabled: true,
+    superMode: 'amount' as const,
+    superPercentOfGross: 0.05,
+    superPerFortnight: 400,
+    livingExpenses: 800,
+    mealsAndEntertainment: 100,
+    unionFees: 30,
+  }
+
+  it('round trips both super figures, not just the live one', () => {
+    // Switching between a percentage and a set amount must not be destructive,
+    // so the figure the mode is not using survives a reload too.
+    const store = fakeStore()
+    const withSplit: Preferences = {
+      ...COMPLETE,
+      deductions: { ...COMPLETE.deductions, advanced: SPLIT },
+    }
+
+    savePreferences(withSplit, store)
+    expect(readPreferences(store)).toEqual({ preferences: withSplit, status: 'ok' })
+  })
+
+  it('reads a record written before the key existed as ok, not repaired', () => {
+    // The upgrade path. Telling a user their settings were damaged because the
+    // app grew a feature would be the app lying about its own release.
+    const store = stored({ schemaVersion: SCHEMA_VERSION, ...COMPLETE })
+
+    expect(readPreferences(store).status).toBe('ok')
+    expect(readPreferences(store).preferences.deductions.advanced).toBeUndefined()
+  })
+
+  it('writes no key at all for a user who has never opened it', () => {
+    // The stored bytes are unchanged for everyone who does not use the
+    // feature, which is what makes the no-bump upgrade honest rather than
+    // merely convenient.
+    const store = fakeStore()
+    savePreferences(COMPLETE, store)
+
+    expect(JSON.parse(store.value as string).deductions).toEqual({
+      fixedPerFortnight: 250,
+      percentOfGross: 0.05,
+    })
+  })
+
+  it('repairs one bad category without discarding the rest of the split', () => {
+    const repaired = normalisePreferences({
+      deductions: { advanced: { ...SPLIT, livingExpenses: 'lots' } },
+    }).deductions.advanced
+
+    expect(repaired?.livingExpenses).toBe(0)
+    expect(repaired?.superPerFortnight).toBe(400)
+    expect(repaired?.enabled).toBe(true)
+  })
+
+  it('defaults an unrecognised super mode to the percentage', () => {
+    expect(
+      normalisePreferences({ deductions: { advanced: { superMode: 'both' } } })
+        .deductions.advanced?.superMode,
+    ).toBe('percent')
+  })
+
+  it('holds the super percentage to the same unit as the simple one', () => {
+    // 5 would mean 500% of gross. A fraction is the unit on both fields, and
+    // the split is not the place to invent a second convention.
+    expect(
+      normalisePreferences({
+        deductions: { advanced: { superPercentOfGross: 5 } },
+      }).deductions.advanced?.superPercentOfGross,
+    ).toBe(0)
+  })
+
+  it.each([
+    ['null', null],
+    ['a string', 'advanced'],
+    ['a number', 1],
+  ])('treats %s under the key as corruption, and says so', (_label, value) => {
+    // Not the same as absent. Absent is a record from before the feature;
+    // anything else stored there was damaged, and the read reports it.
+    const store = stored({
+      schemaVersion: SCHEMA_VERSION,
+      ...COMPLETE,
+      deductions: { ...COMPLETE.deductions, advanced: value },
+    })
+
+    const { preferences, status } = readPreferences(store)
+    expect(status).toBe('repaired')
+    expect(preferences.deductions.advanced?.enabled).toBe(false)
+    // And the figures the user did enter are still theirs.
+    expect(preferences.deductions.fixedPerFortnight).toBe(250)
+  })
+
+  it('is idempotent with a split in place', () => {
+    const once = normalisePreferences({
+      deductions: { advanced: SPLIT },
+    })
+    expect(normalisePreferences(once)).toEqual(once)
+  })
+})
+
 describe('writing', () => {
   it('reports failure rather than throwing when the store rejects the write', () => {
     expect(savePreferences(COMPLETE, hostileStore())).toBe(false)

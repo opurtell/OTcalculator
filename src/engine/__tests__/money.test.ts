@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { calculateFortnight } from '../fortnight'
-import { NO_DEDUCTIONS, computeDeductions, packagingFlags } from '../packaging'
+import {
+  NO_ADVANCED_DEDUCTIONS,
+  NO_DEDUCTIONS,
+  advancedBreakdown,
+  advancedDeductionSettings,
+  computeDeductions,
+  packagingFlags,
+  spendableTotal,
+} from '../packaging'
+import type { AdvancedDeductions } from '../packaging'
 import { helpRepayment, ordinaryFortnightlyGross, paygWithholding } from '../tax'
 import { helpScheduleFor } from '../../data/help-thresholds'
 import { taxScaleFor } from '../../data/tax-scales'
@@ -149,6 +158,103 @@ describe('computeDeductions', () => {
       percentOfGross: -0.1,
     })
     expect(result.total).toBe(0)
+  })
+})
+
+describe('advanced deductions', () => {
+  /** Super as a percentage, plus all three value-only categories. */
+  const SPLIT: AdvancedDeductions = {
+    ...NO_ADVANCED_DEDUCTIONS,
+    superPercentOfGross: 0.05,
+    livingExpenses: 800,
+    mealsAndEntertainment: 100,
+    unionFees: 30,
+  }
+
+  it('collapses to the two knobs the tax calculation already took', () => {
+    // The whole design: advanced mode is a different set of questions, not a
+    // different sum. Nothing in the withholding path had to learn about it.
+    expect(advancedDeductionSettings(SPLIT)).toEqual({
+      fixedPerFortnight: 930,
+      percentOfGross: 0.05,
+    })
+  })
+
+  it('puts a dollar super contribution in the fixed amount instead', () => {
+    expect(
+      advancedDeductionSettings({
+        ...NO_ADVANCED_DEDUCTIONS,
+        superPerFortnight: 400,
+        unionFees: 30,
+      }),
+    ).toEqual({ fixedPerFortnight: 430, percentOfGross: 0 })
+  })
+
+  it('takes the super percentage on the whole gross, before anything else', () => {
+    // The rule Oscar asked for, and the one the single percentage field has
+    // always followed: overtime included, and not on gross-less-deductions.
+    const breakdown = advancedBreakdown(5000, SPLIT)
+    expect(breakdown.superannuation).toBe(250)
+    expect(breakdown.livingExpenses).toBe(800)
+    expect(breakdown.mealsAndEntertainment).toBe(100)
+    expect(breakdown.unionFees).toBe(30)
+    expect(breakdown.total).toBe(1180)
+    expect(breakdown.capped).toBe(false)
+  })
+
+  it('agrees with the tax calculation about the total, always', () => {
+    // The failure this rules out is the app contradicting itself on screen:
+    // a breakdown whose lines sum to something other than the amount actually
+    // taken off before tax.
+    for (const gross of [0, 500, 1180, 4908.32, 6018.66]) {
+      expect(advancedBreakdown(gross, SPLIT).total).toBeCloseTo(
+        computeDeductions(gross, advancedDeductionSettings(SPLIT)).total,
+        10,
+      )
+    }
+  })
+
+  it('scales every category by the same factor when gross runs out', () => {
+    // $1,000 asked for against $500 of pay. No category is paid in full first
+    // — privileging one over another would be an invented rule.
+    const breakdown = advancedBreakdown(500, {
+      ...NO_ADVANCED_DEDUCTIONS,
+      superPerFortnight: 600,
+      livingExpenses: 400,
+    })
+
+    expect(breakdown.requested).toBe(1000)
+    expect(breakdown.total).toBe(500)
+    expect(breakdown.capped).toBe(true)
+    expect(breakdown.superannuation).toBe(300)
+    expect(breakdown.livingExpenses).toBe(200)
+  })
+
+  it('ignores negative categories rather than letting one cancel another', () => {
+    const breakdown = advancedBreakdown(5000, {
+      ...NO_ADVANCED_DEDUCTIONS,
+      superPerFortnight: 400,
+      livingExpenses: -1000,
+    })
+
+    expect(breakdown.total).toBe(400)
+    expect(breakdown.livingExpenses).toBe(0)
+  })
+
+  it('counts only the two categories that come back as spendable', () => {
+    // Super is locked away and union fees are already spent. Counting either
+    // would overstate the answer by the amount most plainly not available.
+    const breakdown = advancedBreakdown(5000, SPLIT)
+    expect(spendableTotal(3700.32, breakdown)).toBeCloseTo(4600.32, 2)
+  })
+
+  it('leaves take-home alone when nothing is packaged back', () => {
+    const breakdown = advancedBreakdown(5000, {
+      ...NO_ADVANCED_DEDUCTIONS,
+      superPercentOfGross: 0.1,
+      unionFees: 30,
+    })
+    expect(spendableTotal(3700.32, breakdown)).toBe(3700.32)
   })
 })
 

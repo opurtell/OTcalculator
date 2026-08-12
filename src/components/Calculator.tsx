@@ -30,8 +30,12 @@ import { formatMoney } from '../ui/index'
 import { CalculatorShell } from './CalculatorShell'
 import {
   DeductionsTaxPanel,
+  EMPTY_ADVANCED_INPUTS,
+  deductionChoiceFrom,
   deductionSettingsFrom,
+  superNoteFor,
 } from './DeductionsTaxPanel'
+import type { AdvancedDeductionInputs } from './DeductionsTaxPanel'
 import { FortnightPathway } from './FortnightPathway'
 import { FortnightResultPanel } from './FortnightResultPanel'
 import { PayBandFields, clampStep } from './PayBandFields'
@@ -226,7 +230,7 @@ export function Calculator({
     )
   }
 
-  const { settings, captions } = resolved
+  const { settings, captions, advancedDeductions } = resolved
 
   const result = calculateFortnight(shifts, settings)
   const warnings = fortnightWarnings(shifts, result.flags, settings.holidays)
@@ -302,6 +306,8 @@ export function Calculator({
             bandSummary={bandLabel}
             captions={captions}
             settings={settings}
+            advancedDeductions={advancedDeductions}
+            superNote={superNoteFor(fields.advanced)}
           />
         )
       }
@@ -314,6 +320,10 @@ export function Calculator({
           percentInput={fields.percentInput}
           onFixedInputChange={(value) => update({ fixedInput: value })}
           onPercentInputChange={(value) => update({ percentInput: value })}
+          advanced={fields.advanced}
+          onAdvancedChange={(patch) =>
+            update({ advanced: { ...fields.advanced, ...patch } })
+          }
           claimsTaxFreeThreshold={fields.claimsTaxFreeThreshold}
           hasStudyDebt={fields.hasStudyDebt}
           onClaimsTaxFreeThresholdChange={(claimsTaxFreeThreshold) =>
@@ -404,6 +414,8 @@ export interface Fields {
   fortnightlyInput: string
   fixedInput: string
   percentInput: string
+  /** The advanced split's fields. Live only while `advanced.enabled`. */
+  advanced: AdvancedDeductionInputs
   claimsTaxFreeThreshold: boolean
   hasStudyDebt: boolean
   pathway: Pathway
@@ -429,15 +441,43 @@ export function fieldsFrom(choices: CalculatorChoices): Fields {
     fortnightlyInput: amountInputFor(band.fortnightlyGross),
     fixedInput: amountInputFor(choices.deductions.fixedPerFortnight),
     percentInput: percentInputFor(choices.deductions.percentOfGross),
+    advanced: advancedInputsFrom(choices.deductions.advanced),
     claimsTaxFreeThreshold: choices.tax.claimsTaxFreeThreshold,
     hasStudyDebt: choices.tax.hasStudyDebt,
     pathway: choices.pathway,
   }
 }
 
+/**
+ * The stored advanced split as field strings.
+ *
+ * `undefined` — a record from before advanced mode, or one belonging to someone
+ * who has never opened it — gives empty fields with the toggle off, which is the
+ * same thing that record has always meant.
+ */
+function advancedInputsFrom(
+  advanced: CalculatorChoices['deductions']['advanced'],
+): AdvancedDeductionInputs {
+  if (advanced === undefined) return EMPTY_ADVANCED_INPUTS
+
+  return {
+    enabled: advanced.enabled,
+    superMode: advanced.superMode,
+    superPercentInput: percentInputFor(advanced.superPercentOfGross),
+    superAmountInput: amountInputFor(advanced.superPerFortnight),
+    livingExpensesInput: amountInputFor(advanced.livingExpenses),
+    mealsEntertainmentInput: amountInputFor(advanced.mealsAndEntertainment),
+    unionFeesInput: amountInputFor(advanced.unionFees),
+  }
+}
+
 /** The inverse: what gets persisted, with every string parsed to a figure. */
 export function choicesFrom(fields: Fields): CalculatorChoices {
-  const deductions = deductionSettingsFrom(fields.fixedInput, fields.percentInput)
+  const deductions = deductionChoiceFrom(
+    fields.fixedInput,
+    fields.percentInput,
+    fields.advanced,
+  )
 
   return {
     band: {
@@ -541,10 +581,21 @@ function wholeDollars(amount: number): string {
   return formatMoney(Math.round(amount)).replace('.00', '')
 }
 
-/** `Deductions: $611.00 + 5% · Study debt on` (§7). */
+/**
+ * `Deductions: $611.00 + 5% · Study debt on` (§7).
+ *
+ * Built from the *active* settings, so advanced mode summarises the four
+ * categories it is calculating on rather than the two simple fields still
+ * sitting behind it. A collapsed summary that named figures the app was
+ * ignoring would be worse than no summary at all.
+ */
 function deductionsSummary(fields: Fields): string {
   const parts: string[] = []
-  const deductions = deductionSettingsFrom(fields.fixedInput, fields.percentInput)
+  const deductions = deductionSettingsFrom(
+    fields.fixedInput,
+    fields.percentInput,
+    fields.advanced,
+  )
 
   if (deductions.fixedPerFortnight > 0) {
     parts.push(formatMoney(deductions.fixedPerFortnight))
@@ -553,8 +604,9 @@ function deductionsSummary(fields: Fields): string {
     parts.push(`${percentInputFor(deductions.percentOfGross)}%`)
   }
 
+  const label = fields.advanced.enabled ? 'Deductions (advanced)' : 'Deductions'
   const deductionLine =
-    parts.length === 0 ? 'No deductions' : `Deductions: ${parts.join(' + ')}`
+    parts.length === 0 ? 'No deductions' : `${label}: ${parts.join(' + ')}`
   const debtLine = fields.hasStudyDebt ? 'Study debt on' : 'Study debt off'
   const thresholdLine = fields.claimsTaxFreeThreshold
     ? null

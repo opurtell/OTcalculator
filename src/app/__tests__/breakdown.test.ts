@@ -13,9 +13,12 @@ import { resolveSettings } from '../settings'
 import type { CalculatorChoices } from '../settings'
 import { calculateFortnight } from '../../engine/fortnight'
 import type { OtShift } from '../../engine/types'
+import { advancedBreakdown } from '../../engine/packaging'
 import {
+  advancedDeductionRows,
   breakdownRows,
   comparisonRows,
+  spendableRows,
   mealAllowanceRows,
   mealDerivationRows,
   mealRuleSentence,
@@ -315,5 +318,69 @@ describe('breakdownRows (no-overtime single column)', () => {
   it('is one column — base, PAYG, take-home — with nothing that did not move', () => {
     expect(rows.map((r) => r.label)).toEqual(['Base pay', 'PAYG tax', 'Take-home'])
     expect(rows.every((r) => r.values.length === 1)).toBe(true)
+  })
+})
+
+/**
+ * The advanced split's two tables.
+ *
+ * The §4.5 fortnight with a real split over it: super at 5% of the with-OT
+ * gross ($6,018.66 ⇒ $300.93), $800 living expenses, $100 meals and
+ * entertainment, $30 union fees.
+ */
+describe('the advanced deduction rows', () => {
+  const breakdown = advancedBreakdown(result.withOt.gross, {
+    superPercentOfGross: 0.05,
+    superPerFortnight: 0,
+    livingExpenses: 800,
+    mealsAndEntertainment: 100,
+    unionFees: 30,
+  })
+
+  it('lists every category, used or not, and totals them', () => {
+    // Unlike the comparison table's conditional rows: this is a form the user
+    // just filled in, and a line that vanishes when cleared reads as the app
+    // having lost it rather than as a zero.
+    const rows = advancedDeductionRows(breakdown, '5% of pay before tax')
+    expect(rows.map((r) => r.label)).toEqual([
+      'Super',
+      'Living expenses',
+      'Meals and entertainment',
+      'Union fees',
+      'Taken before tax',
+    ])
+    expect(cents(rows[0].values[0] as number)).toBe(300.93)
+    expect(rows[0].note).toBe('5% of pay before tax')
+    expect(cents(rows[4].values[0] as number)).toBe(1230.93)
+  })
+
+  it('adds back only the money that comes back', () => {
+    // Take-home is the wrong figure for someone who packages: living expenses
+    // and meals go out of the payslip and get spent all the same. Super does
+    // not come back and union fees are already spent.
+    const rows = spendableRows(result, breakdown)
+    expect(rows.map((r) => r.label)).toEqual([
+      'Take-home',
+      'Living expenses',
+      'Meals and entertainment',
+      'Spendable',
+    ])
+
+    const inTheHand = rows[0].values[0] as number
+    expect(cents(rows[3].values[0] as number)).toBe(cents(inTheHand + 900))
+  })
+
+  it('names the take-home line whatever the comparison table names it', () => {
+    // Two names for one figure in one panel is how a user stops trusting
+    // either, so this follows the meal allowance the way the table does.
+    expect(mealFortnight.mealAllowance.total).toBeGreaterThan(0)
+    expect(spendableRows(mealFortnight, breakdown)[0].label).toBe('Total in the hand')
+  })
+
+  it('starts from take-home including the tax-free allowance', () => {
+    // `netTotal`, not `withOt.net`: the meal allowance is in the account by
+    // exactly the same test as the rest of take-home.
+    const rows = spendableRows(result, breakdown)
+    expect(rows[0].values[0]).toBe(result.netTotal)
   })
 })
