@@ -28,8 +28,8 @@ import {
   MEAL_ALLOWANCE_SHIFT_MINUTES,
 } from '../engine/meals'
 import type { MealOccasion } from '../engine/meals'
-import { spendableTotal } from '../engine/packaging'
-import type { AdvancedBreakdown } from '../engine/packaging'
+import { advancedBreakdown, spendableTotal } from '../engine/packaging'
+import type { AdvancedBreakdown, AdvancedDeductions } from '../engine/packaging'
 import type { FortnightResult, FortnightSettings } from '../engine/fortnight'
 import { RATES_EFFECTIVE_FROM } from '../data'
 import { describeAttendance } from './shifts'
@@ -54,7 +54,12 @@ const MEAL_CLAUSE = 'EBA N36'
 const NOT_APPLICABLE = '—'
 
 export interface FigureTableData {
-  columns: string[]
+  /**
+   * Omitted for a single-column table. `FigureTable` renders no header row
+   * then, which is the shape every no-overtime breakdown takes: two identical
+   * columns are not a comparison, they are the same number printed twice.
+   */
+  columns?: string[]
   rows: FigureRow[]
 }
 
@@ -270,22 +275,114 @@ export function advancedCategoryRows(
 }
 
 /**
- * Where the pre-tax money went — the four categories and their total.
+ * Where the pre-tax money went — the four categories and their total, run twice.
+ *
+ * **Two columns once there is overtime, for super's sake.** A percentage super
+ * contribution is a share of the whole fortnight's gross, so overtime lifts it:
+ * the money the overtime earned is not all take-home, and some of it went
+ * straight past the user into their super. That is the one figure in this panel
+ * that moves with the overtime, and a single column would state it without ever
+ * saying which of the two numbers it was. The other three categories are set
+ * amounts and sit unchanged either side, which is itself the answer to "did my
+ * overtime cost me more packaging?".
+ *
+ * One column when there is no overtime. Two identical columns are not a
+ * comparison — the same rule `breakdownRows` follows for the §5.4 table.
  *
  * Every category is shown whether or not it was used, unlike the comparison
  * table's conditional rows. The point of opening this panel is to check a split
  * you entered, and a category that silently vanishes when you clear it reads as
  * the app having lost it rather than as a zero.
  */
-export function advancedDeductionRows(breakdown: AdvancedBreakdown, superNote?: string): FigureRow[] {
-  return [
-    ...advancedCategoryRows(breakdown, superNote),
-    {
-      label: 'Taken before tax',
-      values: [breakdown.total],
-      total: true,
-    },
-  ]
+export function advancedDeductionRows(
+  result: FortnightResult,
+  advanced: AdvancedDeductions,
+  superNote?: string,
+): FigureTableData {
+  const withOt = advancedBreakdownFor(result, advanced, true)
+  const rows = advancedCategoryRows(withOt, superNote)
+  const totalRow: FigureRow = {
+    label: 'Taken before tax',
+    values: [withOt.total],
+    total: true,
+  }
+
+  if (result.overtimeGross === 0) return { rows: [...rows, totalRow] }
+
+  const withoutOt = advancedBreakdownFor(result, advanced, false)
+  const withoutRows = advancedCategoryRows(withoutOt)
+
+  return {
+    columns: [...COMPARISON_COLUMNS],
+    rows: [
+      ...rows.map((row, at) => ({
+        ...row,
+        values: [withoutRows[at].values[0], row.values[0]],
+      })),
+      { ...totalRow, values: [withoutOt.total, withOt.total] },
+    ],
+  }
+}
+
+/**
+ * The split priced against one side of the comparison.
+ *
+ * Both sides matter because a percentage deduction genuinely would have been
+ * smaller without the overtime — the same reason `comparePay` recomputes it on
+ * each gross rather than holding it constant.
+ */
+export function advancedBreakdownFor(
+  result: FortnightResult,
+  advanced: AdvancedDeductions,
+  withOvertime: boolean,
+): AdvancedBreakdown {
+  return advancedBreakdown(
+    withOvertime ? result.withOt.gross : result.withoutOt.gross,
+    advanced,
+  )
+}
+
+/**
+ * What the overtime did to the super contribution, in a sentence — or nothing
+ * when there was no overtime to say it about.
+ *
+ * Never show an unexplained figure: a super line that reads $245.42 in one
+ * column and $300.93 in the next has to say why it moved, and a set amount that
+ * did *not* move has to say why it did not. Both answers are the same fact about
+ * how the contribution was entered, which is why one function gives both.
+ */
+export function overtimeSuperSentence(
+  result: FortnightResult,
+  advanced: AdvancedDeductions,
+): string | undefined {
+  if (result.overtimeGross === 0) return undefined
+
+  // Read from the split rather than inferred from the gap between the two
+  // columns: a percentage small enough to move nothing at cent resolution is
+  // still a percentage, and this sentence should not tell the user they entered
+  // something they did not.
+  if (advanced.superPercentOfGross === 0) {
+    return 'Super is a set amount here, so your overtime does not change it.'
+  }
+
+  // **Rounded on each side before subtracting**, which is the one place this app
+  // does not hold full precision to the display step (§3.13). The whole job of
+  // this sentence is to explain the gap between two figures already rounded in
+  // the columns beside it, so it has to be the gap a user gets doing the
+  // subtraction themselves — a cent adrift from the numbers it is explaining
+  // would be the app contradicting itself on one screen.
+  const added =
+    toCents(advancedBreakdownFor(result, advanced, true).superannuation) -
+    toCents(advancedBreakdownFor(result, advanced, false).superannuation)
+
+  return `Your overtime put ${formatMoney(
+    added,
+  )} more into super, because super is a percentage of the whole fortnight — overtime included.`
+}
+
+/** What `formatMoney` will make of a figure, as a number. */
+function toCents(value: number): number {
+  return Math.round(value * 100) / 100
 }
 
 /**

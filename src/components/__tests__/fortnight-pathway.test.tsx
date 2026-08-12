@@ -209,6 +209,53 @@ describe('the result once shifts are in', () => {
   })
 })
 
+/**
+ * The same fortnight with a percentage super contribution over it — the case
+ * "Where your money goes" grew two columns for.
+ */
+describe('the advanced split, once shifts are in', () => {
+  const html = renderToStaticMarkup(
+    <FortnightResultPanel
+      result={calculateFortnight([SATURDAY, WEDNESDAY], {
+        ...settings,
+        // 5% super + $930 of set amounts, as `deductionSettingsFor` collapses
+        // the split for the withholding calculation.
+        deductions: { fixedPerFortnight: 930, percentOfGross: 0.05 },
+      })}
+      bandSummary="AP1 Step 2"
+      settings={settings}
+      advancedDeductions={{
+        superPercentOfGross: 0.05,
+        superPerFortnight: 0,
+        livingExpenses: 800,
+        mealsAndEntertainment: 100,
+        unionFees: 30,
+      }}
+      superNote="5% of pay before tax"
+    />,
+  )
+
+  it('shows the super contribution either side of the overtime', () => {
+    // 5% of $4,908.32 is $245.42; 5% of $6,018.66 is $300.93. Part of what the
+    // overtime earned went straight past the user into super, and a single
+    // column could state a figure without saying which of the two it was.
+    expect(html).toContain('Where the pre-tax deductions went, with and without overtime')
+    expect(html).toContain('245.42')
+    expect(html).toContain('300.93')
+  })
+
+  it('says why the super figure moved, in the gap the columns show', () => {
+    // $300.93 − $245.42, the subtraction a reader does themselves.
+    expect(html).toContain('$55.51 more into super')
+  })
+
+  it('still announces only the headline', () => {
+    // A second table inside a second disclosure must not become a second live
+    // region — every keystroke moves these figures (§8).
+    expect(html.match(/aria-live/g)).toHaveLength(1)
+  })
+})
+
 describe('the add/edit sheet', () => {
   function renderSheet(over: Partial<ReturnType<typeof emptyDraft>>) {
     return renderToStaticMarkup(

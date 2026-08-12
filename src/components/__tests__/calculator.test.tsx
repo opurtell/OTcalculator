@@ -232,6 +232,17 @@ describe('Calculator', () => {
     )
   })
 
+  it('leaves the super comparison out until there is overtime to compare', () => {
+    // The fortnight starts with no shifts, so the split has one column: two
+    // identical columns are not a comparison. The two-column shape with real
+    // overtime over it is asserted at the row level in `breakdown.test.ts`.
+    const html = render(ADVANCED)
+    expect(html).toContain('Where your money goes')
+    expect(html).toContain('>Where the pre-tax deductions went</caption>')
+    expect(html).not.toContain('with and without overtime')
+    expect(html).not.toContain('more into super')
+  })
+
   it('says nothing about spendable money in simple mode', () => {
     // One field over several unrelated things cannot tell packaged living
     // expenses from sacrificed super, so there is no honest figure to show.

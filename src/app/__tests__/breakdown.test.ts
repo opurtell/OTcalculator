@@ -18,6 +18,7 @@ import {
   advancedDeductionRows,
   breakdownRows,
   comparisonRows,
+  overtimeSuperSentence,
   spendableRows,
   mealAllowanceRows,
   mealDerivationRows,
@@ -329,19 +330,26 @@ describe('breakdownRows (no-overtime single column)', () => {
  * entertainment, $30 union fees.
  */
 describe('the advanced deduction rows', () => {
-  const breakdown = advancedBreakdown(result.withOt.gross, {
+  const SPLIT = {
     superPercentOfGross: 0.05,
     superPerFortnight: 0,
     livingExpenses: 800,
     mealsAndEntertainment: 100,
     unionFees: 30,
-  })
+  }
+  /** Super as a set amount instead, so nothing in the split moves with the OT. */
+  const FIXED_SUPER = {
+    ...SPLIT,
+    superPercentOfGross: 0,
+    superPerFortnight: 300,
+  }
+  const breakdown = advancedBreakdown(result.withOt.gross, SPLIT)
 
   it('lists every category, used or not, and totals them', () => {
     // Unlike the comparison table's conditional rows: this is a form the user
     // just filled in, and a line that vanishes when cleared reads as the app
     // having lost it rather than as a zero.
-    const rows = advancedDeductionRows(breakdown, '5% of pay before tax')
+    const { rows } = advancedDeductionRows(result, SPLIT, '5% of pay before tax')
     expect(rows.map((r) => r.label)).toEqual([
       'Super',
       'Living expenses',
@@ -349,9 +357,74 @@ describe('the advanced deduction rows', () => {
       'Union fees',
       'Taken before tax',
     ])
-    expect(cents(rows[0].values[0] as number)).toBe(300.93)
     expect(rows[0].note).toBe('5% of pay before tax')
-    expect(cents(rows[4].values[0] as number)).toBe(1230.93)
+  })
+
+  it('runs the split twice so the super figure can be read either side', () => {
+    // 5% of $4,908.32 is $245.42; 5% of $6,018.66 is $300.93. The overtime is
+    // not all take-home — $55.51 of it went straight past the user into super,
+    // and one column could state the figure without ever saying which it was.
+    const { columns, rows } = advancedDeductionRows(result, SPLIT)
+    expect(columns).toEqual(['Without OT', 'With OT'])
+
+    const superRow = rows.find((r) => r.label === 'Super')!
+    expect(cents(superRow.values[0] as number)).toBe(245.42)
+    expect(cents(superRow.values[1] as number)).toBe(300.93)
+  })
+
+  it('leaves the set amounts sitting still either side', () => {
+    // Which is itself the answer to "did my overtime cost me more packaging?".
+    const { rows } = advancedDeductionRows(result, SPLIT)
+    for (const label of ['Living expenses', 'Meals and entertainment', 'Union fees']) {
+      const row = rows.find((r) => r.label === label)!
+      expect(row.values[0]).toBe(row.values[1])
+    }
+
+    const total = rows[rows.length - 1]
+    expect(cents(total.values[0] as number)).toBe(1175.42)
+    expect(cents(total.values[1] as number)).toBe(1230.93)
+  })
+
+  it('drops to one column when there is no overtime to compare against', () => {
+    // Two identical columns are not a comparison — the same rule the §5.4
+    // table follows in its no-overtime state.
+    const empty = calculateFortnight([], settings)
+    const { columns, rows } = advancedDeductionRows(empty, SPLIT)
+
+    expect(columns).toBeUndefined()
+    expect(rows.every((r) => r.values.length === 1)).toBe(true)
+  })
+
+  it('says what the overtime did to super, either way it was entered', () => {
+    // Never an unexplained figure: a column that moved has to say why, and a
+    // column that did not has to say why not.
+    expect(overtimeSuperSentence(result, SPLIT)).toBe(
+      'Your overtime put $55.51 more into super, because super is a percentage ' +
+        'of the whole fortnight — overtime included.',
+    )
+    expect(overtimeSuperSentence(result, FIXED_SUPER)).toBe(
+      'Super is a set amount here, so your overtime does not change it.',
+    )
+  })
+
+  it('says nothing about overtime when there was none', () => {
+    expect(
+      overtimeSuperSentence(calculateFortnight([], settings), SPLIT),
+    ).toBeUndefined()
+  })
+
+  it('states the gap a user gets subtracting the two columns', () => {
+    // $300.93 − $245.42 = $55.51. Full precision gives $55.52, and §3.13 would
+    // normally have it — but this sentence exists to explain the two rounded
+    // figures beside it, and a cent adrift from the numbers it is explaining
+    // would be the app contradicting itself on one screen.
+    const { rows } = advancedDeductionRows(result, SPLIT)
+    const superRow = rows.find((r) => r.label === 'Super')!
+    const onScreen =
+      cents(superRow.values[1] as number) - cents(superRow.values[0] as number)
+
+    expect(cents(onScreen)).toBe(55.51)
+    expect(overtimeSuperSentence(result, SPLIT)).toContain('$55.51')
   })
 
   it('adds back only the money that comes back', () => {

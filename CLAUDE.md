@@ -37,7 +37,7 @@ Phases against `IMPLEMENTATION_PLAN.md` §6:
 `calculateFortnight(shifts, settings)` in `src/engine/fortnight.ts` is the entry
 point — shifts and settings in, take-home and the overtime delta out. It calls
 `calculateOvertime` underneath, which is usable alone if you only want gross OT.
-578 tests. All seven crossover worked examples pass. Four things to know:
+588 tests. All seven crossover worked examples pass. Four things to know:
 
 - **The meal allowance is the one untaxed figure, and it sits outside
   `PayComparison` deliberately.** `src/engine/meals.ts` pays $35.38 once when a
@@ -122,6 +122,21 @@ Six things about it:
   overtime included, before anything else comes out, exactly as the single
   percentage field always has. The other three are amounts, because nobody
   states a rent payment or a union fee as a share of their salary.
+- **"Taken before tax" is a two-column comparison once there is overtime**, for
+  super's sake: a percentage contribution is a share of the whole fortnight, so
+  overtime lifts it and part of what the overtime earned went straight past the
+  user into super. One column would state that figure without ever saying which
+  of the two it was. The other three sit unchanged either side, which is itself
+  the answer to "did my overtime cost me more packaging?". No overtime → one
+  column, the same rule `breakdownRows` follows for the §5.4 table.
+  `overtimeSuperSentence` says why it moved, or why a set amount did not.
+- **That sentence rounds each side before subtracting, and it is the one place
+  the app does not hold full precision to the display step (§3.13).** Its whole
+  job is to explain the gap between two figures already rounded in the columns
+  beside it — $300.93 − $245.42 is the $55.51 a reader gets doing the sum
+  themselves, where full precision gives $55.52. A cent adrift from the numbers
+  it is explaining would be the app contradicting itself on one screen.
+  `breakdown.test.ts` pins it against the rendered columns.
 - **Both super figures are stored, and `superMode` decides which is live.**
   Switching between percentage and set amount must not be destructive, so the
   unselected figure is remembered — and `activeAdvancedDeductions` zeroes it on
