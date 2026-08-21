@@ -32,10 +32,12 @@ installable offline build, a print stylesheet, a shareable text summary, an
 error boundary — but **none of it has been driven in a browser yet.** `CLAUDE.md`
 lists what to try.
 
-One caveat on the data: the tax and HELP figures are FY2025-26 only. The
-FY2026-27 NAT 1004 coefficients exist but are not in hand, so the app falls back
-to FY2025-26 and captions it, exactly as §3.8 specifies. Adding the real rows to
-`src/data/tax-scales.ts` is the whole fix.
+One thing to know about the data: tax and HELP are FY2026-27, sourced from the
+ATO in August 2026 — NAT 1004 as reissued 17 June 2026, and the study-loan
+thresholds as indexed for the year. The §3.8 fallback is still there for
+FY2027-28, and it captions itself when it fires. FY2025-26's NAT 1004
+coefficients are not held and are not reachable in the app, which resolves
+settings against the current date.
 
 Phase 10 is next, and it is the one that matters: reconcile against real
 payslips with OT lines — including the `MEAL ALLOWANCE` line, whose date-prefixed

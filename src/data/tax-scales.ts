@@ -5,30 +5,50 @@
  * resident scales with standard Medicare; the app does not model exemptions or
  * the surcharge (§3.14).
  *
- * Source: NAT 1004, Sheet 2 of the ATO software developers' workbook, via the
- * ACTAS Pay Tracker's `tax-scales.json`, where every coefficient is recorded as
- * verified against the spreadsheet.
+ * Source: NAT 1004 Sheet 2 ("Statement of Formula - CSV") of the ATO software
+ * developers' workbook, `softwaredevelopers.ato.gov.au/sites/default/files/
+ * 2026-05/NAT_1004.xlsx`, read directly rather than through the sibling repo.
+ * The workbook's "Other schedules to be updated" sheet says the reissue
+ * "apply[s] from 1 July 2026", and the schedule page at ato.gov.au (published
+ * 17 June 2026) says the same: "This schedule applies to payments made from
+ * 1 July 2026". Both scales below are the full column, transcribed cell for
+ * cell.
  *
- * ## Only FY2025-26 is real
+ * ## These coefficients spent a while labelled FY2025-26, and they are not
  *
- * The ATO reissued Schedule 1 for FY2026-27 (the second bracket dropping 16% →
- * 15%), but those coefficients are not in hand here and cannot be fetched from
- * this environment. Per §3.8 the fallback is the **FY2025-26 coefficients**,
- * not an annual-bracket approximation: the coefficient method is what payroll
- * actually runs, so a year-stale set stays structurally correct and is wrong
- * only by the rate change. The error over-states tax slightly, which is the
- * conservative direction for someone deciding whether a shift is worth it.
+ * They are FY2026-27's — the year the second bracket drops 16% → 15% and the
+ * Medicare shade-in moves to $28,011/$35,013 ($538/$673 weekly). The FY2024-25
+ * edition of the same workbook, which is what FY2025-26 would have looked
+ * like, opens Scale 2's second row at 16% from $500. The two are not the same
+ * table and no rounding hides the difference.
+ *
+ * The mislabel travelled from the sibling repo, which ingested this workbook
+ * in May 2026 and updated the coefficients and the source URL without moving
+ * the year key off `2025-26`. So the app was already withholding at the right
+ * rates while captioning them as last year's — the numbers were right and the
+ * sentence under them was wrong, which is the failure mode this file's
+ * provenance comments exist to prevent.
+ *
+ * **There is no FY2025-26 row here**, and that is a gap rather than an
+ * oversight: the ATO publishes only the current schedule, its software
+ * developers' site holds the 2024-05 and 2026-05 editions and nothing between,
+ * and inventing the missing year from a third-party table would be exactly the
+ * unsourced figure §3.8 refuses. `taxScaleFor` therefore falls back for it and
+ * says so. Nothing in the app can reach that year today — `Calculator` resolves
+ * settings against the current date, never an entered shift date — so the
+ * fallback is a boundary condition, not a live path.
  *
  * `taxScaleFor` reports when it has fallen back so the UI can caption it.
- * Adding the real FY2026-27 rows to `SCALES` below is the entire fix — no
- * engine change, and older fortnights keep computing against their own year.
+ * Adding a real row below is the entire fix for any year — no engine change,
+ * and older fortnights keep computing against their own year.
  */
 
 import type { FinancialYear, TaxScale } from '../engine/types'
+import { fallbackNotice } from './fallback'
 
 const SCALES: readonly TaxScale[] = [
   {
-    financialYear: '2025-26',
+    financialYear: '2026-27',
     scale: 1,
     brackets: [
       { threshold: 188, rate: 0.15, base: 0.15 },
@@ -41,7 +61,7 @@ const SCALES: readonly TaxScale[] = [
     ],
   },
   {
-    financialYear: '2025-26',
+    financialYear: '2026-27',
     scale: 2,
     brackets: [
       { threshold: 362, rate: 0, base: 0 },
@@ -58,7 +78,7 @@ const SCALES: readonly TaxScale[] = [
 ]
 
 /** The most recent year with real coefficients — the fallback target. */
-export const LATEST_VERIFIED_FINANCIAL_YEAR: FinancialYear = '2025-26'
+export const LATEST_VERIFIED_FINANCIAL_YEAR: FinancialYear = '2026-27'
 
 export interface TaxScaleSelection {
   scale: TaxScale
@@ -74,9 +94,11 @@ export interface TaxScaleSelection {
  */
 export function fallbackCaption(selection: TaxScaleSelection): string | null {
   if (!selection.isFallback) return null
-  const from = selection.scale.financialYear.replace('-', '–')
-  const to = selection.requested.replace('-', '–')
-  return `Using ${from} tax rates — ${to} schedule not yet published.`
+  return fallbackNotice(
+    'tax rates',
+    selection.scale.financialYear,
+    selection.requested,
+  )
 }
 
 export function taxScaleFor(

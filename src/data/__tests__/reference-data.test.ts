@@ -98,25 +98,50 @@ describe('public holidays', () => {
 })
 
 describe('tax scales', () => {
-  it('serves FY2025-26 directly', () => {
-    const selection = taxScaleFor('2025-26', 2)
+  it('serves FY2026-27 directly', () => {
+    const selection = taxScaleFor('2026-27', 2)
     expect(selection.isFallback).toBe(false)
     expect(selection.scale.brackets).toHaveLength(9)
     expect(fallbackCaption(selection)).toBeNull()
   })
 
-  it('falls back to FY2025-26 for an unpublished year, and says so', () => {
-    const selection = taxScaleFor('2026-27', 2)
+  /**
+   * The coefficients arrived from the sibling repo labelled FY2025-26 and are
+   * FY2026-27's. These four cells are what tells the two years apart: the
+   * second bracket is 15% from $538 in FY2026-27 and 16% from $500 in the
+   * FY2024-25 edition that preceded it. If a future transcription ever puts a
+   * 16% row under a 2026-27 key, this is the test that catches it.
+   */
+  it('holds Scale 2 at the FY2026-27 second bracket, not its predecessor', () => {
+    const second = taxScaleFor('2026-27', 2).scale.brackets[1]
+    expect(second.threshold).toBe(538)
+    expect(second.rate).toBe(0.15)
+    expect(taxScaleFor('2026-27', 2).scale.brackets[2].threshold).toBe(673)
+  })
+
+  it('falls back to FY2026-27 for an unpublished year, and says so', () => {
+    const selection = taxScaleFor('2027-28', 2)
     expect(selection.isFallback).toBe(true)
-    expect(selection.scale.financialYear).toBe('2025-26')
+    expect(selection.scale.financialYear).toBe('2026-27')
     expect(fallbackCaption(selection)).toBe(
-      'Using 2025–26 tax rates — 2026–27 schedule not yet published.',
+      'Using 2026–27 tax rates — 2027–28 schedule not yet published.',
+    )
+  })
+
+  it('words the fallback differently for a year older than the data', () => {
+    // FY2025-26 was never sourced. "Not yet published" would describe the
+    // app's own gap as the ATO's delay, about a schedule that has been and
+    // gone.
+    const selection = taxScaleFor('2025-26', 2)
+    expect(selection.isFallback).toBe(true)
+    expect(fallbackCaption(selection)).toBe(
+      'Using 2026–27 tax rates — no 2025–26 schedule is held.',
     )
   })
 
   it('has ascending thresholds and an open top row on both scales', () => {
     for (const scale of [1, 2] as const) {
-      const { brackets } = taxScaleFor('2025-26', scale).scale
+      const { brackets } = taxScaleFor('2026-27', scale).scale
       const thresholds = brackets.map((b) => b.threshold)
       expect(thresholds).toEqual([...thresholds].sort((a, b) => a - b))
       expect(thresholds[thresholds.length - 1]).toBe(Infinity)
@@ -126,8 +151,8 @@ describe('tax scales', () => {
   it('starts Scale 2 at zero withholding and Scale 1 above it', () => {
     // Scale 2 claims the tax-free threshold, so the first row withholds
     // nothing. Scale 1 does not, so it withholds from the first dollar.
-    expect(taxScaleFor('2025-26', 2).scale.brackets[0].rate).toBe(0)
-    expect(taxScaleFor('2025-26', 1).scale.brackets[0].rate).toBeGreaterThan(0)
+    expect(taxScaleFor('2026-27', 2).scale.brackets[0].rate).toBe(0)
+    expect(taxScaleFor('2026-27', 1).scale.brackets[0].rate).toBeGreaterThan(0)
   })
 
   /**
@@ -140,7 +165,7 @@ describe('tax scales', () => {
     const withhold = (fortnightlyGross: number) => {
       const weekly = Math.floor(fortnightlyGross / 2)
       const x = weekly + 0.99
-      const { brackets } = taxScaleFor('2025-26', 2).scale
+      const { brackets } = taxScaleFor('2026-27', 2).scale
       const row = brackets.find((b) => weekly < b.threshold)!
       return Math.max(0, Math.round(row.rate * x - row.base)) * 2
     }
@@ -149,28 +174,106 @@ describe('tax scales', () => {
     expect(withhold(6018.66)).toBe(1620)
     expect(withhold(0)).toBe(0)
   })
+
+  /**
+   * The ATO's own sample data, Sheet 5 of the workbook the coefficients came
+   * from. Checking the figures against the source's worked examples is the one
+   * test the transcription cannot pass by being self-consistent.
+   */
+  it('matches the ATO sample data for both scales', () => {
+    const weekly = (earnings: number, scale: 1 | 2) => {
+      const { brackets } = taxScaleFor('2026-27', scale).scale
+      const row = brackets.find((b) => earnings < b.threshold)!
+      return Math.round(row.rate * (earnings + 0.99) - row.base)
+    }
+
+    // [weekly earnings, Scale 1, Scale 2] — NAT_1004.xlsx, "Sample Data".
+    const samples: readonly (readonly [number, number, number])[] = [
+      [361, 64, 0],
+      [362, 65, 0],
+      [537, 99, 26],
+      [538, 100, 27],
+      [673, 143, 60],
+      [865, 205, 94],
+      [1282, 339, 229],
+      [2596, 784, 649],
+      [3653, 1224, 1062],
+    ]
+
+    for (const [earnings, scale1, scale2] of samples) {
+      expect([earnings, weekly(earnings, 1)]).toEqual([earnings, scale1])
+      expect([earnings, weekly(earnings, 2)]).toEqual([earnings, scale2])
+    }
+  })
 })
 
 describe('HELP thresholds', () => {
-  it('serves FY2025-26 and falls back beyond it', () => {
+  it('serves both published years directly and falls back beyond them', () => {
+    expect(helpScheduleFor('2026-27').isFallback).toBe(false)
     expect(helpScheduleFor('2025-26').isFallback).toBe(false)
-    const fallback = helpScheduleFor('2026-27')
+    const fallback = helpScheduleFor('2027-28')
     expect(fallback.isFallback).toBe(true)
-    expect(fallback.schedule.financialYear).toBe('2025-26')
+    expect(fallback.schedule.financialYear).toBe('2026-27')
   })
 
   it('withholds nothing below the first threshold', () => {
-    const first = helpScheduleFor('2025-26').schedule.brackets[0]
-    expect(first.rate).toBe(0)
-    expect(first.incomeTo).toBe(67_000)
+    expect(helpScheduleFor('2026-27').schedule.brackets[0]).toMatchObject({
+      rate: 0,
+      incomeTo: 69_528,
+    })
+    expect(helpScheduleFor('2025-26').schedule.brackets[0]).toMatchObject({
+      rate: 0,
+      incomeTo: 67_000,
+    })
+  })
+
+  /**
+   * The indexation moved every boundary and the middle band's fixed component.
+   * Charging FY2026-27 income against FY2025-26's boundaries takes a repayment
+   * off someone earning between the two minimums, which is the case the
+   * indexation exists to create.
+   */
+  it('indexes FY2026-27 above FY2025-26 at every boundary, structure unchanged', () => {
+    const older = helpScheduleFor('2025-26').schedule.brackets
+    const newer = helpScheduleFor('2026-27').schedule.brackets
+
+    expect(newer.map((b) => [b.rate, b.basis])).toEqual(
+      older.map((b) => [b.rate, b.basis]),
+    )
+    expect(newer.map((b) => b.incomeFrom)).toEqual([0, 69_528, 129_717, 186_050])
+    expect(newer[2].base).toBe(9_028)
+    for (let i = 1; i < newer.length; i += 1) {
+      expect(newer[i].incomeFrom).toBeGreaterThan(older[i].incomeFrom)
+    }
   })
 
   it('is contiguous, with an open top band', () => {
-    const { brackets } = helpScheduleFor('2025-26').schedule
-    for (let i = 1; i < brackets.length; i += 1) {
-      expect(brackets[i].incomeFrom).toBe(brackets[i - 1].incomeTo)
+    for (const year of ['2025-26', '2026-27'] as const) {
+      const { brackets } = helpScheduleFor(year).schedule
+      for (let i = 1; i < brackets.length; i += 1) {
+        expect(brackets[i].incomeFrom).toBe(brackets[i - 1].incomeTo)
+      }
+      expect(brackets[brackets.length - 1].incomeTo).toBeNull()
     }
-    expect(brackets[brackets.length - 1].incomeTo).toBeNull()
+  })
+
+  /**
+   * The ATO's own worked examples from the thresholds page the figures came
+   * from — the equivalent of the sample-data check on the tax scales.
+   */
+  it("reproduces the ATO's FY2026-27 worked examples", () => {
+    const { brackets } = helpScheduleFor('2026-27').schedule
+    const repayment = (income: number) => {
+      const row = brackets.find((b) => b.incomeTo === null || income < b.incomeTo)!
+      return row.basis === 'total_income'
+        ? income * row.rate
+        : (row.base ?? 0) + (income - row.incomeFrom) * row.rate
+    }
+
+    // Christina: $86,380 of repayment income, 15c over $69,528.
+    expect(repayment(86_380)).toBeCloseTo(2_527.8, 2)
+    // Barry: $137,064, $9,028 plus 17c over $129,717.
+    expect(repayment(137_064)).toBeCloseTo(10_276.99, 2)
   })
 })
 
