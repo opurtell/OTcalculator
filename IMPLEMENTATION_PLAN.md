@@ -160,13 +160,36 @@ fortnightly  = withholding × 2
 
 Scale selection: tax-free threshold claimed → Scale 2; not claimed → Scale 1.
 
-**⚠️ First task for the implementer.** The sibling project's `tax-scales.json` holds verified NAT 1004 weekly coefficients for **FY2025-26 only**. Its FY2026-27 entry is an *annual bracket stand-in* flagged "pending ATO NAT 1004 FY2026-27 publication (expected June/July 2026)". We are now in August 2026, so the real coefficients should exist.
+**Settled, 21 August 2026: FY2026-27 is published and is what the app runs
+on.** Schedule 1 was reissued on 17 June 2026 and "applies to payments made
+from 1 July 2026"; the coefficients are in `NAT_1004.xlsx` (May 2026 edition,
+Sheet 2) on `softwaredevelopers.ato.gov.au`, and they are what
+`src/data/tax-scales.ts` now holds — cell for cell, cross-checked against the
+workbook's own sample data.
 
-**Task:** source the FY2026-27 NAT 1004 weekly coefficients from `softwaredevelopers.ato.gov.au` (the `NAT_1004.xlsx` workbook, Sheet 2) and verify them against a real payslip.
+**The same coefficients were already in the app under a FY2025-26 key**, having
+arrived that way from the sibling repo. So the fix was a relabel, not a
+retranscription: the withholding figures never moved, and what changed is that
+the app stopped captioning correct FY2026-27 figures as last year's rates. The
+tell that the two years are different tables is Scale 2's second row — 15% from
+$538 in FY2026-27, 16% from $500 in the FY2024-25 edition before it —
+and `reference-data.test.ts` pins it.
 
-**If they are not yet published:** fall back to the **FY2025-26 coefficients**, not the annual-bracket stand-in. Reasons: the coefficient method is what payroll actually runs, so a one-year-stale coefficient set stays structurally correct and is wrong only by the FY2026-27 rate change (the second bracket dropping 16% → 15%); the annual-bracket approach diverges from payroll in method as well as amount. The error is a modest over-statement of tax — conservative in the right direction for someone deciding whether a shift is worth it.
+**FY2025-26's coefficients are not held**, and are not reconstructable: the ATO
+publishes only the current schedule and its software developers' site carries
+the 2024-05 and 2026-05 editions with nothing between. Nothing in the app
+reaches that year — the calculator resolves settings against the current date,
+never an entered shift date — so it is a boundary condition, and the fallback
+covers it.
 
-When the fallback is active, the UI shows a quiet caption under the tax figure: `Using 2025–26 tax rates — 2026–27 schedule not yet published.` Remove the caption, not the fallback, once real coefficients land.
+**The fallback stays**, for the year after this one. When it is active the UI
+shows a quiet caption under the tax figure, and it is worded by direction:
+`Using 2026–27 tax rates — 2027–28 schedule not yet published.` for a year
+ahead of the data, `Using 2026–27 tax rates — no 2025–26 schedule is held.` for
+one behind it. A year that has been and gone is the app's gap, not the ATO's
+delay, and saying "not yet published" about it would be the app misdescribing
+its own state. Remove a caption by adding the real coefficients, never by
+removing the fallback.
 
 The engine keys tax data by financial year and selects on the pay date, so both years coexist, older fortnights stay correct, and swapping the fallback for real coefficients is a one-file change with no engine edit.
 
@@ -180,7 +203,17 @@ repaymentAnnual       = apply HELP threshold schedule
 repaymentFortnight    = repaymentAnnual / 26.0833
 ```
 
-FY2025-26 thresholds are in the sibling project (`help-thresholds.json`) using the marginal structure introduced that year. FY2026-27 thresholds are sourced alongside the tax scales as the same first task, with the same fallback rule — if the FY2026-27 schedule isn't available, use FY2025-26 thresholds and show the same caption. HELP thresholds are indexed annually, so a stale set understates the repayment slightly.
+**FY2026-27 is published and held** (ato.gov.au, "Study and training loan
+repayment thresholds and rates", last updated 30 June 2026), alongside
+FY2025-26. The marginal structure introduced in FY2025-26 is unchanged; the
+indexation moved every boundary and the middle band's fixed component:
+$67,000 → $69,528, $125,000 → $129,717, $179,285 → $186,050, $8,700 → $9,028.
+
+That is the one place the FY2026-27 update changed a figure on screen. An AP1
+Step 2 with a study debt was having $353.26 a fortnight withheld against
+FY2025-26's thresholds and has $336.41 withheld against FY2026-27's — the
+indexation, not a rate change. The same fallback rule and caption as §3.8 apply
+to any year not held; a stale set understates the repayment slightly.
 
 **Warn about the packaging interaction.** Salary packaging reduces the HELP withheld each fortnight, but the annual assessment adds the grossed-up fringe benefit back into repayment income. Someone packaging the full $9,010 living-expenses cap with a study debt can face a real bill at tax time. One sentence in the UI when both are active; not a modal.
 
@@ -436,7 +469,7 @@ Cross-device transfer via a URL hash payload is a possible v1.1 addition — del
 
 The engine is the product; the UI is a form. Test weighting reflects that.
 
-**Golden fixture — this is the acceptance test.** AP1 Step 2, FY2025-26 coefficients, Scale 2, no study debt, no deductions:
+**Golden fixture — this is the acceptance test.** AP1 Step 2, FY2026-27 coefficients, Scale 2, no study debt, no deductions:
 
 | Quantity | Value |
 | --- | --- |
@@ -480,7 +513,7 @@ Add one Saturday 09:00–19:00 pickup (10 h @ 2× = $965.51) and one Wednesday 2
 > **$35.38 untaxed**, PAYG unaffected. Same shift entered as `06:30–16:30` earns
 > nothing. Both are in `golden.test.ts`.
 
-These figures are computed from the EBA tables and the FY2025-26 NAT 1004 coefficients in the sibling project. They must be **re-verified against a real payslip in Phase 10** before the app is shared with anyone else.
+These figures are computed from the EBA tables and the FY2026-27 NAT 1004 coefficients. They were unchanged by the year relabel — the coefficients they were derived from were always FY2026-27's — and must still be **re-verified against a real payslip in Phase 10** before the app is shared with anyone else.
 
 Other required coverage:
 
@@ -649,7 +682,7 @@ cheaper than a bug found by a colleague.
 | # | Phase | Deliverable | Depends on |
 | --- | --- | --- | --- |
 | **0** | Scaffold | Vite + TS + React + Vitest, GitHub Actions deploying to Pages, "hello world" live at the real URL, base path proven correct | — |
-| **1** | Reference data | **First task: source NAT 1004 FY2026-27 coefficients + HELP thresholds; if unpublished, fall back to FY2025-26 per §3.8.** Then pay tables for AP1/AP2/ICP1/ICP2 with all steps; ACT public holidays; FBT caps checked for currency | 0 |
+| **1** | Reference data | **Done: NAT 1004 FY2026-27 coefficients and FY2026-27 HELP thresholds are sourced and held (§3.8, §3.9); the fallback remains for FY2027-28.** Then pay tables for AP1/AP2/ICP1/ICP2 with all steps; ACT public holidays; FBT caps checked for currency | 0 |
 | **2** | OT engine | `calendar.ts`, `overtime.ts`, `attendance.ts`. Ratchet, categories, C9.5 minimum, OT dollars. Full test suite green including all seven crossover fixtures | 1 |
 | **3** | Money engine | `tax.ts`, `packaging.ts`, `fortnight.ts`. PAYG, HELP, pre-tax deductions, with/without-OT delta. **Golden fixture from §4.5 passes** | 2 |
 | **4** | Persistence | Versioned `localStorage`, defensive reads, clear-settings control | 0 |
@@ -678,7 +711,7 @@ Until Phase 10 passes, the app is a well-tested hypothesis.
 
 | Risk | Impact | Mitigation |
 | --- | --- | --- |
-| **NAT 1004 FY2026-27 coefficients unavailable** | Tax figures slightly overstated | Not a blocker. Fall back to FY2025-26 coefficients with a visible caption (§3.8); swap in real coefficients later as a one-file change |
+| ~~**NAT 1004 FY2026-27 coefficients unavailable**~~ | ~~Tax figures slightly overstated~~ | **Closed 21 August 2026.** Published 17 June 2026 and sourced from the ATO workbook; the app was already running on them under a FY2025-26 label (§3.8). The fallback stays for FY2027-28 |
 | **OT computed on composite instead of base** | ~34% overstatement | Named constant, explicit test, Phase 10 payslip reconciliation |
 | **A successor EBA lands during the app's life** | Rates change, usually with back-pay to a date before the agreement is signed | **Not a current risk** — the 2023–2026 agreement remains in effect past its 31 March 2026 nominal expiry and negotiations are ongoing. The 04/12/2025 rates are correct and stable. When a successor arrives: pay table is a single edit-one-file update, the UI already shows the rate effective date, and editable overrides (D1) let users apply new rates before the app is updated |
 | **Midnight ratchet is convention, not EBA text** | Results may not match payroll if practice changes | Documented in the UI explanation; Phase 10 validates it against real payslips |
@@ -728,7 +761,7 @@ ported into `src/data/`; the entries below are the provenance record.
 | Midnight ratchet rule + worked examples | `main-plan-docs/actas_pay_tracker_ot_midnight_crossover.md` |
 | Ratchet implementation to port | `lib/pay-engine/pay/overtime.ts` |
 | OT dollars + `annualBase` contract | `lib/pay-engine/pay/ot-pickup.ts` |
-| NAT 1004 coefficients (FY2025-26 verified) | `lib/pay-engine/reference/data/tax-scales.json` |
+| NAT 1004 coefficients (**mislabelled FY2025-26; they are FY2026-27's** — see §3.8) | `lib/pay-engine/reference/data/tax-scales.json` |
 | HELP thresholds | `lib/pay-engine/reference/data/help-thresholds.json` |
 | ACT public holidays | `lib/pay-engine/reference/data/public-holidays.json` |
 | FBT caps and gross-up | `lib/pay-engine/reference/data/packaging.json` |

@@ -12,7 +12,7 @@ import { fortnightWarnings } from '../warnings'
 
 const SETTINGS: FortnightSettings = {
   band: AP1_STEP_2,
-  taxScale: taxScaleFor('2025-26', 2).scale,
+  taxScale: taxScaleFor('2026-27', 2).scale,
   helpSchedule: null,
   deductions: NO_DEDUCTIONS,
   holidays: HOLIDAYS_2026,
@@ -103,7 +103,7 @@ describe('fortnightWarnings', () => {
     // A note beside the shift list would be adrift from the field it is about.
     const packaged = calculateFortnight([shift({ id: 'a', date: '2026-08-19' })], {
       ...SETTINGS,
-      helpSchedule: helpScheduleFor('2025-26').schedule,
+      helpSchedule: helpScheduleFor('2026-27').schedule,
       deductions: { fixedPerFortnight: 900, percentOfGross: 0 },
     })
     const texts = fortnightWarnings(

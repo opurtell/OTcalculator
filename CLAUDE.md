@@ -23,7 +23,7 @@ Phases against `IMPLEMENTATION_PLAN.md` §6:
 | Phase | State |
 | --- | --- |
 | **0** Scaffold | **Done.** `src/main.tsx`, `src/App.tsx` (a deliberate placeholder — no figures), `.github/workflows/deploy.yml`, live at https://opurtell.github.io/OTcalculator/ |
-| **1** Reference data | **Done, with one caveat.** `src/data/` — Annex A tables, ACT holidays, NAT 1004, HELP, FBT caps, the 44-hour roster patterns. Tax and HELP are FY2025-26 only and fall back per §3.8. See "Reference data" below |
+| **1** Reference data | **Done.** `src/data/` — Annex A tables, ACT holidays, NAT 1004, HELP, FBT caps, the 44-hour roster patterns. Tax and HELP are FY2026-27, sourced from the ATO on 21 August 2026; the §3.8 fallback remains for FY2027-28. See "Reference data" below |
 | **2** OT engine | **Done.** `src/engine/` — ratchet, categories, attendance grouping, C9.5 minimum, OT dollars |
 | **3** Money engine | **Done.** `tax.ts`, `packaging.ts`, `fortnight.ts` — PAYG, HELP, pre-tax deductions, the with/without-OT delta. **The §4.5 golden fixture passes end to end** |
 | **4** Persistence | **Done.** `src/storage/` — versioned `localStorage` per §4.4, defensive reads, debounced writes, clear-settings. `preferences.ts` holds the settings; `shifts.ts` holds this pay fortnight's shifts and lets go of them when it ends |
@@ -521,15 +521,51 @@ overtime meal rate, which the money *does* depend on — but the engine still ta
 it as a number. `src/app/settings.ts` looks it up by pay date, which is what keeps
 an older fortnight priced at the rate in force when it was worked (C20.2).
 
-**Tax and HELP are FY2025-26 only.** The ATO reissued Schedule 1 for FY2026-27
-(second bracket 16% → 15%) but those coefficients are not in the sibling repo
-and cannot be fetched from a web session. `taxScaleFor` and `helpScheduleFor`
-fall back to FY2025-26 per §3.8 and report `isFallback` so the UI can caption
-it. Adding the real rows to `src/data/tax-scales.ts` is the entire fix — no
-engine change. Remove the caption, never the fallback.
+**Tax and HELP are FY2026-27, and the tax coefficients were mislabelled until
+21 August 2026.** `src/data/tax-scales.ts` holds NAT 1004 as reissued 17 June
+2026 ("applies to payments made from 1 July 2026"), transcribed from
+`softwaredevelopers.ato.gov.au/sites/default/files/2026-05/NAT_1004.xlsx`,
+Sheet 2. Three things about that:
+
+- **The same coefficients were already in the app under a `2025-26` key.** They
+  came from the sibling repo, which ingested this workbook in May 2026 and
+  moved the numbers and the source URL without moving the year. So the
+  withholding was right and the caption under it said "2025–26 tax rates —
+  2026–27 schedule not yet published", which was the app describing correct
+  figures as stale ones. **No PAYG figure moved when this was fixed**; only the
+  label and the caption did.
+- **Scale 2's second row is what tells the two years apart** — 15% from $538 in
+  FY2026-27, 16% from $500 in the FY2024-25 edition before it. If a future
+  transcription ever puts a 16% row under a 2026-27 key, that is the tell.
+  `reference-data.test.ts` pins the row, and separately checks both scales
+  against the workbook's own sample data, which is the one check a
+  self-consistent transcription cannot pass by accident.
+- **FY2025-26's coefficients are not held and cannot be sourced.** The ATO
+  publishes only the current schedule and its software developers' site carries
+  the 2024-05 and 2026-05 editions with nothing between. Nothing in the app can
+  reach that year — `Calculator` resolves settings against the current date,
+  never an entered shift date — so it is a boundary condition.
+
+**HELP is where the FY2026-27 update actually moved money.**
+`src/data/help-thresholds.ts` now holds both years (ato.gov.au, "Study and
+training loan repayment thresholds and rates", last updated 30 June 2026). The
+marginal structure is unchanged and every boundary is indexed: $67,000 →
+$69,528, $125,000 → $129,717, $179,285 → $186,050, and the middle band's fixed
+component $8,700 → $9,028. An AP1 Step 2 with a study debt goes from $353.26 a
+fortnight withheld to $336.41. `incomeFrom` is the figure the arithmetic
+subtracts, a dollar below the range the ATO prints — reading "$69,529 –
+$129,717" straight into the field shifts every repayment.
+
+**The fallback stays, and it is now worded by direction.** `fallbackNotice` in
+`src/data/fallback.ts` is shared by both schedules so their captions stay
+parallel: a year *after* the data is "not yet published", a year *before* it is
+"no 2025–26 schedule is held". A schedule from a year that has been and gone is
+this app's gap, not the ATO's delay, and one wording for both would have the
+app misdescribing its own state. Adding a row is the entire fix for any year —
+no engine change. Remove a caption, never the fallback.
 
 Confirmed against source while porting: AP1 Step 2 is $95,698 base / $125,920
-Annex A total, the FY2025-26 Scale 2 coefficients reproduce the §4.5 PAYG figures
+Annex A total, the FY2026-27 Scale 2 coefficients reproduce the §4.5 PAYG figures
 ($1,208 and $1,620) exactly, and the Annex C overtime meal rate is $35.38 per
 occasion from 4 December 2025.
 
@@ -609,7 +645,7 @@ shift ends at. The allowance case is covered separately in `golden.test.ts` by a
 AM picked up and entered as `06:30–18:00` — a 10-hour shift taken to 11.5, $35.38
 untaxed, PAYG unaffected. The same shift entered as `06:30–16:30` earns nothing.
 
-It is computed from the EBA tables and the FY2025-26 coefficients, and is
+It is computed from the EBA tables and the FY2026-27 coefficients, and is
 **not yet verified against a real payslip** — that is Phase 10, and it gates
 sharing the app with anyone else. Until then the app is a well-tested
 hypothesis.

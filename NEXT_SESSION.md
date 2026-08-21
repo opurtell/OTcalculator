@@ -11,7 +11,7 @@ polish on the design system.
 ## A. Phase 10 — reconcile against real payslips ★ the gate
 
 **Nothing ships to a colleague until this passes.** Everything the app shows is
-computed from the EBA tables and the FY2025-26 coefficients and has never been
+computed from the EBA tables and the FY2026-27 coefficients and has never been
 checked against what payroll actually paid. Until it is, this is a well-tested
 hypothesis with a confident-looking UI, which is the more dangerous kind.
 

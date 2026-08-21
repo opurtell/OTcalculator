@@ -21,9 +21,9 @@ import {
   shift,
 } from './fixtures'
 
-const SCALE_2 = taxScaleFor('2025-26', 2).scale
-const SCALE_1 = taxScaleFor('2025-26', 1).scale
-const HELP = helpScheduleFor('2025-26').schedule
+const SCALE_2 = taxScaleFor('2026-27', 2).scale
+const SCALE_1 = taxScaleFor('2026-27', 1).scale
+const HELP = helpScheduleFor('2026-27').schedule
 
 const baseSettings = {
   band: AP1_STEP_2,
@@ -89,15 +89,15 @@ describe('paygWithholding', () => {
 
 describe('helpRepayment', () => {
   it('repays nothing below the first threshold', () => {
-    // $67,000 a year is about $2,568 a fortnight.
+    // $69,528 a year is about $2,665 a fortnight.
     expect(helpRepayment(2000, HELP)).toBe(0)
     expect(helpRepayment(0, HELP)).toBe(0)
   })
 
   it('charges only the amount over the threshold in the second band', () => {
-    // $100,000 a year → 15% of $33,000 = $4,950, over 26.0833 fortnights.
+    // $100,000 a year → 15% of $30,472 = $4,570.80, over 26.0833 fortnights.
     const fortnightly = 100_000 / (313 / 12)
-    expect(cents(helpRepayment(fortnightly, HELP) * (313 / 12))).toBeCloseTo(4950, 1)
+    expect(cents(helpRepayment(fortnightly, HELP) * (313 / 12))).toBeCloseTo(4570.8, 1)
   })
 
   it('is continuous across the band boundaries', () => {

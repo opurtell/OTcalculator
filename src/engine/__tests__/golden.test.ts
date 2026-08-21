@@ -5,7 +5,7 @@
  * pickup and one Wednesday 2-hour shift overrun.
  *
  * This is the acceptance test for the whole engine. Every figure in it is
- * computed from the EBA tables and the FY2025-26 coefficients, and has **not**
+ * computed from the EBA tables and the FY2026-27 coefficients, and has **not**
  * been verified against a real payslip. That is Phase 10, and it gates sharing
  * the app with anyone else.
  */
@@ -99,7 +99,7 @@ describe('golden fixture — overtime', () => {
 describe('golden fixture — the whole fortnight', () => {
   const result = calculateFortnight([SATURDAY_PICKUP, WEDNESDAY_OVERRUN], {
     band: AP1_STEP_2,
-    taxScale: taxScaleFor('2025-26', 2).scale,
+    taxScale: taxScaleFor('2026-27', 2).scale,
     helpSchedule: null,
     deductions: NO_DEDUCTIONS,
     holidays: HOLIDAYS_2026,
@@ -178,7 +178,7 @@ describe('a fortnight that does earn the meal allowance', () => {
 
   const result = calculateFortnight([AM_RUN_ON], {
     band: AP1_STEP_2,
-    taxScale: taxScaleFor('2025-26', 2).scale,
+    taxScale: taxScaleFor('2026-27', 2).scale,
     helpSchedule: null,
     deductions: NO_DEDUCTIONS,
     holidays: HOLIDAYS_2026,
@@ -219,7 +219,7 @@ describe('a fortnight that does earn the meal allowance', () => {
     // the case Oscar said should pay no allowance — break or no break.
     const onTime = calculateFortnight([shift('2026-08-19', '06:30', '16:30', 'separate')], {
       band: AP1_STEP_2,
-      taxScale: taxScaleFor('2025-26', 2).scale,
+      taxScale: taxScaleFor('2026-27', 2).scale,
       helpSchedule: null,
       deductions: NO_DEDUCTIONS,
       holidays: HOLIDAYS_2026,

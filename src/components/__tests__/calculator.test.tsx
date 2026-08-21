@@ -141,8 +141,8 @@ describe('Calculator', () => {
   })
 
   it('captions a stale tax schedule where the figures are', () => {
-    const html = render(GOLDEN, { payDate: '2026-08-08' })
-    expect(html).toContain('Using 2025–26 tax rates')
+    const html = render(GOLDEN, { payDate: '2027-08-08' })
+    expect(html).toContain('Using 2026–27 tax rates')
   })
 
   it('offers both pathways and shows the one selected', () => {

@@ -33,11 +33,11 @@ const GOLDEN: CalculatorChoices = {
   pathway: 'fortnight',
 }
 
-/** Inside FY2025-26, so no fallback caption is expected. */
-const IN_FY_2025_26 = '2026-02-11'
+/** Inside FY2026-27, the year both schedules are verified for. */
+const IN_FY_2026_27 = '2026-08-08'
 
 function resolveGolden(overrides: Partial<CalculatorChoices> = {}) {
-  const resolved = resolveSettings({ ...GOLDEN, ...overrides }, IN_FY_2025_26)
+  const resolved = resolveSettings({ ...GOLDEN, ...overrides }, IN_FY_2026_27)
   if (resolved === null) throw new Error('AP1 Step 2 should resolve')
   return resolved
 }
@@ -144,13 +144,13 @@ describe('resolveSettings', () => {
     expect(
       resolveSettings(
         { ...GOLDEN, band: { ...GOLDEN.band, classification: 'ICP2', step: 9 } },
-        IN_FY_2025_26,
+        IN_FY_2026_27,
       ),
     ).toBeNull()
     expect(
       resolveSettings(
         { ...GOLDEN, band: { ...GOLDEN.band, classification: 'AM1', step: 1 } },
-        IN_FY_2025_26,
+        IN_FY_2026_27,
       ),
     ).toBeNull()
   })
@@ -162,19 +162,27 @@ describe('resolveSettings', () => {
   it('captions the fallback once the financial year runs past the data', () => {
     const { captions } = resolveSettings(
       { ...GOLDEN, tax: { claimsTaxFreeThreshold: true, hasStudyDebt: true } },
-      '2026-08-08',
+      '2027-08-08',
     )!
 
     // §3.8 and §3.9 both require the caption, and both schedules are stale, so
     // both lines appear rather than one standing in for the other.
     expect(captions).toHaveLength(2)
-    expect(captions[0]).toContain('2025–26 tax rates')
-    expect(captions[0]).toContain('2026–27')
+    expect(captions[0]).toContain('2026–27 tax rates')
+    expect(captions[0]).toContain('2027–28')
     expect(captions[1]).toContain('study loan thresholds')
   })
 
+  it('captions a year older than the data differently — it is a gap, not a delay', () => {
+    // FY2025-26's coefficients were never sourced, so the fallback runs
+    // backwards. Saying a schedule from a year that has been and gone is "not
+    // yet published" would blame the ATO for the app's own missing row.
+    const { captions } = resolveSettings(GOLDEN, '2026-02-11')!
+    expect(captions).toEqual(['Using 2026–27 tax rates — no 2025–26 schedule is held.'])
+  })
+
   it('resolves its own defaults', () => {
-    expect(resolveSettings(DEFAULT_CHOICES, IN_FY_2025_26)).not.toBeNull()
+    expect(resolveSettings(DEFAULT_CHOICES, IN_FY_2026_27)).not.toBeNull()
     expect(isKnownBand(DEFAULT_CHOICES.band)).toBe(true)
   })
 })
