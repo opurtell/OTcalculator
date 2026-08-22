@@ -133,12 +133,16 @@ describe('summaryText', () => {
   })
 
   it('passes the tax-year caption through — it changes what the figures mean', () => {
+    // The caption the app can actually emit today. Tax and HELP are on
+    // FY2026-27, so nothing captions itself as last year's rates any more;
+    // the surviving fallback is the year ahead of the data (§3.8).
+    const notice = 'Using 2026–27 tax rates — 2027–28 schedule not yet published.'
     const captioned = summaryText({
       result: calculateFortnight([SATURDAY], settings),
       bandSummary: 'AP1 Step 2',
-      captions: ['Using 2025–26 tax rates'],
+      captions: [notice],
     })
-    expect(captioned).toContain('Using 2025–26 tax rates')
+    expect(captioned).toContain(notice)
   })
 })
 
