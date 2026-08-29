@@ -168,7 +168,7 @@ function advancedDeductions(value: unknown): StoredAdvancedDeductions | undefine
   if (value === undefined) return undefined
 
   // Not a record at all — including `null`, which is corruption rather than a
-  // stored "no split". `fieldsSurvived` will see the difference and report it.
+  // stored "no split". `preferencesSurvived` will see the difference and report it.
   const stored = isRecord(value) ? value : {}
 
   return {
@@ -228,7 +228,7 @@ export function normalisePreferences(value: unknown): Preferences {
         defaults.deductions.percentOfGross,
       ),
       // `undefined` here is dropped by `JSON.stringify` on both sides of
-      // `fieldsSurvived`, so a record from before advanced mode still reads
+      // `preferencesSurvived`, so a record from before advanced mode still reads
       // back as `'ok'` — and is written back out in the same shape.
       advanced: advancedDeductions(deductions.advanced),
     },
@@ -293,7 +293,7 @@ export function readPreferences(
   const preferences = normalisePreferences(parsed)
   return {
     preferences,
-    status: fieldsSurvived(parsed, preferences) ? 'ok' : 'repaired',
+    status: preferencesSurvived(parsed, preferences) ? 'ok' : 'repaired',
   }
 }
 
@@ -302,8 +302,18 @@ export function readPreferences(
  *
  * Compares the stored payload against the normalised one field by field. A
  * difference means something was defaulted, which is what `'repaired'` reports.
+ *
+ * Exported because `last-fortnight.ts` asks the same question and answers it
+ * differently: a carried fortnight sits beside no editable inputs, so a
+ * repaired one is dropped rather than shown with a note. Two copies of this
+ * comparison would be two chances to disagree about what "unchanged" means.
+ * `schemaVersion` is ignored, so a payload without one compares fine.
  */
-function fieldsSurvived(stored: Record<string, unknown>, result: Preferences): boolean {
+export function preferencesSurvived(
+  stored: unknown,
+  result: Preferences,
+): boolean {
+  if (!isRecord(stored)) return false
   const { schemaVersion: _ignored, ...rest } = stored
   return JSON.stringify(sortKeys(rest)) === JSON.stringify(sortKeys(result))
 }

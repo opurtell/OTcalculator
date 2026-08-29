@@ -103,7 +103,7 @@ export interface PayBand {
   annexATotal: number
 }
 
-/** `'2025-26'`. Australian financial years run 1 July to 30 June. */
+/** `'2026-27'`. Australian financial years run 1 July to 30 June. */
 export type FinancialYear = string
 
 /**

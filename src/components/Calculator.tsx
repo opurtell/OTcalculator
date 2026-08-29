@@ -38,6 +38,7 @@ import {
 import type { AdvancedDeductionInputs } from './DeductionsTaxPanel'
 import { FortnightPathway } from './FortnightPathway'
 import { FortnightResultPanel } from './FortnightResultPanel'
+import { LastFortnightBanner } from './LastFortnightBanner'
 import { PayBandFields, clampStep } from './PayBandFields'
 import { QuickHoursField, QuickResult } from './QuickPathway'
 import { SetupScreen } from './SetupScreen'
@@ -68,6 +69,22 @@ export interface CalculatorProps {
    * not empty, so the app says why.
    */
   shiftsExpired?: boolean
+  /**
+   * The fortnight that just ended, if the device is still holding it — the
+   * shifts, the settings they were worked out under, and the period they
+   * belong to. Rendered as a banner above everything until the new fortnight
+   * has a shift in it, or the user dismisses it.
+   *
+   * The choices arrive as the fortnight's own, not today's. A pay band edited
+   * since would otherwise silently restate a figure the user was never shown.
+   */
+  lastFortnight?: {
+    fortnight: PayFortnight
+    shifts: readonly OtShift[]
+    choices: CalculatorChoices
+  } | null
+  /** Fired when the carried fortnight should leave the device for good. */
+  onDismissLastFortnight?: () => void
   /** Fired whenever the shift list changes, including on the first render. */
   onShiftsChange?: (shifts: readonly OtShift[]) => void
   /** The pay date, which selects the financial year (§3.8). Injected in tests. */
@@ -97,6 +114,8 @@ export function Calculator({
   onClearSettings,
   initialShifts = [],
   shiftsExpired = false,
+  lastFortnight = null,
+  onDismissLastFortnight,
   onShiftsChange,
   payDate,
   readStatus,
@@ -128,6 +147,10 @@ export function Calculator({
   // open and cannot know where it came from — the add button, a row, a row's
   // menu — so the side that opened it remembers (§8).
   const sheetOpenedFrom = useRef<HTMLElement | null>(null)
+  // The fortnight that just ended, while it is still worth showing. Held in
+  // state rather than read straight from the prop so the banner can leave the
+  // moment the user moves on, without waiting for a reload to notice.
+  const [carriedOver, setCarriedOver] = useState(lastFortnight)
 
   const choices = choicesFrom(fields)
   const date = payDate ?? todayIso()
@@ -157,6 +180,26 @@ export function Calculator({
   useEffect(() => {
     notifyShifts.current?.(shifts)
   }, [shifts])
+
+  // The carried fortnight has done its job the moment this one has a shift in
+  // it: the user has looked at it and moved on, and a banner about the old
+  // figure sitting above the new one is just something in the way.
+  //
+  // This effect only lets go of the *record*. Whether the banner is on screen
+  // is decided at render time by the same test (`carried`, below), so a load
+  // that somehow arrives with both — a device that refused the clearing write —
+  // shows no banner rather than flashing one until the effect catches up.
+  //
+  // Keyed on the list being non-empty rather than on an add, so a list restored
+  // from the undo row counts too: the question is whether there is a current
+  // fortnight to look at, not how it came to be there.
+  const notifyDismiss = useRef(onDismissLastFortnight)
+  notifyDismiss.current = onDismissLastFortnight
+  useEffect(() => {
+    if (shifts.length === 0 || carriedOver === null) return
+    setCarriedOver(null)
+    notifyDismiss.current?.()
+  }, [shifts, carriedOver])
 
   function update(patch: Partial<Fields>) {
     setFields((current) => ({ ...current, ...patch }))
@@ -233,6 +276,31 @@ export function Calculator({
   const { settings, captions, advancedDeductions } = resolved
 
   const result = calculateFortnight(shifts, settings)
+
+  // Last fortnight, recomputed from what it was actually worked out on: its own
+  // shifts, its own settings, and its own pay date — which is what keeps the
+  // financial year and the Annex C meal rate the ones that were in force then
+  // (§3.8, C20.2). `resolveSettings` returns null for a band that has since
+  // left the pay tables, and a fortnight the app can no longer price is one it
+  // has nothing honest to say about, so the banner simply does not appear.
+  //
+  // It is also only shown while this fortnight is still empty — a banner about
+  // last fortnight above a list of this fortnight's shifts is one figure too
+  // many on the screen.
+  const carriedResolved =
+    carriedOver === null || shifts.length > 0
+      ? null
+      : resolveSettings(carriedOver.choices, carriedOver.fortnight.end)
+  const carried =
+    carriedOver === null || carriedResolved === null
+      ? null
+      : {
+          fortnight: carriedOver.fortnight,
+          shiftCount: carriedOver.shifts.length,
+          bandSummary: `${carriedOver.choices.band.classification} Step ${carriedOver.choices.band.step}`,
+          captions: carriedResolved.captions,
+          result: calculateFortnight(carriedOver.shifts, carriedResolved.settings),
+        }
   const warnings = fortnightWarnings(shifts, result.flags, settings.holidays)
 
   // The quick pathway, when it has a number to work with. Both pathways reach
@@ -291,6 +359,21 @@ export function Calculator({
 
   return (
     <CalculatorShell
+      banner={
+        carried === null ? null : (
+          <LastFortnightBanner
+            fortnight={carried.fortnight}
+            result={carried.result}
+            bandSummary={carried.bandSummary}
+            captions={carried.captions}
+            shiftCount={carried.shiftCount}
+            onDismiss={() => {
+              setCarriedOver(null)
+              onDismissLastFortnight?.()
+            }}
+          />
+        )
+      }
       pathway={fields.pathway}
       onPathwayChange={(pathway: Pathway) => update({ pathway })}
       result={
@@ -342,6 +425,10 @@ export function Calculator({
         // to drop its record.
         setShifts([])
         setPendingDelete(null)
+        // Nothing survives this control, and its question names the shifts —
+        // which the carried fortnight is a copy of. Leaving it would be the
+        // one thing on screen that outlived "clear everything".
+        setCarriedOver(null)
         onClearSettings?.()
       }}
     >

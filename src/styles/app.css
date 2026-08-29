@@ -145,6 +145,34 @@ body {
   gap: var(--space-4);
 }
 
+/* Last pay fortnight, carried over so it can be read once more before the new
+ * one starts. The teal wash rather than the panel's own surface: it is the
+ * same "this is an answer, not a field" signal the shift-sheet preview uses,
+ * turned down — a history panel must not read as the live result, which is why
+ * there is no elevation and no display-size figure in it.
+ *
+ * The left rule is what carries the distinction at a glance on a phone, where
+ * the banner and the result panel are stacked one above the other. */
+.sl-carryover {
+  background: var(--teal-wash);
+  border-left: 3px solid var(--teal);
+}
+
+/* The line that says how the banner leaves, and the control that does it now.
+ * They wrap together rather than the button dropping alone, because the
+ * sentence is what makes "Dismiss" mean something. */
+.sl-carryover__footer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.sl-carryover__footer > .sl-caption {
+  flex: 1 1 16rem;
+}
+
 /* Share and print, under the result. Ghost buttons on the panel's own ground —
    they are ways to take the figure elsewhere, not part of the calculation. */
 .sl-share {
@@ -170,6 +198,10 @@ body {
  * This is a page someone hands to a partner or sets beside a payslip, which is
  * also why the disclosures are opened: a printed "▸ How this was worked out"
  * is a dead end.
+ *
+ * The carried fortnight comes off too. It is last fortnight's figures sitting
+ * above this fortnight's, which is legible on a screen where it can be
+ * dismissed and is two contradictory take-home figures on a sheet of paper.
  */
 @media print {
   /* Printers are not dark-mode aware and a dark page wastes a cartridge. The
@@ -196,6 +228,7 @@ body {
 
   .sl-tabs,
   .sl-btn,
+  .sl-carryover,
   .sl-shift-actions,
   .sl-shift-storage,
   .sl-share,
