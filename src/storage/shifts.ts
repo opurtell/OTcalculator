@@ -58,6 +58,16 @@ export type ShiftsReadStatus =
 export interface ShiftsRead {
   shifts: OtShift[]
   status: ShiftsReadStatus
+  /**
+   * What the expired record held, set only when `status` is `'expired'`.
+   *
+   * Handed back rather than thrown away because the fortnight that just ended
+   * is worth showing once more before the user moves on — see
+   * `last-fortnight.ts`, which is where the caller puts it. The record still
+   * leaves this key on the way past, so the invariant that matters is intact:
+   * the shifts key holds this fortnight's shifts or nothing.
+   */
+  expired?: { payPeriodEnd: IsoDate; shifts: OtShift[] }
 }
 
 const NOTHING: ShiftsRead = { shifts: [], status: 'empty' }
@@ -131,6 +141,11 @@ export function parseStoredShift(value: unknown): OtShift | null {
  * app. A record from any other period is `'expired'`: it is dropped from the
  * store on the way past, so a fortnight of shifts does not sit on the device
  * indefinitely waiting for a read that will never accept it.
+ *
+ * An expired record is still *handed back* on `expired`, so the caller can put
+ * it aside and show the user the fortnight they just finished. Dropping it from
+ * this key and keeping it in another are two different questions, and this
+ * function only answers the first.
  */
 export function readShifts(
   payPeriodEnd: IsoDate,
@@ -157,20 +172,31 @@ export function readShifts(
     return { shifts: [], status: 'unreadable' }
   }
 
-  if (parsed.payPeriodEnd !== payPeriodEnd) {
-    clearShifts(store)
-    // An unreadable period stamp is not an expiry — it is a record that cannot
-    // say which fortnight it is from, which is the same as not having one.
-    return {
-      shifts: [],
-      status: typeof parsed.payPeriodEnd === 'string' ? 'expired' : 'unreadable',
-    }
-  }
-
   const stored = Array.isArray(parsed.shifts) ? parsed.shifts : []
   const shifts = stored
     .map(parseStoredShift)
     .filter((shift): shift is OtShift => shift !== null)
+
+  if (parsed.payPeriodEnd !== payPeriodEnd) {
+    clearShifts(store)
+    // An unreadable period stamp is not an expiry — it is a record that cannot
+    // say which fortnight it is from, which is the same as not having one.
+    if (typeof parsed.payPeriodEnd !== 'string' || !isIsoDate(parsed.payPeriodEnd)) {
+      return { shifts: [], status: 'unreadable' }
+    }
+    return {
+      shifts: [],
+      status: 'expired',
+      // Handed on only when every stored shift survived. A carry-over one shift
+      // short would understate a take-home that sits beside no list to check it
+      // against — unlike this fortnight's, where `'repaired'` hands the user
+      // back an editable list and says a shift was lost.
+      expired:
+        shifts.length === stored.length
+          ? { payPeriodEnd: parsed.payPeriodEnd as IsoDate, shifts }
+          : undefined,
+    }
+  }
 
   return {
     shifts,

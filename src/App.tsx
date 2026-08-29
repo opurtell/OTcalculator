@@ -13,6 +13,11 @@ import {
   readPreferences,
 } from './storage/preferences'
 import type { PreferenceStore, Preferences, PreferenceWriter } from './storage/preferences'
+import {
+  clearLastFortnight,
+  readLastFortnight,
+  saveLastFortnight,
+} from './storage/last-fortnight'
 import { readShifts, saveShifts } from './storage/shifts'
 import { StationLedger } from './ui/index'
 
@@ -55,6 +60,27 @@ export function App({ store = browserStore(), today }: AppProps = {}) {
     const date = today ?? todayIso()
     const fortnight = payFortnightFor(date)
     const shifts = readShifts(fortnight.end, store)
+    const read = readPreferences(store)
+
+    // The fortnight rolled over between visits: put what it held aside before
+    // anything else touches the device, so the user can see the take-home they
+    // were watching one more time. The settings go with it — recomputing last
+    // fortnight against a pay band edited since would restate a figure they
+    // were never shown.
+    if (shifts.expired !== undefined) {
+      saveLastFortnight(
+        shifts.expired.payPeriodEnd,
+        shifts.expired.shifts,
+        read.preferences,
+        store,
+      )
+    }
+
+    // Read back rather than used directly, so the banner goes through the same
+    // defensive read on the visit it was written as on every visit after — and
+    // so a write that did not land (a full or blocked store) shows no banner
+    // rather than one that vanishes on the next reload.
+    const lastFortnight = readLastFortnight(fortnight.end, store)
 
     // Before anything can be added to the restored list: the id counter starts
     // at zero on every load, so without this a new shift would be minted with
@@ -65,7 +91,8 @@ export function App({ store = browserStore(), today }: AppProps = {}) {
       date,
       fortnight,
       shifts,
-      read: readPreferences(store),
+      lastFortnight,
+      read,
       canRemember: store !== null,
     }
   })
@@ -93,6 +120,9 @@ export function App({ store = browserStore(), today }: AppProps = {}) {
     // after the clear and resurrect the settings.
     writer.cancel()
     clearPreferences(store)
+    // The control's question names the shifts, and the carried fortnight is a
+    // copy of a fortnight's shifts. It goes too.
+    clearLastFortnight(store)
   }
 
   return (
@@ -115,6 +145,19 @@ export function App({ store = browserStore(), today }: AppProps = {}) {
           // rather than just handed an empty list.
           initialShifts={boot.shifts.shifts}
           shiftsExpired={boot.shifts.status === 'expired'}
+          // The fortnight that just ended, if the device is still holding it.
+          // Its settings come from the record, not from the live preferences —
+          // see `storage/last-fortnight.ts`.
+          lastFortnight={
+            boot.lastFortnight === null
+              ? null
+              : {
+                  fortnight: payFortnightFor(boot.lastFortnight.payPeriodEnd),
+                  shifts: boot.lastFortnight.shifts,
+                  choices: choicesFromPreferences(boot.lastFortnight.preferences),
+                }
+          }
+          onDismissLastFortnight={() => clearLastFortnight(store)}
           onShiftsChange={(shifts) => saveShifts(boot.fortnight.end, shifts, store)}
           // What the read cost, if anything. §4.4 repairs fields individually
           // rather than discarding the record, and the user is owed a quiet

@@ -30,7 +30,7 @@ Phases against `IMPLEMENTATION_PLAN.md` §6:
 | **5** Shell + setup | **Done.** `src/components/` + `src/app/` — app frame, pathway switcher, pay band picker with editable overrides, deductions and tax panel (simple and advanced — see "Advanced deductions"), disclaimer, clear-settings. `App.tsx` wires the calculator to persistence |
 | **6** Quick pathway | **Done.** One hours field, the §5.1 two-tier split, the low-estimate note. Adds `quickOvertime` and the behaviour-preserving `comparePay` extraction in `src/engine/` |
 | **7** Fortnight pathway | **Done.** Shift list, add/edit sheet with live preview, delete-with-undo, duplicate, the roster quick-fill, and the five non-blocking warnings. A row is an attendance, not an entry |
-| **8** Results | **Done.** The with/without comparison table, an inspectable per-shift Overtime breakdown, the tax-free meal allowance line and its per-occasion derivation, the §5.7 "how this was worked out" disclosure, and the advanced split's "Where your money goes" / Spendable disclosure. Row logic lives in `src/app/breakdown.ts`; `HowItWasWorkedOut.tsx` and `WhereYourMoneyGoes.tsx` wrap the two disclosures |
+| **8** Results | **Done.** The with/without comparison table, an inspectable per-shift Overtime breakdown, the tax-free meal allowance line and its per-occasion derivation, the §5.7 "how this was worked out" disclosure, the advanced split's "Where your money goes" / Spendable disclosure, and the carried-over "Last pay fortnight" banner. Row logic lives in `src/app/breakdown.ts`; `HowItWasWorkedOut.tsx`, `WhereYourMoneyGoes.tsx` and `LastFortnightBanner.tsx` wrap the three disclosures |
 | **9** Polish | **Done; verified in a browser at desktop width only.** Keyboard operation of the tabs and segmented control, the tab panel, a narrowed live region, Escape and focus return on the sheet and row menu; 44px targets, 16px inputs, a capped sticky result on desktop, safe areas; PWA with a hand-rolled service worker; print stylesheet and a shareable text summary; an error boundary and the settings-repair notice; a copy sweep against the §6 deck |
 | **10** Validation | **Not started, and it is the gate.** Reconcile against the 35 payslips in the sibling repo. Needs the local machine — they are deliberately not on GitHub. Method in `NEXT_SESSION.md` |
 
@@ -83,7 +83,9 @@ things it settles:
   overtime reappearing in this fortnight's total, not a shift surviving a
   reload. Two keys rather than one field, because a shared key would need a
   schema bump and a bump discards the record wholesale — every existing user
-  would lose the pay band they set. See "The pay fortnight" below.
+  would lose the pay band they set. A **third** key carries the fortnight that
+  just ended so it can be read once more — see "The fortnight that just ended"
+  below.
 - **Writes are debounced, and `flush()` is wired to `pagehide` in `App.tsx`.**
   Without it the last edit is lost when a tab closes inside the delay window,
   and `pagehide` is the event that fires on mobile Safari where `beforeunload`
@@ -276,6 +278,39 @@ puts the whole list back. **"Clear saved settings"** asks first, because
 nothing survives it — and it drops the shifts too, which is why its question
 names them.
 
+### The fortnight that just ended
+
+The expiry above is right and it is also abrupt: the user who opens the app on
+the Thursday gets an empty list and a base-pay figure where a take-home used to
+be. `src/storage/last-fortnight.ts` is the handover — a **third key**, written
+from what `readShifts` let go of, rendered by `LastFortnightBanner` above the
+tabs, and dropped on the first shift of the new fortnight or on a tap of
+Dismiss. Five things about it:
+
+- **It stores inputs, not the figure.** The shifts and the settings that were
+  live go on the device; the take-home is recomputed by the engine that
+  produced it. A stored figure would be a number on the device that nothing
+  could check.
+- **The settings ride along, and that is the point.** The banner resolves
+  against *its own* choices and *its own* pay date — so a pay band edited on
+  the Thursday cannot silently restate a figure the user was already shown, and
+  the financial year and the Annex C meal rate stay the ones in force then.
+- **The read is all-or-nothing, unlike every other read in `src/storage/`.**
+  Elsewhere a damaged field is repaired and the user gets a quiet line; here
+  there is nothing to say it against, because the figure sits beside no
+  editable inputs. A record with an unusable shift, settings that did not
+  survive `normalisePreferences`, or a period stamp that has caught up with the
+  present is dropped whole and no banner appears. `readShifts` applies the same
+  rule to what it hands back: a partial expired list yields no `expired` at all.
+- **Whether the banner shows is decided at render time**, by the same test the
+  effect uses to clear the record (`shifts.length === 0`). The effect only lets
+  go of the *record* — so a device that refused the clearing write shows no
+  banner rather than flashing one it is about to withdraw.
+- **It is not the result panel.** No `ResultPanel`, no display-size figure and
+  no `aria-live` region: the app has exactly one live region and it is the
+  headline (§8). `last-fortnight.test.tsx` pins the count at one. It also does
+  not print — two contradictory take-home figures on one sheet of paper.
+
 `src/ui/` is the Station Ledger component library — 22 components covering the
 nine screens, React the only runtime dep. It is pushed to the Claude Design
 project `ACTAS OT Calculator` (`d6df1004-e7c3-46f0-835a-8719984bd989`) so the
@@ -330,6 +365,7 @@ Phase 9's work is spread thin by nature, so this is the index:
 | Shareable text | `src/app/summary.ts` (pure) behind `src/components/ShareSummary.tsx` |
 | Render failures | `src/components/ErrorBoundary.tsx`, wrapped around `Calculator` in `App.tsx` |
 | Settings-repair notice | `readNotice` in `Calculator.tsx`, fed by `App.tsx` from the read status |
+| The carried fortnight | `src/storage/last-fortnight.ts` (the record), `LastFortnightBanner.tsx` (the banner), `CalculatorShell`'s `banner` slot (where it sits) |
 
 Five rules in there are easy to undo by accident:
 
@@ -404,6 +440,20 @@ effect on the window — and what someone should still actually try:
   scrolls within itself rather than hiding its own bottom. **Advanced mode makes
   this taller**: a second disclosure sits above the §5.7 one, so the result
   column now has more to scroll than the pass on 8 August ever saw.
+
+**The carried fortnight has had a browser pass** (Chrome, 1284px, 29 August
+2026), which matters because its one real interaction cannot be tested here:
+this repo runs `renderToStaticMarkup` with no DOM, so `npm test` can pin the
+storage lifecycle and the render but never the tap. Driven by hand and
+confirmed: the rollover writes the carry-over and empties the shifts key; the
+banner shows $4,398.66 against the §4.5 fixture with the per-shift derivation
+nesting inside its disclosure; **both exits work** — adding a shift for the new
+fortnight removes the banner and the record in one go, and Dismiss does the
+same, both surviving a reload; exactly one `aria-live` region on screen; light
+and dark both read; no console output. The banner does not overflow at a 320px
+or 390px column and its footer wraps as designed. Still unchecked, because
+`resize_window` again had no effect on the window: a genuinely narrow viewport,
+and print.
 
 **Advanced deductions has not been in a browser at all.** Its five fields, the
 super percentage/set-amount segmented control and the "Where your money goes"

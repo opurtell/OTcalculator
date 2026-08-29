@@ -15,6 +15,15 @@ import { ClearSettings } from './ClearSettings'
 export interface CalculatorShellProps {
   pathway: Pathway
   onPathwayChange: (pathway: Pathway) => void
+  /**
+   * A one-off notice above everything, or nothing. Currently the fortnight that
+   * just ended (`LastFortnightBanner`).
+   *
+   * Above the tabs rather than inside a pathway, because it is not about either
+   * of them: the fortnight rolling over happened to the app, not to the tab the
+   * user was last on. Below the heading, so the page still opens with its name.
+   */
+  banner?: ReactNode
   /** The result panel. First in the DOM in both layouts — see CalculatorLayout. */
   result: ReactNode
   /** What is currently set, shown on the collapsed disclosure (§7). */
@@ -39,6 +48,7 @@ export interface CalculatorShellProps {
  * nothing; `AP1 Step 2 · $95,698` tells them whether they need to open it.
  */
 export function CalculatorShell({
+  banner,
   pathway,
   onPathwayChange,
   result,
@@ -57,6 +67,8 @@ export function CalculatorShell({
   return (
     <main className="sl-stack sl-app">
       <h1 className="sl-heading">ACTAS OT Calculator</h1>
+
+      {banner}
 
       <Tabs
         label="Calculation pathway"
