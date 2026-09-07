@@ -24,6 +24,12 @@ export interface CalculatorShellProps {
    * user was last on. Below the heading, so the page still opens with its name.
    */
   banner?: ReactNode
+  /**
+   * The pay fortnight the figures belong to, shown beside the tabs. A date
+   * range with no label would be an unexplained figure in the one place the
+   * user cannot open a disclosure to find out — so the caller names it.
+   */
+  payFortnightLabel?: ReactNode
   /** The result panel. First in the DOM in both layouts — see CalculatorLayout. */
   result: ReactNode
   /** What is currently set, shown on the collapsed disclosure (§7). */
@@ -49,6 +55,7 @@ export interface CalculatorShellProps {
  */
 export function CalculatorShell({
   banner,
+  payFortnightLabel,
   pathway,
   onPathwayChange,
   result,
@@ -75,6 +82,7 @@ export function CalculatorShell({
         value={pathway}
         onChange={(value) => onPathwayChange(value as Pathway)}
         idBase={idBase}
+        trailing={payFortnightLabel}
         items={[
           { value: 'quick', label: 'Quick' },
           { value: 'fortnight', label: 'Fortnight' },

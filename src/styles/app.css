@@ -226,7 +226,12 @@ body {
     margin: 15mm;
   }
 
-  .sl-tabs,
+  /*
+   * The tabs themselves are chrome and go; the pay fortnight beside them is
+   * content — a printed estimate should say which period it is for — so
+   * `.sl-tabs__list` is hidden rather than the whole strip.
+   */
+  .sl-tabs__list,
   .sl-btn,
   .sl-carryover,
   .sl-shift-actions,
