@@ -75,6 +75,18 @@ describe('Calculator', () => {
     expect(html).not.toContain('Overtime shifts')
   })
 
+  it('names the pay fortnight beside the tabs', () => {
+    // The tab strip says which calculation you are doing; this says which
+    // fortnight it is for. Labelled, because a bare date range next to two
+    // controls is the unexplained figure the app is not allowed to show.
+    const html = render(GOLDEN)
+    // Outside the tablist and after it — a tablist may only contain tabs.
+    expect(html).toContain(
+      '</button></div><p class="sl-tabs__aside">' +
+        'Pay fortnight Thu 29 Jan – Wed 11 Feb</p>',
+    )
+  })
+
   it('shows the fortnight, not the setup screen, once a band is known', () => {
     const html = render(GOLDEN)
     expect(html).not.toContain('Set your pay band')

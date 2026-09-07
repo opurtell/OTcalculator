@@ -359,6 +359,7 @@ export function Calculator({
 
   return (
     <CalculatorShell
+      payFortnightLabel={`Pay fortnight ${formatPayFortnight(fortnight)}`}
       banner={
         carried === null ? null : (
           <LastFortnightBanner

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { rovingKeyDown } from './roving'
 
 export interface TabItem<T extends string = string> {
@@ -21,6 +22,13 @@ export interface TabsProps<T extends string = string> {
    * relationship rather than pointing at an id that does not exist.
    */
   idBase?: string
+  /**
+   * A line of context beside the tabs — currently the pay fortnight the app is
+   * working in. It sits *outside* the `tablist`: a tablist may only contain
+   * tabs, so wrapping it in the strip would put a stray node in the middle of
+   * the arrow-key sequence for anyone reading with a screen reader.
+   */
+  trailing?: ReactNode
 }
 
 /** The id of the panel a tab controls. The caller's half of `idBase`. */
@@ -44,36 +52,41 @@ export function Tabs<T extends string = string>({
   value,
   onChange,
   idBase,
+  trailing,
 }: TabsProps<T>) {
   const selected = items.findIndex((item) => item.value === value)
 
   return (
-    <div role="tablist" aria-label={label} className="sl-tabs">
-      {items.map((item, index) => (
-        <button
-          key={item.value}
-          type="button"
-          role="tab"
-          id={idBase ? tabId(idBase, item.value) : undefined}
-          aria-controls={idBase ? tabPanelId(idBase, item.value) : undefined}
-          aria-selected={item.value === value}
-          // The unselected tabs leave the tab order: the strip is one control,
-          // and Tab should move past it rather than through it.
-          tabIndex={index === selected ? 0 : -1}
-          className="sl-tabs__tab"
-          onClick={() => onChange(item.value)}
-          onKeyDown={(event) =>
-            rovingKeyDown(event, {
-              role: 'tab',
-              count: items.length,
-              current: selected,
-              onSelect: (next) => onChange(items[next].value),
-            })
-          }
-        >
-          {item.label}
-        </button>
-      ))}
+    <div className="sl-tabs">
+      <div role="tablist" aria-label={label} className="sl-tabs__list">
+        {items.map((item, index) => (
+          <button
+            key={item.value}
+            type="button"
+            role="tab"
+            id={idBase ? tabId(idBase, item.value) : undefined}
+            aria-controls={idBase ? tabPanelId(idBase, item.value) : undefined}
+            aria-selected={item.value === value}
+            // The unselected tabs leave the tab order: the strip is one control,
+            // and Tab should move past it rather than through it.
+            tabIndex={index === selected ? 0 : -1}
+            className="sl-tabs__tab"
+            onClick={() => onChange(item.value)}
+            onKeyDown={(event) =>
+              rovingKeyDown(event, {
+                role: 'tab',
+                count: items.length,
+                current: selected,
+                onSelect: (next) => onChange(items[next].value),
+              })
+            }
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {trailing ? <p className="sl-tabs__aside">{trailing}</p> : null}
     </div>
   )
 }

@@ -117,8 +117,27 @@
 
 .sl-tabs {
   display: flex;
-  gap: var(--space-5);
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 var(--space-4);
   border-bottom: 1px solid var(--line);
+}
+
+.sl-tabs__list {
+  display: flex;
+  gap: var(--space-5);
+}
+
+/*
+ * The pay fortnight, beside the tabs. Muted and small: it says which period
+ * the figures belong to, and it must not compete with the tab it sits next to.
+ * It wraps to its own line before the tabs give up any width.
+ */
+.sl-tabs__aside {
+  font-size: var(--text-caption);
+  color: var(--muted);
+  padding: var(--space-3) 0;
 }
 
 .sl-tabs__tab {
