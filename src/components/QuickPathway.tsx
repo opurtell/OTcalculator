@@ -1,6 +1,6 @@
 import type { PayComparison } from '../engine/fortnight'
 import type { QuickOvertime } from '../engine/overtime'
-import { CATEGORY_LABEL } from '../engine/types'
+import type { EmploymentType } from '../engine/types'
 import {
   AssumptionNote,
   Button,
@@ -16,6 +16,8 @@ import type { FigureRow } from '../ui/index'
 export interface QuickHoursFieldProps {
   hoursInput: string
   onHoursInputChange: (value: string) => void
+  /** A casual's hours are a whole shift, not overtime on top of one. */
+  employment?: EmploymentType
   /** Switches to the fortnight pathway from the assumption note. */
   onUseFortnight: () => void
 }
@@ -42,24 +44,42 @@ export interface QuickHoursFieldProps {
 export function QuickHoursField({
   hoursInput,
   onHoursInputChange,
+  employment = 'full-time',
   onUseFortnight,
 }: QuickHoursFieldProps) {
+  const casual = employment === 'casual'
   return (
     <Panel>
       <div className="sl-stack">
         <TextField
-          label="How many hours?"
+          label={casual ? 'How long is the shift?' : 'How many hours?'}
           value={hoursInput}
           onChange={onHoursInputChange}
           suffix="h"
           numeric
         />
         <AssumptionNote>
-          <p>
-            Rough estimate. Assumes one Mon–Fri shift: 2h at time and a half,
-            then double time. No Saturday, Sunday, public holiday or 4-hour
-            minimum applied — every one of those pays more.
-          </p>
+          {casual ? (
+            <>
+              <p>
+                Rough estimate. Assumes one Mon–Fri daytime shift: the first
+                7h36 at base plus the 25% casual loading (at least 3h), then
+                2h at time and a half and double time after that. No night,
+                weekend or public holiday penalty applied — every one of those
+                pays more.
+              </p>
+              <p>
+                Tax is worked out as if this were your only shift this
+                fortnight. More shifts means more tax on each.
+              </p>
+            </>
+          ) : (
+            <p>
+              Rough estimate. Assumes one Mon–Fri shift: 2h at time and a half,
+              then double time. No Saturday, Sunday, public holiday or 4-hour
+              minimum applied — every one of those pays more.
+            </p>
+          )}
           <p>
             No meal allowance either. That depends on the times the shift ran,
             not on how many hours it was.
@@ -78,6 +98,7 @@ export function QuickHoursField({
 export interface QuickResultProps {
   comparison: PayComparison
   overtime: QuickOvertime
+  employment?: EmploymentType
 }
 
 /**
@@ -92,9 +113,14 @@ export interface QuickResultProps {
  * the fortnight calculator takes — so the two pathways cannot disagree about
  * what the same overtime is worth.
  */
-export function QuickResult({ comparison, overtime }: QuickResultProps) {
+export function QuickResult({
+  comparison,
+  overtime,
+  employment = 'full-time',
+}: QuickResultProps) {
+  const casual = employment === 'casual'
   const rows: FigureRow[] = overtime.tiers.map((tier) => ({
-    label: `${formatHours(tier.hours)} at ${CATEGORY_LABEL[tier.category]}`,
+    label: `${formatHours(tier.hours)} at ${tier.label}`,
     note: `${formatMoney(tier.hourlyRate)} an hour`,
     values: [tier.pay],
   }))
@@ -107,11 +133,16 @@ export function QuickResult({ comparison, overtime }: QuickResultProps) {
 
   return (
     <ResultPanel
-      label="Adds about"
+      label={casual ? 'Shift worth about' : 'Adds about'}
       amount={comparison.otNetDelta}
       beforeTax={comparison.otGrossDelta}
     >
-      <FigureTable caption="How the overtime was worked out" rows={rows} />
+      <FigureTable
+        caption={
+          casual ? 'How the shift was worked out' : 'How the overtime was worked out'
+        }
+        rows={rows}
+      />
     </ResultPanel>
   )
 }

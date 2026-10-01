@@ -23,6 +23,7 @@
 import type { Attendance } from '../engine/attendance'
 import { ordinaryFortnightlyGross, ROSTER_ADJUSTMENT_RATE } from '../engine/tax'
 import { otHourlyRate } from '../engine/overtime'
+import { CASUAL_LOADING, SHIFT_PENALTY_LABEL } from '../engine/types'
 import {
   MEAL_ALLOWANCE_OVERRUN_MINUTES,
   MEAL_ALLOWANCE_SHIFT_MINUTES,
@@ -32,7 +33,7 @@ import { advancedBreakdown, spendableTotal } from '../engine/packaging'
 import type { AdvancedBreakdown, AdvancedDeductions } from '../engine/packaging'
 import type { FortnightResult, FortnightSettings } from '../engine/fortnight'
 import { RATES_EFFECTIVE_FROM } from '../data'
-import { describeAttendance } from './shifts'
+import { describeAttendance, rateSummary } from './shifts'
 import { formatIsoDateAu } from './inputs'
 import { formatShortDate } from './dates'
 import { formatHours, formatMoney } from '../ui/format'
@@ -84,7 +85,7 @@ export function comparisonRows(result: FortnightResult): FigureTableData {
   const rows: FigureRow[] = [
     // Identical by design — overtime is calculated *on* base, it does not
     // alter it. Showing both makes that explicit rather than implicit.
-    { label: 'Base pay', values: [withoutOt.gross, withoutOt.gross] },
+    { ...basePayRow(result), values: [withoutOt.gross, withoutOt.gross] },
   ]
 
   if (result.overtimeGross > 0) {
@@ -145,6 +146,52 @@ export function comparisonRows(result: FortnightResult): FigureTableData {
 }
 
 /**
+ * The first line of either table. A full-timer's is their salary; a casual's is
+ * the ordinary hours of every shift they entered, and — being a figure built
+ * from those shifts rather than read off a table — it carries the per-shift
+ * working beneath it, the same way the Overtime line does.
+ */
+function basePayRow(result: FortnightResult): Omit<FigureRow, 'values'> {
+  if (result.employment !== 'casual') return { label: 'Base pay' }
+  return {
+    label: 'Casual pay',
+    note: 'Up to 7h 36m a shift · EBA B14',
+    derivation: casualPayDerivationRows(result.attendances),
+  }
+}
+
+/**
+ * One row per casual engagement: its ordinary hours, the loading and any
+ * penalty by name, and what they paid. Overtime past 7h36 is on the Overtime
+ * line instead, so each shift's two halves are never counted twice.
+ */
+export function casualPayDerivationRows(
+  attendances: readonly Attendance[],
+): FigureRow[] {
+  return attendances.flatMap((attendance) => {
+    const casual = attendance.casual
+    if (casual === undefined) return []
+
+    const penalties = casual.penalties
+      .map((penalty) => ` + ${SHIFT_PENALTY_LABEL[penalty.category]}`)
+      .join('')
+    const hours = casual.minimumApplied
+      ? `${formatHours(casual.workedMinutes / 60)} worked → ${formatHours(
+          casual.paidMinutes / 60,
+        )} paid (B14.1)`
+      : formatHours(casual.paidMinutes / 60)
+
+    return [
+      {
+        label: formatShortDate(attendance.startDate),
+        note: `${hours} · base + 25%${penalties}`,
+        values: [casual.pay],
+      },
+    ]
+  })
+}
+
+/**
  * The meal allowance line, wherever it appears.
  *
  * It sits **below** the tax lines in every table, and that placement is the
@@ -173,7 +220,7 @@ function mealAllowanceRow(
  */
 export function breakdownRows(result: FortnightResult): FigureRow[] {
   const { withOt } = result
-  const rows: FigureRow[] = [{ label: 'Base pay', values: [result.ordinaryGross] }]
+  const rows: FigureRow[] = [{ ...basePayRow(result), values: [result.ordinaryGross] }]
 
   if (result.overtimeGross > 0) {
     rows.push({ label: 'Overtime', values: [result.overtimeGross] })
@@ -435,11 +482,30 @@ export function spendableRows(
 export function overtimeDerivationRows(
   attendances: readonly Attendance[],
 ): FigureRow[] {
-  return attendances.map((attendance) => ({
-    label: formatShortDate(attendance.startDate),
-    note: describeAttendance(attendance).breakdown,
-    values: [attendance.pay],
-  }))
+  return attendances.flatMap((attendance) => {
+    if (attendance.casual === undefined) {
+      return [
+        {
+          label: formatShortDate(attendance.startDate),
+          note: describeAttendance(attendance).breakdown,
+          values: [attendance.pay],
+        },
+      ]
+    }
+    // A casual shift that stayed inside 7h36 has no overtime to explain, and
+    // the row's note is only the overtime half — the ordinary half is under
+    // Casual pay.
+    if (attendance.workedMinutes === 0) return []
+    return [
+      {
+        label: formatShortDate(attendance.startDate),
+        note: `${formatHours(attendance.workedMinutes / 60)} past 7h 36m · ${rateSummary(
+          attendance,
+        )}`,
+        values: [attendance.pay],
+      },
+    ]
+  })
 }
 
 /**
@@ -529,7 +595,12 @@ export function mealRuleSentence(): string {
  * bare allowance code. The fortnightly total is the table-derived figure; a
  * user who overrode it typed their own and knows.
  */
-export function ordinaryPayRows(settings: FortnightSettings): FigureRow[] {
+export function ordinaryPayRows(
+  settings: FortnightSettings,
+  result?: FortnightResult,
+): FigureRow[] {
+  if (settings.employment === 'casual') return casualPayRows(settings, result)
+
   const { band } = settings
   const rosterAdjustment = band.annualBase * ROSTER_ADJUSTMENT_RATE
   const composite = band.annexATotal - band.annualBase
@@ -567,6 +638,76 @@ export function ordinaryPayRows(settings: FortnightSettings): FigureRow[] {
 }
 
 /**
+ * §5.7 for a casual — how the base salary becomes a rate per hour, and what is
+ * added to it. Penalties are totalled across the fortnight by category, because
+ * the per-shift split is already one tap away under the Casual pay line.
+ */
+function casualPayRows(
+  settings: FortnightSettings,
+  result: FortnightResult | undefined,
+): FigureRow[] {
+  const { band } = settings
+  const rows: FigureRow[] = [
+    {
+      label: 'Base salary',
+      note: `${band.classification} Step ${band.step} · per year · rates effective ${formatIsoDateAu(
+        RATES_EFFECTIVE_FROM,
+      )}`,
+      values: [band.annualBase],
+    },
+    {
+      label: 'Base hourly rate',
+      note: `${formatMoney(band.annualBase)} × 12 ÷ 313 ÷ 76 · no composite (EBA B14.2)`,
+      values: [`${formatMoney(otHourlyRate(band.annualBase, 1))}/h`],
+    },
+    {
+      label: 'Casual loading',
+      note: `${CASUAL_LOADING * 100}% of base, in lieu of leave (EBA B14.2)`,
+      values: [`${formatMoney(otHourlyRate(band.annualBase, CASUAL_LOADING))}/h`],
+    },
+  ]
+
+  if (result === undefined) return rows
+
+  const attendances = result.attendances.filter((a) => a.casual !== undefined)
+  const sum = (pick: (a: Attendance) => number) =>
+    attendances.reduce((total, a) => total + pick(a), 0)
+  const paidMinutes = sum((a) => a.casual?.paidMinutes ?? 0)
+
+  rows.push({
+    label: 'Ordinary hours',
+    note: 'Up to 7h 36m a shift, at least 3h (EBA B14.1, B14.6)',
+    values: [formatHours(paidMinutes / 60)],
+  })
+  rows.push({
+    label: 'Base + loading',
+    values: [sum((a) => (a.casual?.basePay ?? 0) + (a.casual?.loading ?? 0))],
+  })
+
+  const penalties = new Map<string, number>()
+  for (const a of attendances) {
+    for (const penalty of a.casual?.penalties ?? []) {
+      const label = SHIFT_PENALTY_LABEL[penalty.category]
+      penalties.set(label, (penalties.get(label) ?? 0) + penalty.pay)
+    }
+  }
+  for (const [label, pay] of penalties) {
+    rows.push({
+      label: `${label} penalty`,
+      note: 'On base, not the loading (EBA C8, B14.4)',
+      values: [pay],
+    })
+  }
+
+  rows.push({
+    label: 'Casual pay this fortnight',
+    values: [result.ordinaryGross],
+    total: true,
+  })
+  return rows
+}
+
+/**
  * §5.7 "Overtime rate" — base only, never the composite (EBA N34.1, the §3.2
  * trap). The base hourly rate is derived, then each multiplier the cohort can
  * attract. These are reference rates, shown whether or not this fortnight used
@@ -576,6 +717,33 @@ export function overtimeRateRows(settings: FortnightSettings): FigureRow[] {
   const { annualBase } = settings.band
   const perHour = (multiplier: number) =>
     `${formatMoney(otHourlyRate(annualBase, multiplier))}/h`
+
+  // A casual is not on the 44-hour roster, so N34's Saturday rule does not
+  // reach them and C9.12 puts Saturday with the weekdays (see `OvertimeRules`).
+  if (settings.employment === 'casual') {
+    return [
+      {
+        label: 'Base hourly rate',
+        note: `${formatMoney(annualBase)} × 12 ÷ 313 ÷ 76 · no casual loading (EBA B14.7)`,
+        values: [perHour(1)],
+      },
+      {
+        label: 'Time and a half',
+        note: 'Mon–Sat, first 2 hours past 7h 36m (EBA C9.12)',
+        values: [perHour(1.5)],
+      },
+      {
+        label: 'Double time',
+        note: 'Sunday, Mon–Sat after 2 hours',
+        values: [perHour(2)],
+      },
+      {
+        label: 'Public holiday',
+        note: '2.5×',
+        values: [perHour(2.5)],
+      },
+    ]
+  }
 
   return [
     {

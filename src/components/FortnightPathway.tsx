@@ -1,7 +1,7 @@
 import type { Attendance } from '../engine/attendance'
 import type { MealOccasion } from '../engine/meals'
-import type { OtShift } from '../engine/types'
-import { describeAttendance } from '../app/shifts'
+import type { EmploymentType, OtShift } from '../engine/types'
+import { attendanceTotalPay, describeAttendance } from '../app/shifts'
 import { formatShortDate, formatTimeRange } from '../app/dates'
 import type { Warning } from '../app/warnings'
 import {
@@ -17,6 +17,8 @@ import {
 export interface FortnightPathwayProps {
   /** Priced attendances, in the order the engine grouped them. */
   attendances: readonly Attendance[]
+  /** A casual's shifts are the pay itself, so the list is not "overtime". */
+  employment?: EmploymentType
   /**
    * The fortnight's N36 meal allowance occasions, matched back to rows by
    * `shiftIds`. Not part of a row's `amount`: the allowance is not overtime pay
@@ -70,6 +72,7 @@ export interface FortnightPathwayProps {
  */
 export function FortnightPathway({
   attendances,
+  employment = 'full-time',
   mealOccasions = [],
   shifts,
   warnings,
@@ -87,7 +90,10 @@ export function FortnightPathway({
 
   return (
     <div className="sl-stack">
-      <ShiftList title="Overtime shifts" count={attendances.length}>
+      <ShiftList
+        title={employment === 'casual' ? 'Shifts' : 'Overtime shifts'}
+        count={attendances.length}
+      >
         {hasShifts ? (
           attendances.map((attendance) => (
             <AttendanceRow
@@ -121,7 +127,7 @@ export function FortnightPathway({
           never the thing a thumb finds on the way to a row's menu. */}
       <div className="sl-shift-actions">
         <Button block variant="secondary" onClick={onAdd}>
-          + Add OT shift
+          {employment === 'casual' ? '+ Add shift' : '+ Add OT shift'}
         </Button>
         {hasShifts ? (
           <Button variant="ghost" onClick={onClearAll}>
@@ -201,7 +207,8 @@ function AttendanceRow({
       timeRange={formatTimeRange(attendance.startMin, attendance.endMin)}
       breakdown={parts.join(' · ')}
       kind={attendance.kind}
-      amount={attendance.pay}
+      statusLabel={attendance.casual === undefined ? undefined : 'Casual shift'}
+      amount={attendanceTotalPay(attendance)}
       assumption={assumption || joined}
       // Editing a joined row opens the first entry: it is the one whose start
       // time the row shows, so it is the one the user is looking at.

@@ -20,6 +20,11 @@ export interface ShiftRowProps {
    */
   breakdown: string
   kind: ShiftKind
+  /**
+   * Replaces the C9.5 status when it does not apply — a casual engagement is
+   * neither an overrun nor a separate overtime shift.
+   */
+  statusLabel?: string
   amount: number
   /**
    * Set when the row's pay reflects a rule the hours alone don't explain — the
@@ -55,6 +60,7 @@ export function ShiftRow({
   timeRange,
   breakdown,
   kind,
+  statusLabel,
   amount,
   assumption = false,
   onClick,
@@ -141,7 +147,7 @@ export function ShiftRow({
           <span
             className={`sl-shift__status${assumption ? ' sl-shift__status--minimum' : ''}`}
           >
-            {KIND_LABEL[kind]}
+            {statusLabel ?? KIND_LABEL[kind]}
           </span>
         </button>
 

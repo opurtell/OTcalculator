@@ -34,6 +34,7 @@ const CHOICES: CalculatorChoices = {
   tax: { claimsTaxFreeThreshold: true, hasStudyDebt: false },
   deductions: { fixedPerFortnight: 0, percentOfGross: 0 },
   pathway: 'fortnight',
+  employment: 'full-time',
 }
 
 const resolved = resolveSettings(CHOICES, '2026-02-11')
@@ -455,5 +456,54 @@ describe('the advanced deduction rows', () => {
     // exactly the same test as the rest of take-home.
     const rows = spendableRows(result, breakdown)
     expect(rows[0].values[0]).toBe(result.netTotal)
+  })
+})
+
+describe('casual', () => {
+  const casualResolved = resolveSettings({ ...CHOICES, employment: 'casual' }, '2026-02-11')
+  if (casualResolved === null) throw new Error('AP1 Step 2 should resolve')
+  const casualSettings = casualResolved.settings
+  // Saturday 7 Feb 2026, 09:00–19:00: 7h36 at Saturday 50%, 2h24 overtime.
+  const saturday: OtShift = {
+    id: 'sat',
+    date: '2026-02-07',
+    startMin: 9 * 60,
+    endMin: 19 * 60,
+    endsNextDay: false,
+    kind: 'separate',
+  }
+  // Tuesday 10 Feb, 09:00–15:00: inside 7h36, no overtime at all.
+  const tuesday: OtShift = { ...saturday, id: 'tue', date: '2026-02-10', endMin: 15 * 60 }
+  const casualResult = calculateFortnight([saturday, tuesday], casualSettings)
+
+  it('labels the first line Casual pay, with one derivation row per shift', () => {
+    const [first] = comparisonRows(casualResult).rows
+    expect(first.label).toBe('Casual pay')
+    expect(first.derivation?.map((row) => row.note)).toEqual([
+      '7h 36m · base + 25% + Saturday 50%',
+      '6h · base + 25%',
+    ])
+  })
+
+  it('lists only shifts that ran past 7h36 under Overtime, by their overtime alone', () => {
+    const rows = overtimeDerivationRows(casualResult.attendances)
+    expect(rows).toHaveLength(1)
+    expect(rows[0].note).toBe('2h 24m past 7h 36m · 2h at 1.5× (Saturday), 24m at 2× (Saturday)')
+  })
+
+  it('totals the casual derivation to the casual pay line', () => {
+    const rows = ordinaryPayRows(casualSettings, casualResult)
+    expect(rows.at(-1)?.values[0]).toBe(casualResult.ordinaryGross)
+    expect(rows.map((row) => row.label)).toContain('Saturday 50% penalty')
+  })
+
+  it('names C9.12, not N34, in the overtime rate working', () => {
+    const notes = overtimeRateRows(casualSettings).map((row) => row.note).join(' ')
+    expect(notes).toContain('C9.12')
+    expect(notes).toContain('Mon–Sat')
+  })
+
+  it('keeps Base pay for a full-timer', () => {
+    expect(breakdownRows(calculateFortnight([], settings))[0].label).toBe('Base pay')
   })
 })

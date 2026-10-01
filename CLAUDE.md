@@ -37,7 +37,7 @@ Phases against `IMPLEMENTATION_PLAN.md` §6:
 `calculateFortnight(shifts, settings)` in `src/engine/fortnight.ts` is the entry
 point — shifts and settings in, take-home and the overtime delta out. It calls
 `calculateOvertime` underneath, which is usable alone if you only want gross OT.
-588 tests. All seven crossover worked examples pass. Four things to know:
+674 tests. All seven crossover worked examples pass. Four things to know:
 
 - **The meal allowance is the one untaxed figure, and it sits outside
   `PayComparison` deliberately.** `src/engine/meals.ts` pays $35.38 once when a
@@ -94,6 +94,66 @@ things it settles:
 Storage validates shape, not meaning: a stored band of `AP9 Step 99` round
 trips, because `payBandFor` already returns `undefined` for stale settings and
 duplicating Annex A behind a browser API would be the worse coupling.
+
+## Casual employment
+
+The **Employment** control at the top of the Pay band panel (and the setup
+screen) switches between **Full-time**, the default, and **Casual** (EBA B14).
+They are different pay models, not a loading on one: a full-timer has a salary
+and every shift entered is overtime on top of it; a casual has no salary, so
+every shift entered *is* the pay. `src/engine/casual.ts` prices it, and
+`calculateFortnight` dispatches on `settings.employment`.
+
+Each attendance is one casual engagement, split at **7h36 worked** (B14.6):
+
+- **Ordinary** — base hourly × 1.25 (B14.2), plus the C8 shift penalty on
+  base, never on the loading (B14.4). **Three-hour minimum** per attendance
+  (B14.1), not C9.5's four.
+- **Overtime past 7h36** — C9 rates on base, no loading (B14.7), no C9.5
+  minimum (it is continuous with the ordinary hours). It lands on the existing
+  `Attendance` fields, with the ordinary half under `attendance.casual`, so the
+  meal allowance, comparison and rows read both models without forking.
+
+"Without OT" for a casual is the ordinary hours of every shift; the headline is
+still what the hours past 7h36 added. The quick pathway prices one weekday
+daytime shift on its own (`quickCasual`, compared against zero income).
+
+Five things about it, all EBA text and **none checked against a casual payslip**:
+
+- **Casual Saturday overtime is 1.5× for the first two hours (C9.12), not 2×
+  (N34).** N23.1 confines N24–N44 to staff who *work the 44-hour Shift
+  Pattern*, and a casual is not rostered to it. This is the deliberate
+  exception to "Seven things that will bite" #4. `OvertimeRules` in
+  `overtime.ts` is the single switch (`C9_12_RULES` vs `N34_RULES`), and it
+  added the `sat_1_5x` category.
+- **C8 penalties: weekend and PH by the minute, night by the shift.** C8.5–C8.7
+  cover "time … between midnight and midnight"; C8.1 pays 15% "for that shift"
+  if any part of it is 6 pm–6:30 am, and "any part" is tested on the whole
+  engagement, overtime included. **C8.3 withholds night entirely** if any other
+  penalty is paid on the shift, so a Friday night into Saturday gets Saturday
+  50% on its Saturday minutes and nothing on the Friday ones. The literal
+  reading, and it errs low. C8.2's 30% (4+ weeks of nights) is not modelled.
+- **The B14.1 top-up takes the first worked minute's penalty**, mirroring the
+  C9.5 top-up rule.
+- **Grouping is the overtime rule** (≤60-minute gap = one attendance), which
+  doubles as the reading of B14.1's "each occasion" and B14.6's "day or shift".
+- **`Attendance.intervals` is new and the meal rule reads it**, not the
+  segments: a casual's segments are only the overtime, and N36's boundary is
+  the start of the whole shift. Same answer for full-time by construction.
+
+Persisted as `employment: 'casual'` in preferences, **absent for full-time** —
+the same no-bump optional-key mechanism as `deductions.advanced`; an existing
+record reads back `'ok'`. A casual's `ordinaryGrossOverride` is never passed to
+the engine (a remembered full-time figure must not leak in); the base salary
+override still applies, since every casual rate is priced from it. The sibling
+repo's casual model (`lib/pay-engine/pay/worked-shift.ts`) pays all hours as
+ordinary with one whole-shift penalty; this one follows the clause text instead.
+
+Driven once in Chromium at 390px (1 October 2026): toggle, a Saturday AM taken
+to 17:30, reload persistence, no horizontal scroll, no console output. Not yet
+on a phone, and `ShiftRow` (`statusLabel`) and `DerivedPayPanel`
+(`secondaryLabel`, `secondaryEditable`) gained optional props the design sync
+has not seen.
 
 ## Advanced deductions, and Spendable
 
@@ -639,6 +699,8 @@ occasion from 4 December 2025.
    Operations — paramedics and ICPs — so N34 is the one that applies. If
    someone reports Saturday starting at 1.5×, they are reading C9.12. Getting
    this wrong costs about $48 on the §4.5 golden fixture's Saturday pickup.
+   **Casuals are the exception**: N34 reaches only the 44-hour roster (N23.1),
+   so casual overtime runs on C9.12 — see "Casual employment".
 
 5. **`vite.config.ts` carries `base: '/OTcalculator/'`.** GitHub Pages serves
    from a subpath; the Vite default of `/` gives a blank page with a 404 on

@@ -15,7 +15,7 @@
 import { shiftDuration } from '../engine/attendance'
 import { daysSinceEpoch } from '../engine/calendar'
 import type { FortnightFlag } from '../engine/packaging'
-import type { HolidayCalendar, OtShift } from '../engine/types'
+import type { EmploymentType, HolidayCalendar, OtShift } from '../engine/types'
 import { formatHours } from '../ui/format'
 import { formatDayAndMonth, formatShortDate } from './dates'
 
@@ -35,12 +35,13 @@ export function fortnightWarnings(
   shifts: readonly OtShift[],
   flags: readonly FortnightFlag[],
   holidays: HolidayCalendar,
+  employment: EmploymentType = 'full-time',
 ): Warning[] {
   return [
     ...longShiftWarnings(shifts),
     ...overlapWarnings(shifts),
     ...spanWarnings(shifts),
-    ...flagWarnings(flags, holidays),
+    ...flagWarnings(flags, holidays, employment),
   ]
 }
 
@@ -104,6 +105,7 @@ function spanWarnings(shifts: readonly OtShift[]): Warning[] {
 function flagWarnings(
   flags: readonly FortnightFlag[],
   holidays: HolidayCalendar,
+  employment: EmploymentType,
 ): Warning[] {
   const warnings: Warning[] = []
 
@@ -114,7 +116,9 @@ function flagWarnings(
           id: `grouping-${index}`,
           text: `Two shifts ${formatHours(
             flag.gapMinutes / 60,
-          )} apart are treated as one attendance, so the rate carries across the break. If they were separate call-outs, the second one may earn a 4-hour minimum of its own.`,
+          )} apart are treated as one attendance, so the rate carries across the break. If they were separate call-outs, the second one may earn a ${
+            employment === 'casual' ? '3-hour minimum (B14.1)' : '4-hour minimum'
+          } of its own.`,
         })
         break
 

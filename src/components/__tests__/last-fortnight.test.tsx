@@ -29,6 +29,7 @@ const GOLDEN: CalculatorChoices = {
   tax: { claimsTaxFreeThreshold: true, hasStudyDebt: false },
   deductions: { fixedPerFortnight: 0, percentOfGross: 0 },
   pathway: 'fortnight',
+  employment: 'full-time',
 }
 
 /**

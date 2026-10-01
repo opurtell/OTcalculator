@@ -28,14 +28,21 @@ export interface HowItWasWorkedOutProps {
  * whether payroll owed them one, which is a question a zero answers too.
  */
 export function HowItWasWorkedOut({ settings, result }: HowItWasWorkedOutProps) {
+  const casual = settings.employment === 'casual'
   return (
     <Disclosure title="How this was worked out">
       <div className="sl-workings">
         <section>
-          <h4 className="sl-workings__heading">Ordinary fortnightly pay</h4>
+          <h4 className="sl-workings__heading">
+            {casual ? 'Casual pay' : 'Ordinary fortnightly pay'}
+          </h4>
           <FigureTable
-            caption="How ordinary fortnightly pay was worked out"
-            rows={ordinaryPayRows(settings)}
+            caption={
+              casual
+                ? 'How casual pay was worked out'
+                : 'How ordinary fortnightly pay was worked out'
+            }
+            rows={ordinaryPayRows(settings, result)}
           />
         </section>
         <section>

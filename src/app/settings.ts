@@ -32,7 +32,7 @@ import type { FortnightSettings } from '../engine/fortnight'
 import { advancedDeductionSettings } from '../engine/packaging'
 import type { AdvancedDeductions, DeductionSettings } from '../engine/packaging'
 import { ordinaryFortnightlyGross } from '../engine/tax'
-import type { IsoDate, PayBand } from '../engine/types'
+import type { EmploymentType, IsoDate, PayBand } from '../engine/types'
 
 /** Which of the two pathways the user was last on (§5). */
 export type Pathway = 'quick' | 'fortnight'
@@ -117,6 +117,12 @@ export interface CalculatorChoices {
   tax: TaxChoice
   deductions: DeductionChoice
   pathway: Pathway
+  /**
+   * Full-time (the default) or casual (EBA B14). Changes what a shift *is*: for
+   * a full-timer every shift entered is overtime on top of salary; for a casual
+   * it is the pay itself — see `src/engine/casual.ts`.
+   */
+  employment: EmploymentType
 }
 
 /**
@@ -182,6 +188,7 @@ export const DEFAULT_CHOICES: CalculatorChoices = {
   tax: { claimsTaxFreeThreshold: true, hasStudyDebt: false },
   deductions: { fixedPerFortnight: 0, percentOfGross: 0 },
   pathway: 'fortnight',
+  employment: 'full-time',
 }
 
 export interface ResolvedSettings {
@@ -286,7 +293,13 @@ export function resolveSettings(
       },
       // `undefined` rather than `null`: the engine's field is optional, and
       // `??` on an explicit null would silently mean "no override" anyway.
-      ordinaryGrossOverride: choices.band.fortnightlyGross ?? undefined,
+      // Never for a casual: their ordinary pay is priced from the shifts, and a
+      // remembered full-time figure must not leak into it.
+      ordinaryGrossOverride:
+        choices.employment === 'casual'
+          ? undefined
+          : (choices.band.fortnightlyGross ?? undefined),
+      employment: choices.employment,
     },
   }
 }

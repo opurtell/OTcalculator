@@ -23,8 +23,9 @@ import { fortnightWarnings } from '../app/warnings'
 import { payBandFor } from '../data'
 import type { Classification } from '../data'
 import { calculateFortnight, comparePay } from '../engine/fortnight'
-import { quickOvertime } from '../engine/overtime'
-import type { IsoDate, OtShift } from '../engine/types'
+import { otHourlyRate, quickOvertime } from '../engine/overtime'
+import { quickCasual } from '../engine/casual'
+import type { EmploymentType, IsoDate, OtShift } from '../engine/types'
 import type { ReadStatus } from '../storage/preferences'
 import { formatMoney } from '../ui/index'
 import { CalculatorShell } from './CalculatorShell'
@@ -297,19 +298,37 @@ export function Calculator({
       : {
           fortnight: carriedOver.fortnight,
           shiftCount: carriedOver.shifts.length,
-          bandSummary: `${carriedOver.choices.band.classification} Step ${carriedOver.choices.band.step}`,
+          bandSummary: `${carriedOver.choices.band.classification} Step ${carriedOver.choices.band.step}${
+            carriedOver.choices.employment === 'casual' ? ' · Casual' : ''
+          }`,
           captions: carriedResolved.captions,
           result: calculateFortnight(carriedOver.shifts, carriedResolved.settings),
         }
-  const warnings = fortnightWarnings(shifts, result.flags, settings.holidays)
+  const warnings = fortnightWarnings(
+    shifts,
+    result.flags,
+    settings.holidays,
+    fields.employment,
+  )
 
   // The quick pathway, when it has a number to work with. Both pathways reach
   // their net figure through the same `comparePay`, so the same overtime can
   // never be worth two different amounts depending on which tab you are on.
+  //
+  // A casual has no salary for the hours to sit on top of, so their quick
+  // figure is one shift on its own: "without" is nothing, "with" is the shift.
+  const isCasual = fields.employment === 'casual'
   const quickHours = parseAmount(quickHoursInput) ?? 0
   const quick =
-    quickHours > 0 ? quickOvertime(quickHours, settings.band.annualBase) : null
-  const quickComparison = quick === null ? null : comparePay(quick.gross, settings)
+    quickHours <= 0
+      ? null
+      : isCasual
+        ? quickCasual(quickHours, settings.band.annualBase)
+        : quickOvertime(quickHours, settings.band.annualBase)
+  const quickComparison =
+    quick === null
+      ? null
+      : comparePay(quick.gross, settings, isCasual ? 0 : undefined)
 
   function bandFieldProps() {
     const band = payBandFor(fields.classification, fields.step)
@@ -322,8 +341,15 @@ export function Calculator({
           step: clampStep(classification, fields.step),
         }),
       onStepChange: (step: number) => update({ step }),
+      employment: fields.employment,
+      onEmploymentChange: (employment: EmploymentType) => update({ employment }),
       baseAnnual: band?.annualBase ?? 0,
-      fortnightly: resolved?.derivedFortnightlyGross ?? 0,
+      // A casual has no fortnightly salary to show; the figure every one of
+      // their shifts is priced from is the base hourly rate.
+      fortnightly:
+        fields.employment === 'casual'
+          ? otHourlyRate(resolved?.settings.band.annualBase ?? band?.annualBase ?? 0, 1)
+          : (resolved?.derivedFortnightlyGross ?? 0),
       overridden: fields.overridden,
       onOverride: () =>
         update({
@@ -355,7 +381,7 @@ export function Calculator({
     )
   }
 
-  const bandLabel = `${fields.classification} Step ${fields.step}`
+  const bandLabel = `${fields.classification} Step ${fields.step}${isCasual ? ' · Casual' : ''}`
 
   return (
     <CalculatorShell
@@ -383,7 +409,11 @@ export function Calculator({
         // field has nothing to say, and a zero in the loud position would be
         // an answer to a question nobody asked.
         quick !== null && quickComparison !== null && fields.pathway === 'quick' ? (
-          <QuickResult comparison={quickComparison} overtime={quick} />
+          <QuickResult
+            comparison={quickComparison}
+            overtime={quick}
+            employment={fields.employment}
+          />
         ) : (
           <FortnightResultPanel
             result={result}
@@ -437,6 +467,7 @@ export function Calculator({
         <QuickHoursField
           hoursInput={quickHoursInput}
           onHoursInputChange={setQuickHoursInput}
+          employment={fields.employment}
           onUseFortnight={() => update({ pathway: 'fortnight' })}
         />
       ) : (
@@ -450,10 +481,12 @@ export function Calculator({
               band={settings.band}
               holidays={settings.holidays}
               meals={settings.meals}
+              employment={fields.employment}
             />
           ) : null}
           <FortnightPathway
             attendances={result.attendances}
+            employment={fields.employment}
             mealOccasions={result.mealAllowance.occasions}
             shifts={shifts}
             warnings={warnings}
@@ -507,6 +540,7 @@ export interface Fields {
   claimsTaxFreeThreshold: boolean
   hasStudyDebt: boolean
   pathway: Pathway
+  employment: EmploymentType
 }
 
 /**
@@ -533,6 +567,7 @@ export function fieldsFrom(choices: CalculatorChoices): Fields {
     claimsTaxFreeThreshold: choices.tax.claimsTaxFreeThreshold,
     hasStudyDebt: choices.tax.hasStudyDebt,
     pathway: choices.pathway,
+    employment: choices.employment,
   }
 }
 
@@ -582,6 +617,7 @@ export function choicesFrom(fields: Fields): CalculatorChoices {
     },
     deductions,
     pathway: fields.pathway,
+    employment: fields.employment,
   }
 }
 

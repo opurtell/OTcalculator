@@ -19,6 +19,7 @@ import type {
   Segment,
 } from './types'
 import {
+  CATEGORY_LABEL,
   FORTNIGHTS_PER_YEAR_DENOMINATOR,
   FORTNIGHTS_PER_YEAR_NUMERATOR,
   MF_FIRST_TIER_MINUTES,
@@ -63,7 +64,10 @@ export function segmentsPay(segments: readonly Segment[], annualBase: number): n
 
 /** One tier of the quick calculation, kept so the UI can show its working. */
 export interface QuickTier {
-  category: OtCategory
+  /** `null` for a casual's ordinary hours, which are not an overtime rate. */
+  category: OtCategory | null
+  /** How the tier reads in the working — "1.5×", "casual rate". */
+  label: string
   hours: number
   hourlyRate: number
   pay: number
@@ -100,7 +104,13 @@ export function quickOvertime(hours: number, annualBase: number): QuickOvertime 
     .filter(([, tierHours]) => tierHours > 0)
     .map(([category, tierHours]) => {
       const hourlyRate = categoryHourlyRate(annualBase, category)
-      return { category, hours: tierHours, hourlyRate, pay: tierHours * hourlyRate }
+      return {
+        category,
+        label: CATEGORY_LABEL[category],
+        hours: tierHours,
+        hourlyRate,
+        pay: tierHours * hourlyRate,
+      }
     })
 
   return {
@@ -127,13 +137,43 @@ interface RatchetState {
   weekdayMinutes: number
 }
 
+/**
+ * Which overtime clause sets the Monday–Saturday rates.
+ *
+ * - **N34** (`saturdayTiered: false`) — the 44-hour roster. N43.1 swaps C9.12
+ *   out for N34, which pays Saturday at 2× from the first minute.
+ * - **C9.12** (`saturdayTiered: true`) — everyone N34 does not reach, which
+ *   includes casuals: N23.1 confines N24–N44 to employees who *work the 44-hour
+ *   Shift Pattern*, and a casual is not rostered to it. C9.12 pays Monday to
+ *   Saturday alike, 1.5× for the first two hours and 2× after.
+ *
+ * Sunday (C9.13) and public holidays (C9.14) are the same under both.
+ */
+export interface OvertimeRules {
+  saturdayTiered: boolean
+}
+
+export const N34_RULES: OvertimeRules = { saturdayTiered: false }
+export const C9_12_RULES: OvertimeRules = { saturdayTiered: true }
+
+/** The categories that count towards, and are decided by, the first two hours. */
+function isTiered(category: OtCategory, rules: OvertimeRules): boolean {
+  if (category === 'mf_1_5x' || category === 'mf_2x') return true
+  return rules.saturdayTiered && (category === 'sat_1_5x' || category === 'sat_2x')
+}
+
 /** What the calendar alone would say, before the ratchet is applied. */
-function calendarCategory(kind: DayKind, weekdayMinutesSoFar: number): OtCategory {
+function calendarCategory(
+  kind: DayKind,
+  weekdayMinutesSoFar: number,
+  rules: OvertimeRules,
+): OtCategory {
   switch (kind) {
     case 'public-holiday':
       return 'ph_2_5x'
     case 'saturday':
-      return 'sat_2x'
+      if (!rules.saturdayTiered) return 'sat_2x'
+      return weekdayMinutesSoFar < MF_FIRST_TIER_MINUTES ? 'sat_1_5x' : 'sat_2x'
     case 'sunday':
       return 'sun_2x'
     case 'weekday':
@@ -180,6 +220,7 @@ function calendarCategory(kind: DayKind, weekdayMinutesSoFar: number): OtCategor
 export function categoriseAttendance(
   intervals: readonly Interval[],
   holidays: HolidayCalendar,
+  rules: OvertimeRules = N34_RULES,
 ): Segment[] {
   const state: RatchetState = { highWater: null, weekdayMinutes: 0 }
   const segments: Segment[] = []
@@ -203,7 +244,7 @@ export function categoriseAttendance(
       const minuteOfDay = absolute % MINUTES_PER_DAY
 
       const kind = dayKind(date, holidays)
-      const calendar = calendarCategory(kind, state.weekdayMinutes)
+      const calendar = calendarCategory(kind, state.weekdayMinutes, rules)
 
       const carried = state.highWater
       const applied =
@@ -216,7 +257,7 @@ export function categoriseAttendance(
       // two hours. A minute carried at a higher rate is not Mon–Fri overtime
       // for this purpose, so the counter stays put and the carry persists for
       // the rest of the attendance.
-      if (applied === 'mf_1_5x' || applied === 'mf_2x') state.weekdayMinutes += 1
+      if (isTiered(applied, rules)) state.weekdayMinutes += 1
 
       const last = segments[segments.length - 1]
       const contiguous =
