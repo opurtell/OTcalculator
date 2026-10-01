@@ -471,3 +471,45 @@ describe('debounced writer', () => {
     expect(() => vi.advanceTimersByTime(400)).not.toThrow()
   })
 })
+
+/**
+ * Casual employment, on the same no-bump footing as the advanced split: an
+ * optional key, written only when it is not the default.
+ */
+describe('employment type', () => {
+  it('round trips casual as ok', () => {
+    const store = fakeStore()
+    const casual: Preferences = { ...COMPLETE, employment: 'casual' }
+
+    savePreferences(casual, store)
+    expect(readPreferences(store)).toEqual({ preferences: casual, status: 'ok' })
+  })
+
+  it('reads a record from before the toggle existed as full-time and ok', () => {
+    const store = stored({ schemaVersion: SCHEMA_VERSION, ...COMPLETE })
+    const read = readPreferences(store)
+
+    expect(read.status).toBe('ok')
+    expect(read.preferences.employment).toBeUndefined()
+  })
+
+  it('writes no key for a full-timer', () => {
+    const store = fakeStore()
+    savePreferences(COMPLETE, store)
+    expect(JSON.parse(store.value as string)).not.toHaveProperty('employment')
+  })
+
+  it('repairs an unrecognised value to full-time', () => {
+    const store = stored({
+      schemaVersion: SCHEMA_VERSION,
+      ...COMPLETE,
+      employment: 'part-time',
+    })
+    const read = readPreferences(store)
+
+    expect(read.status).toBe('repaired')
+    expect(read.preferences.employment).toBeUndefined()
+    // The pay band survives the repair.
+    expect(read.preferences.payBand).toEqual(COMPLETE.payBand)
+  })
+})

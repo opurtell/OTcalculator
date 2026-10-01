@@ -166,15 +166,16 @@ export function rosterDuration(pattern: RosterPattern): number {
 /**
  * The minutes actually worked in an attendance, as merged absolute spans.
  *
- * Read off the segments rather than the shifts, because the segments are what the
- * categoriser produced and they exclude the unpaid gaps by construction. A
- * segment never crosses midnight, so consecutive ones are re-joined here.
+ * Read off the attendance's worked intervals rather than its segments: they
+ * exclude the unpaid gaps just the same, and for a casual they also include the
+ * ordinary hours in front of the overtime, which the segments do not. The
+ * boundary a picked-up shift is measured from is where the *shift* started.
  */
 function workedSpans(attendance: Attendance): Span[] {
-  const spans = attendance.segments
-    .map((segment) => {
-      const start = absoluteMinutes(segment.date, segment.startMin)
-      return { start, end: start + segment.minutes }
+  const spans = attendance.intervals
+    .map((interval) => {
+      const start = absoluteMinutes(interval.date, interval.startMin)
+      return { start, end: start + interval.durationMinutes }
     })
     .sort((a, b) => a.start - b.start)
 

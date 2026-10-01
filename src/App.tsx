@@ -177,7 +177,7 @@ export function App({ store = browserStore(), today }: AppProps = {}) {
  * `Preferences` splits the band into its identity (`payBand`) and the user's
  * overrides; `CalculatorChoices` carries them as one `band`. That is the only
  * difference — `tax`, `deductions` and the pathway (renamed `lastPathway`) move
- * across unchanged.
+ * across unchanged, and an absent `employment` reads as full-time.
  */
 export function choicesFromPreferences(preferences: Preferences): CalculatorChoices {
   return {
@@ -185,6 +185,7 @@ export function choicesFromPreferences(preferences: Preferences): CalculatorChoi
     tax: preferences.tax,
     deductions: preferences.deductions,
     pathway: preferences.lastPathway,
+    employment: preferences.employment ?? 'full-time',
   }
 }
 
@@ -197,5 +198,7 @@ export function preferencesFromChoices(choices: CalculatorChoices): Preferences 
     tax: choices.tax,
     deductions: choices.deductions,
     lastPathway: choices.pathway,
+    // Omitted rather than written as `'full-time'` — see `Preferences.employment`.
+    ...(choices.employment === 'casual' ? { employment: 'casual' as const } : {}),
   }
 }

@@ -81,6 +81,7 @@ describe('preferences <-> choices adapters', () => {
       tax: { claimsTaxFreeThreshold: false, hasStudyDebt: true },
       deductions: { fixedPerFortnight: 611, percentOfGross: 0.05 },
       pathway: 'quick',
+      employment: 'full-time',
     }
 
     // Choices -> record: the band splits into identity and overrides, and the
@@ -100,6 +101,15 @@ describe('preferences <-> choices adapters', () => {
     const record = preferencesFromChoices(DEFAULT_CHOICES)
     expect(record.overrides).toEqual({ annualBase: null, fortnightlyGross: null })
     expect(choicesFromPreferences(record)).toEqual(DEFAULT_CHOICES)
+  })
+
+  it('round-trips casual, and writes no employment key for full-time', () => {
+    const casual = { ...DEFAULT_CHOICES, employment: 'casual' as const }
+    const record = preferencesFromChoices(casual)
+    expect(record.employment).toBe('casual')
+    expect(choicesFromPreferences(record)).toEqual(casual)
+
+    expect(preferencesFromChoices(DEFAULT_CHOICES)).not.toHaveProperty('employment')
   })
 })
 

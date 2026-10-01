@@ -11,9 +11,11 @@ import {
   MINIMUM_PAYMENT_MINUTES,
   MINUTES_PER_DAY,
   CATEGORY_LABEL,
+  SHIFT_PENALTY_LABEL,
 } from '../engine/types'
 import type { IsoDate, OtCategory, OtShift, ShiftKind } from '../engine/types'
 import type { Attendance } from '../engine/attendance'
+import type { CasualOrdinary } from '../engine/casual'
 import { ROSTER_SHIFTS, rosterShift } from '../data/roster-shifts'
 import type { RosterShiftCode } from '../data/roster-shifts'
 import { formatHours } from '../ui/format'
@@ -263,6 +265,10 @@ export interface AttendanceDescription {
  * the difference between a user trusting the app and reconciling it by hand.
  */
 export function describeAttendance(attendance: Attendance): AttendanceDescription {
+  if (attendance.casual !== undefined) {
+    return describeCasual(attendance, attendance.casual)
+  }
+
   const worked = formatHours(attendance.workedMinutes / 60)
 
   if (attendance.minimumApplied) {
@@ -286,8 +292,60 @@ export function describeAttendance(attendance: Attendance): AttendanceDescriptio
   }
 }
 
+/**
+ * What an attendance paid in total. For a full-timer that is the overtime; for
+ * a casual it is the ordinary hours as well, because there is no salary for
+ * them to sit inside.
+ */
+export function attendanceTotalPay(attendance: Attendance): number {
+  return attendance.pay + (attendance.casual?.pay ?? 0)
+}
+
+/**
+ * A casual engagement's line — "10h · 7h 36m casual + Saturday 50%, then 2h at
+ * 1.5× (Saturday), 24m at 2× (Saturday)".
+ *
+ * The ordinary hours come first and carry the penalty by name, because the
+ * penalty is the part of a casual's pay the hours alone never explain. A short
+ * attendance says it was paid three hours, the same way C9.5 says four.
+ */
+function describeCasual(
+  attendance: Attendance,
+  casual: CasualOrdinary,
+): AttendanceDescription {
+  const penalties = casual.penalties
+    .map((penalty) => SHIFT_PENALTY_LABEL[penalty.category])
+    .join(', ')
+  const withPenalty = penalties === '' ? '' : ` + ${penalties}`
+
+  if (casual.minimumApplied) {
+    return {
+      breakdown: `${formatHours(casual.workedMinutes / 60)} worked → ${formatHours(
+        casual.paidMinutes / 60,
+      )} paid at casual rate${withPenalty} · 3-hour minimum (B14.1)`,
+      assumption: true,
+    }
+  }
+
+  const total = formatHours((casual.workedMinutes + attendance.workedMinutes) / 60)
+  const ordinary = `${formatHours(casual.workedMinutes / 60)} casual${withPenalty}`
+  if (attendance.segments.length === 0) {
+    return { breakdown: `${total} · ${ordinary}`, assumption: false }
+  }
+
+  const overtime = attendance.segments.length > 0 ? rateSummary(attendance) : ''
+  return {
+    breakdown: `${total} · ${ordinary}, then ${
+      overtime.startsWith('all at ')
+        ? `${formatHours(attendance.workedMinutes / 60)} OT at ${overtime.slice(7)}`
+        : `OT ${overtime}`
+    }`,
+    assumption: false,
+  }
+}
+
 /** `'all at 2× (Saturday)'`, or `'2h at 1.5×, 6h at 2×'`. */
-function rateSummary(attendance: Attendance): string {
+export function rateSummary(attendance: Attendance): string {
   const byCategory = new Map<OtCategory, number>()
   for (const segment of attendance.segments) {
     byCategory.set(

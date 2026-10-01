@@ -18,6 +18,7 @@ const CHOICES: CalculatorChoices = {
   tax: { claimsTaxFreeThreshold: true, hasStudyDebt: false },
   deductions: { fixedPerFortnight: 0, percentOfGross: 0 },
   pathway: 'fortnight',
+  employment: 'full-time',
 }
 
 const resolved = resolveSettings(CHOICES, '2026-02-11')
@@ -209,3 +210,20 @@ function formatSummaryMoney(value: number): string {
     maximumFractionDigits: 2,
   }).format(value)
 }
+
+describe('a casual summary', () => {
+  const casualResolved = resolveSettings({ ...CHOICES, employment: 'casual' }, '2026-02-11')
+  if (casualResolved === null) throw new Error('AP1 Step 2 should resolve')
+  const shortShift: OtShift = { ...WEDNESDAY, startMin: 9 * 60, endMin: 15 * 60 }
+
+  it('lists the shifts even with no overtime, under Casual pay', () => {
+    const text = summaryText({
+      result: calculateFortnight([shortShift], casualResolved.settings),
+      bandSummary: 'AP1 Step 2 · Casual',
+    })
+    expect(text).toContain('Shifts')
+    expect(text).toContain('6h · 6h casual')
+    expect(text).toContain('Casual pay')
+    expect(text).not.toContain('Base pay')
+  })
+})

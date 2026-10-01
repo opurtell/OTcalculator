@@ -24,11 +24,20 @@ export type Minutes = number
  * read differently in the breakdown, and a future agreement may break the
  * parity.
  */
-export type OtCategory = 'mf_1_5x' | 'mf_2x' | 'sat_2x' | 'sun_2x' | 'ph_2_5x'
+export type OtCategory =
+  | 'mf_1_5x'
+  | 'mf_2x'
+  | 'sat_1_5x'
+  | 'sat_2x'
+  | 'sun_2x'
+  | 'ph_2_5x'
 
 export const MULTIPLIER: Readonly<Record<OtCategory, number>> = {
   mf_1_5x: 1.5,
   mf_2x: 2,
+  // Casual employees only — see `OvertimeRules`. N34.3 puts the 44-hour roster
+  // at 2× from the first Saturday minute, so a full-timer never reaches this.
+  sat_1_5x: 1.5,
   sat_2x: 2,
   sun_2x: 2,
   ph_2_5x: 2.5,
@@ -38,6 +47,7 @@ export const MULTIPLIER: Readonly<Record<OtCategory, number>> = {
 export const CATEGORY_LABEL: Readonly<Record<OtCategory, string>> = {
   mf_1_5x: '1.5×',
   mf_2x: '2×',
+  sat_1_5x: '1.5× (Saturday)',
   sat_2x: '2× (Saturday)',
   sun_2x: '2× (Sunday)',
   ph_2_5x: '2.5× (public holiday)',
@@ -52,6 +62,37 @@ export const CATEGORY_LABEL: Readonly<Record<OtCategory, string>> = {
  * this value directly.
  */
 export type ShiftKind = 'separate' | 'overrun'
+
+/**
+ * Full-time on the 44-hour roster, or casual (EBA B14).
+ *
+ * The two are different pay models, not a loading on the same one. A full-timer
+ * is paid a fortnightly salary and every shift entered is overtime on top of it;
+ * a casual has no salary, so every shift entered *is* the pay — ordinary up to
+ * 7h36, overtime past it. See `casual.ts`.
+ */
+export type EmploymentType = 'full-time' | 'casual'
+
+/**
+ * The EBA C8 shift penalty a casual's ordinary minutes can attract (B14.3).
+ * A full-timer's are inside the composite and never priced separately.
+ */
+export type ShiftPenaltyCategory = 'night' | 'saturday' | 'sunday' | 'public-holiday'
+
+/** C8.1, C8.5, C8.6, C8.7 — a fraction of the ordinary hourly rate. */
+export const SHIFT_PENALTY_RATE: Readonly<Record<ShiftPenaltyCategory, number>> = {
+  night: 0.15,
+  saturday: 0.5,
+  sunday: 1,
+  'public-holiday': 1.5,
+}
+
+export const SHIFT_PENALTY_LABEL: Readonly<Record<ShiftPenaltyCategory, string>> = {
+  night: 'Night 15%',
+  saturday: 'Saturday 50%',
+  sunday: 'Sunday 100%',
+  'public-holiday': 'Public holiday 150%',
+}
 
 export interface OtShift {
   id: string
@@ -217,3 +258,22 @@ export const GROUPING_UNCERTAIN_MIN_MINUTES = 30
 export const GROUPING_UNCERTAIN_MAX_MINUTES = 120
 
 export const MINUTES_PER_DAY = 1440
+
+/** EBA B14.2 — paid on a casual's ordinary hours, never on overtime (B14.7). */
+export const CASUAL_LOADING = 0.25
+
+/**
+ * EBA B14.6 — a casual is paid overtime for hours past 7h36 on any day or
+ * shift. The 38-hour figure, not 7h21: B15.4 is the paramedic cohort's.
+ */
+export const CASUAL_ORDINARY_MINUTES = 456
+
+/** EBA B14.1 — the minimum payment each time a casual attends. */
+export const CASUAL_MINIMUM_MINUTES = 180
+
+/**
+ * C8.1's night span: a shift any part of which falls between 6:00 pm and
+ * 6:30 am attracts the night penalty.
+ */
+export const NIGHT_PENALTY_FROM_MIN = 18 * 60
+export const NIGHT_PENALTY_UNTIL_MIN = 6 * 60 + 30
