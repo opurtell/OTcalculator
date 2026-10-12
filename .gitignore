@@ -1,6 +1,7 @@
 node_modules/
 dist/
 dist-lib/
+dist-embed/
 .storybook-static/
 *.local
 .DS_Store
