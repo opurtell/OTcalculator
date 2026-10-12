@@ -9,12 +9,14 @@
  */
 
 import { calculateOvertime } from './attendance'
+import { calculateCasual } from './casual'
 import { mealAllowanceFor } from './meals'
 import type { MealAllowanceResult, MealAllowanceSettings } from './meals'
 import { computeDeductions, packagingFlags } from './packaging'
 import type { DeductionSettings, FortnightFlag } from './packaging'
 import { helpRepayment, ordinaryFortnightlyGross, paygWithholding } from './tax'
 import type {
+  EmploymentType,
   HelpSchedule,
   HolidayCalendar,
   OtShift,
@@ -43,6 +45,12 @@ export interface FortnightSettings {
    * Phase 5 calls for the band to be editable.
    */
   ordinaryGrossOverride?: number
+  /**
+   * Full-time when absent. A casual's ordinary pay is priced from the shifts
+   * themselves (`casual.ts`), so `ordinaryGrossOverride` and the band's Annex A
+   * total are not read for one.
+   */
+  employment?: EmploymentType
 }
 
 /** One pass of the money calculation, at a given gross. */
@@ -73,6 +81,7 @@ export interface PayComparison {
 }
 
 export interface FortnightResult extends PayComparison {
+  employment: EmploymentType
   attendances: ReturnType<typeof calculateOvertime>['attendances']
   flags: FortnightFlag[]
   /**
@@ -133,9 +142,16 @@ function runPay(gross: number, settings: FortnightSettings): PayRun {
 export function comparePay(
   overtimeGross: number,
   settings: FortnightSettings,
+  /**
+   * The "without overtime" gross, when the caller has priced it — a casual's
+   * ordinary hours. Omitted, it is the full-timer's salary.
+   */
+  ordinaryGrossIn?: number,
 ): PayComparison {
   const ordinaryGross =
-    settings.ordinaryGrossOverride ?? ordinaryFortnightlyGross(settings.band)
+    ordinaryGrossIn ??
+    settings.ordinaryGrossOverride ??
+    ordinaryFortnightlyGross(settings.band)
 
   // The "without" run keeps the fixed deduction constant but recomputes the
   // percentage one on the smaller gross, so the two sides stay internally
@@ -161,8 +177,14 @@ export function calculateFortnight(
   shifts: readonly OtShift[],
   settings: FortnightSettings,
 ): FortnightResult {
-  const overtime = calculateOvertime(shifts, settings.band, settings.holidays)
-  const comparison = comparePay(overtime.gross, settings)
+  const employment = settings.employment ?? 'full-time'
+  const casual =
+    employment === 'casual'
+      ? calculateCasual(shifts, settings.band, settings.holidays)
+      : null
+  const overtime =
+    casual ?? calculateOvertime(shifts, settings.band, settings.holidays)
+  const comparison = comparePay(overtime.gross, settings, casual?.ordinaryGross)
 
   const deductions = computeDeductions(comparison.withOt.gross, settings.deductions)
 
@@ -173,6 +195,7 @@ export function calculateFortnight(
 
   return {
     ...comparison,
+    employment,
     attendances: overtime.attendances,
     flags: [
       ...overtime.flags,

@@ -9,6 +9,7 @@
  */
 
 import { absoluteMinutes, isBeyondHolidayData, isDstTransition } from './calendar'
+import type { CasualOrdinary } from './casual'
 import {
   attendanceSpan,
   categoriesWorked,
@@ -102,6 +103,15 @@ export interface Attendance {
   crossesMidnight: boolean
   flags: AttendanceFlag[]
   pay: number
+  /**
+   * Every worked stretch, unpaid gaps excluded. For a full-timer this is the
+   * same time the segments cover; for a casual the segments are only the
+   * overtime past 7h36, and this is the whole engagement — which is what the
+   * N36 meal rule has to measure from.
+   */
+  intervals: Interval[]
+  /** The casual ordinary hours in front of the overtime. Absent for full-time. */
+  casual?: CasualOrdinary
 }
 
 /**
@@ -158,7 +168,7 @@ function attendanceKind(shifts: readonly OtShift[]): ShiftKind {
  * across them — so the intervals are handed to the categoriser in order and it
  * keeps its state between them.
  */
-function intervalsFor(shifts: readonly OtShift[]): Interval[] {
+export function intervalsFor(shifts: readonly OtShift[]): Interval[] {
   const intervals: Interval[] = []
   let coveredTo = -Infinity
 
@@ -179,7 +189,7 @@ function intervalsFor(shifts: readonly OtShift[]): Interval[] {
   return intervals
 }
 
-function flagsFor(
+export function flagsFor(
   shifts: readonly OtShift[],
   dates: readonly IsoDate[],
   holidays: HolidayCalendar,
@@ -253,6 +263,7 @@ export function priceAttendance(
     crossesMidnight: span.crossesMidnight,
     flags: flagsFor(shifts, span.dates, holidays),
     pay: workedPay + topUpPay,
+    intervals,
   }
 }
 

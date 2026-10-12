@@ -30,6 +30,7 @@ const GOLDEN: CalculatorChoices = {
   tax: { claimsTaxFreeThreshold: true, hasStudyDebt: false },
   deductions: { fixedPerFortnight: 0, percentOfGross: 0 },
   pathway: 'fortnight',
+  employment: 'full-time',
 }
 
 const IN_FY_2025_26 = '2026-02-11'
@@ -65,6 +66,55 @@ function render(choices: CalculatorChoices, props = {}) {
     />,
   )
 }
+
+describe('Calculator, casual', () => {
+  const CASUAL: CalculatorChoices = { ...GOLDEN, employment: 'casual' }
+  // AM picked up and taken to 17:30: 7h36 casual, 3h24 overtime, one meal.
+  const SHIFTS = [
+    {
+      id: 'shift-1',
+      date: '2026-02-11',
+      startMin: 6 * 60 + 30,
+      endMin: 17 * 60 + 30,
+      endsNextDay: false,
+      kind: 'separate' as const,
+    },
+  ]
+
+  it('offers the employment toggle, full-time selected by default', () => {
+    const html = render(GOLDEN)
+    expect(html).toContain('Employment')
+    expect(html).toMatch(/aria-checked="true"[^>]*>(<[^>]+>)*Full-time/)
+  })
+
+  it('shows the base hourly rate rather than a fortnightly salary', () => {
+    const html = render(CASUAL)
+    expect(html).toContain('Base hourly')
+    expect(html).toContain('· Casual')
+  })
+
+  it('names the list as shifts, not overtime', () => {
+    const html = render(CASUAL)
+    expect(html).toContain('+ Add shift')
+    expect(html).not.toContain('Overtime shifts')
+  })
+
+  it('prices a casual shift as casual pay plus overtime past 7h36', () => {
+    const html = render(CASUAL, { initialShifts: SHIFTS })
+    expect(html).toContain('Casual pay')
+    expect(html).toContain('Casual shift')
+    expect(html).toContain('11h · 7h 36m casual, then OT 2h at 1.5×, 1h 24m at 2×')
+    // The row is the whole shift: $458.62 casual + $280.00 overtime.
+    expect(html).toContain('$738.61')
+  })
+
+  it('keeps exactly one live region', () => {
+    const html = render(CASUAL, { initialShifts: SHIFTS })
+    expect(html.match(/aria-live=/g)?.length).toBe(
+      render(GOLDEN, { initialShifts: SHIFTS }).match(/aria-live=/g)?.length,
+    )
+  })
+})
 
 describe('Calculator', () => {
   it('starts at setup on a device with nothing stored', () => {
@@ -334,6 +384,7 @@ describe('choices round trip', () => {
       tax: { claimsTaxFreeThreshold: false, hasStudyDebt: true },
       deductions: { fixedPerFortnight: 611, percentOfGross: 0.05 },
       pathway: 'quick',
+      employment: 'full-time',
     }
 
     expect(choicesFrom(fieldsFrom(choices))).toEqual(choices)

@@ -31,6 +31,7 @@ const GOLDEN: CalculatorChoices = {
   tax: { claimsTaxFreeThreshold: true, hasStudyDebt: false },
   deductions: { fixedPerFortnight: 0, percentOfGross: 0 },
   pathway: 'fortnight',
+  employment: 'full-time',
 }
 
 /** Inside FY2026-27, the year both schedules are verified for. */
@@ -184,6 +185,28 @@ describe('resolveSettings', () => {
   it('resolves its own defaults', () => {
     expect(resolveSettings(DEFAULT_CHOICES, IN_FY_2026_27)).not.toBeNull()
     expect(isKnownBand(DEFAULT_CHOICES.band)).toBe(true)
+  })
+})
+
+describe('casual employment', () => {
+  it('passes employment to the engine, full-time by default', () => {
+    expect(resolveGolden().settings.employment).toBe('full-time')
+    expect(resolveGolden({ employment: 'casual' }).settings.employment).toBe('casual')
+  })
+
+  it('never hands a casual the full-time fortnightly override', () => {
+    const band = { ...GOLDEN.band, fortnightlyGross: 5_000 }
+    expect(resolveGolden({ band }).settings.ordinaryGrossOverride).toBe(5_000)
+    expect(
+      resolveGolden({ band, employment: 'casual' }).settings.ordinaryGrossOverride,
+    ).toBeUndefined()
+  })
+
+  it('keeps the base salary override — every casual rate is priced from it', () => {
+    const band = { ...GOLDEN.band, annualBase: 100_000 }
+    expect(
+      resolveGolden({ band, employment: 'casual' }).settings.band.annualBase,
+    ).toBe(100_000)
   })
 })
 

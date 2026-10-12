@@ -6,6 +6,7 @@ import {
 } from '../data'
 import type { Classification } from '../data'
 import { formatIsoDateAu } from '../app/inputs'
+import type { EmploymentType } from '../engine/types'
 import {
   AssumptionNote,
   DerivedPayPanel,
@@ -18,8 +19,12 @@ export interface PayBandFieldsProps {
   step: number
   onClassificationChange: (classification: Classification) => void
   onStepChange: (step: number) => void
+  /** Full-time unless switched. Changes what the second derived figure is. */
+  employment?: EmploymentType
+  onEmploymentChange?: (employment: EmploymentType) => void
   /** Derived from the table, or the user's own figure once overridden. */
   baseAnnual: number
+  /** Fortnightly ordinary pay — or, for a casual, the base hourly rate. */
   fortnightly: number
   /** True once "Enter your own figures" has been taken up. */
   overridden: boolean
@@ -53,6 +58,8 @@ export function PayBandFields({
   step,
   onClassificationChange,
   onStepChange,
+  employment = 'full-time',
+  onEmploymentChange,
   baseAnnual,
   fortnightly,
   overridden,
@@ -64,6 +71,7 @@ export function PayBandFields({
   notice,
 }: PayBandFieldsProps) {
   const steps = stepsFor(classification)
+  const casual = employment === 'casual'
 
   return (
     <>
@@ -71,6 +79,22 @@ export function PayBandFields({
         <AssumptionNote>
           <p>{notice}</p>
         </AssumptionNote>
+      ) : null}
+      {onEmploymentChange ? (
+        <SegmentedControl<EmploymentType>
+          label="Employment"
+          value={employment}
+          onChange={onEmploymentChange}
+          options={[
+            { value: 'full-time', label: 'Full-time' },
+            { value: 'casual', label: 'Casual' },
+          ]}
+          hint={
+            casual
+              ? 'Paid by the shift: base + 25% loading and shift penalties, overtime past 7h 36m (EBA B14).'
+              : 'Salary on the 44-hour roster. Every shift you add is overtime on top.'
+          }
+        />
       ) : null}
       <SelectField
         label="Classification"
@@ -94,6 +118,8 @@ export function PayBandFields({
       <DerivedPayPanel
         baseAnnual={baseAnnual}
         fortnightly={fortnightly}
+        secondaryLabel={casual ? 'Base hourly' : 'Fortnightly'}
+        secondaryEditable={!casual}
         ratesEffective={formatIsoDateAu(RATES_EFFECTIVE_FROM)}
         overridden={overridden}
         onOverride={onOverride}

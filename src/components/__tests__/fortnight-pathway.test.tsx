@@ -28,6 +28,7 @@ const CHOICES: CalculatorChoices = {
   tax: { claimsTaxFreeThreshold: true, hasStudyDebt: false },
   deductions: { fixedPerFortnight: 0, percentOfGross: 0 },
   pathway: 'fortnight',
+  employment: 'full-time',
 }
 
 const resolved = resolveSettings(CHOICES, '2026-02-11')

@@ -63,6 +63,14 @@ export interface Preferences {
     advanced?: StoredAdvancedDeductions
   }
   lastPathway: Pathway
+  /**
+   * `'casual'` when the user has switched to casual pay (EBA B14); **absent**
+   * for full-time, which is the default. Same no-bump mechanism as
+   * `deductions.advanced`: a record from before the toggle existed, or from
+   * anyone who never touched it, carries no key and still reads back `'ok'`.
+   * Full-time is never written as a value, so there is one spelling of it.
+   */
+  employment?: 'casual'
 }
 
 /**
@@ -233,6 +241,10 @@ export function normalisePreferences(value: unknown): Preferences {
       advanced: advancedDeductions(deductions.advanced),
     },
     lastPathway: pathway(value.lastPathway),
+    // Anything but `'casual'` normalises to absent — full-time. A stored value
+    // that is neither absent nor `'casual'` is corruption, and
+    // `preferencesSurvived` reports it as a repair.
+    ...(value.employment === 'casual' ? { employment: 'casual' as const } : {}),
   }
 }
 

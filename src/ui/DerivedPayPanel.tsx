@@ -6,6 +6,16 @@ export interface DerivedPayPanelProps {
   baseAnnual: number
   /** Derived fortnightly figure, e.g. 4908.32. */
   fortnightly: number
+  /**
+   * What the second figure is. "Fortnightly" by default; a casual, who has no
+   * fortnightly salary, sees their base hourly rate here instead.
+   */
+  secondaryLabel?: string
+  /**
+   * False when the second figure is derived from the first and has no override
+   * of its own — the base hourly rate. Only the base annual field is offered.
+   */
+  secondaryEditable?: boolean
   /** Rate currency, e.g. "04/12/2025". Never omitted — see the copy deck. */
   ratesEffective: string
   /** Switches both figures from derived to hand-entered. */
@@ -31,6 +41,8 @@ export interface DerivedPayPanelProps {
 export function DerivedPayPanel({
   baseAnnual,
   fortnightly,
+  secondaryLabel = 'Fortnightly',
+  secondaryEditable = true,
   ratesEffective,
   overridden = false,
   onOverride,
@@ -50,14 +62,16 @@ export function DerivedPayPanel({
           numeric
           overridden
         />
-        <TextField
-          label="Fortnightly"
-          value={fortnightlyInput}
-          onChange={(value) => onFortnightlyChange?.(value)}
-          prefix="$"
-          numeric
-          overridden
-        />
+        {secondaryEditable ? (
+          <TextField
+            label={secondaryLabel}
+            value={fortnightlyInput}
+            onChange={(value) => onFortnightlyChange?.(value)}
+            prefix="$"
+            numeric
+            overridden
+          />
+        ) : null}
         <p className="sl-derived__note">
           Your figures, not ours. Overtime is still worked out on the base
           salary only.
@@ -73,7 +87,7 @@ export function DerivedPayPanel({
         <Money value={baseAnnual} />
       </div>
       <div className="sl-derived__row">
-        <span>Fortnightly</span>
+        <span>{secondaryLabel}</span>
         <Money value={fortnightly} />
       </div>
       <p className="sl-derived__note">Rates effective {ratesEffective}</p>

@@ -1,9 +1,11 @@
 import { calculateOvertime } from '../engine/attendance'
+import { calculateCasual } from '../engine/casual'
 import { mealOccasionsFor } from '../engine/meals'
 import type { MealAllowanceSettings } from '../engine/meals'
-import type { HolidayCalendar, PayBand } from '../engine/types'
+import type { EmploymentType, HolidayCalendar, PayBand } from '../engine/types'
 import {
   applyRosterShift,
+  attendanceTotalPay,
   describeAttendance,
   draftDuration,
   draftEndsNextDay,
@@ -37,6 +39,12 @@ export interface ShiftSheetProps {
   holidays: HolidayCalendar
   /** The Annex C rate and roster patterns, so the preview can price EBA N36. */
   meals: MealAllowanceSettings
+  /**
+   * Casual shifts are priced by `calculateCasual` and have no C9.5 question to
+   * ask — the whole engagement is entered, and overtime is whatever runs past
+   * 7h36 of it.
+   */
+  employment?: EmploymentType
 }
 
 /**
@@ -66,13 +74,20 @@ export function ShiftSheet({
   band,
   holidays,
   meals: mealSettings,
+  employment = 'full-time',
 }: ShiftSheetProps) {
+  const casual = employment === 'casual'
   const editing = draft.id !== null
   const shift = toShift(draft)
   const duration = draftDuration(draft)
 
   const preview =
-    shift === null ? null : calculateOvertime([shift], band, holidays).attendances[0]
+    shift === null
+      ? null
+      : (casual
+          ? calculateCasual([shift], band, holidays)
+          : calculateOvertime([shift], band, holidays)
+        ).attendances[0]
   const description = preview === null ? null : describeAttendance(preview)
   // Priced by the same function the fortnight uses, on this shift alone — the
   // same reason the pay preview calls `calculateOvertime` rather than doing its
@@ -89,7 +104,15 @@ export function ShiftSheet({
 
   return (
     <Sheet
-      title={editing ? 'Edit OT shift' : 'Add OT shift'}
+      title={
+        casual
+          ? editing
+            ? 'Edit shift'
+            : 'Add shift'
+          : editing
+            ? 'Edit OT shift'
+            : 'Add OT shift'
+      }
       onClose={onClose}
       footer={
         <Button block disabled={shift === null} onClick={onCommit}>
@@ -144,27 +167,29 @@ export function ShiftSheet({
           </p>
         ) : null}
 
-        <SegmentedControl<ShiftKind>
-          label="Was this continuous with your rostered shift?"
-          value={draft.kind}
-          onChange={(kind) =>
-            onDraftChange({ ...draft, kind, kindTouched: true })
-          }
-          options={[
-            { value: 'overrun', label: 'Ran on from', note: 'my shift' },
-            { value: 'separate', label: 'Separate', note: 'shift' },
-          ]}
-          hint={
-            draft.kind === 'separate'
-              ? 'Separate shifts have a 4-hour minimum payment.'
-              : 'A shift overrun is paid its actual hours, however short.'
-          }
-        />
+        {casual ? null : (
+          <SegmentedControl<ShiftKind>
+            label="Was this continuous with your rostered shift?"
+            value={draft.kind}
+            onChange={(kind) =>
+              onDraftChange({ ...draft, kind, kindTouched: true })
+            }
+            options={[
+              { value: 'overrun', label: 'Ran on from', note: 'my shift' },
+              { value: 'separate', label: 'Separate', note: 'shift' },
+            ]}
+            hint={
+              draft.kind === 'separate'
+                ? 'Separate shifts have a 4-hour minimum payment.'
+                : 'A shift overrun is paid its actual hours, however short.'
+            }
+          />
+        )}
 
         {preview !== null && description !== null ? (
           <div className="sl-preview">
             <span className="sl-preview__breakdown">{description.breakdown}</span>
-            <Money value={preview.pay} />
+            <Money value={attendanceTotalPay(preview)} />
           </div>
         ) : (
           <p className="sl-hint">
@@ -180,6 +205,22 @@ export function ShiftSheet({
             {formatHours(meals[0].overrunMinutes / 60)} past the{' '}
             {formatHours(meals[0].rosteredMinutes / 60)} {meals[0].rosterCode} shift
             {meals[0].shiftInferred ? ' this ran on from' : ''} (EBA N36)
+          </p>
+        ) : null}
+
+        {preview?.casual?.minimumApplied ? (
+          <AssumptionNote>
+            <p>
+              Paid three hours — the minimum each time a casual attends (EBA
+              B14.1).
+            </p>
+          </AssumptionNote>
+        ) : null}
+
+        {preview?.casual !== undefined && preview.workedMinutes > 0 ? (
+          <p className="sl-hint">
+            Past 7h 36m is overtime: base rate, no casual loading (EBA B14.6,
+            B14.7).
           </p>
         ) : null}
 

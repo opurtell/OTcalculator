@@ -22,7 +22,7 @@ Both add the OT to the user's ordinary fortnightly pay, apply pre-tax deductions
 
 ### Explicitly out of scope for v1
 
-Payslip upload/parsing, verification against actual payslips, leave and time-bank accrual, forecasting, accounts and sync, part-time and casual patterns, on-call/close-call allowances, HDA, 10/14 legacy roster. All of these live in the sibling project. HDA is the most likely next addition.
+Payslip upload/parsing, verification against actual payslips, leave and time-bank accrual, forecasting, accounts and sync, part-time patterns (casual has since been added — see `CLAUDE.md`, "Casual employment"), on-call/close-call allowances, HDA, 10/14 legacy roster. All of these live in the sibling project. HDA is the most likely next addition.
 
 **The overtime meal allowance (N36) was on this list and has been built** — see §3.11. It came in because it is the one allowance the app already had the inputs for: it turns on the times of the shift and nothing else, so no new question had to be asked. Every other allowance in Annex C needs a fact the app does not hold — a qualification, a roster station, a distance — and adding one means adding a field.
 

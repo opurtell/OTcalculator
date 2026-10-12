@@ -4,7 +4,8 @@ import { resolveSettings } from '../../app/settings'
 import type { CalculatorChoices } from '../../app/settings'
 import { comparePay } from '../../engine/fortnight'
 import { quickOvertime } from '../../engine/overtime'
-import { QuickResult } from '../QuickPathway'
+import { quickCasual } from '../../engine/casual'
+import { QuickHoursField, QuickResult } from '../QuickPathway'
 
 const GOLDEN: CalculatorChoices = {
   band: {
@@ -16,6 +17,7 @@ const GOLDEN: CalculatorChoices = {
   tax: { claimsTaxFreeThreshold: true, hasStudyDebt: false },
   deductions: { fixedPerFortnight: 0, percentOfGross: 0 },
   pathway: 'quick',
+  employment: 'full-time',
 }
 
 function renderQuick(hours: number) {
@@ -62,5 +64,36 @@ describe('QuickResult', () => {
     const short = renderQuick(1.5)
     expect(short).toContain('1h 30m at 1.5×')
     expect(short).not.toContain('at 2×')
+  })
+})
+
+describe('QuickResult, casual', () => {
+  const resolved = resolveSettings({ ...GOLDEN, employment: 'casual' }, '2026-02-11')
+  if (resolved === null) throw new Error('AP1 Step 2 should resolve')
+  const shift = quickCasual(10, resolved.settings.band.annualBase)
+  // The shift on its own: nothing without it, all of it with it.
+  const comparison = comparePay(shift.gross, resolved.settings, 0)
+  const html = renderToStaticMarkup(
+    <QuickResult comparison={comparison} overtime={shift} employment="casual" />,
+  )
+
+  it('prices the whole shift, not overtime on top of a salary', () => {
+    expect(comparison.withoutOt.gross).toBe(0)
+    expect(comparison.overtimeGross).toBe(shift.gross)
+    expect(html).toContain('Shift worth about')
+    expect(html).toContain('7h 36m at casual rate')
+  })
+
+  it('asks for the length of the shift and says what it assumes', () => {
+    const field = renderToStaticMarkup(
+      <QuickHoursField
+        hoursInput=""
+        onHoursInputChange={() => {}}
+        onUseFortnight={() => {}}
+        employment="casual"
+      />,
+    )
+    expect(field).toContain('How long is the shift?')
+    expect(field).toContain('25% casual loading')
   })
 })

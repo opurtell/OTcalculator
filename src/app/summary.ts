@@ -5,7 +5,7 @@ import type { AdvancedDeductions } from '../engine/packaging'
 import { formatHours, formatKept, formatMoney } from '../ui/index'
 import { overtimeSuperSentence } from './breakdown'
 import { formatShortDate, formatTimeRange } from './dates'
-import { describeAttendance } from './shifts'
+import { attendanceTotalPay, describeAttendance } from './shifts'
 
 /** The copy deck's disclaimer, as one line. See `ui/Disclaimer.tsx`. */
 export const DISCLAIMER =
@@ -48,6 +48,8 @@ export function summaryText({
   advancedDeductions = null,
 }: SummaryInput): string {
   const lines: string[] = ['ACTAS OT Calculator — estimate', '']
+  const casual = result.employment === 'casual'
+  const basePayLabel = casual ? 'Casual pay' : 'Base pay'
 
   if (result.overtimeGross > 0) {
     lines.push(
@@ -57,7 +59,7 @@ export function summaryText({
         result.otEarnedTotal,
       )}`,
       '',
-      'Overtime shifts',
+      casual ? 'Shifts' : 'Overtime shifts',
       ...result.attendances.map(shiftLine),
       '',
       'Fortnight            Without OT      With OT',
@@ -76,7 +78,12 @@ export function summaryText({
     lines.push(
       `Take-home this fortnight: ${formatMoney(result.withOt.net)}`,
       '',
-      `Base pay          ${formatMoney(result.withOt.gross)}`,
+      // A casual's shifts *are* the fortnight, overtime or not, so they travel
+      // with the text whether or not any of them ran past 7h36.
+      ...(casual && result.attendances.length > 0
+        ? ['Shifts', ...result.attendances.map(shiftLine), '']
+        : []),
+      `${basePayLabel.padEnd(18)}${formatMoney(result.withOt.gross)}`,
       `PAYG tax          ${formatMoney(result.withOt.payg)}`,
       ...(result.withOt.help > 0
         ? [`Study loan        ${formatMoney(result.withOt.help)}`]
@@ -162,7 +169,7 @@ function shiftLine(attendance: Attendance): string {
       attendance.endMin,
     )}`,
     breakdown,
-    formatMoney(attendance.pay),
+    formatMoney(attendanceTotalPay(attendance)),
   ].join(' · ')
 }
 
@@ -175,7 +182,11 @@ function shiftLine(attendance: Attendance): string {
  */
 function comparisonLines(result: FortnightResult): string[] {
   const rows: [string, number, number][] = [
-    ['Base pay', result.ordinaryGross, result.ordinaryGross],
+    [
+      result.employment === 'casual' ? 'Casual pay' : 'Base pay',
+      result.ordinaryGross,
+      result.ordinaryGross,
+    ],
     ['Overtime', 0, result.overtimeGross],
   ]
 
