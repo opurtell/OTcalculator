@@ -108,6 +108,10 @@ export interface CalculatorProps {
    * the carried-over last fortnight, the "saved on this device" and "last
    * fortnight was cleared" notes, and the setup screen's device-storage and
    * privacy wording, which would be untrue for a host that syncs.
+   *
+   * It is also full-time only: casual is out of scope for the host, so there
+   * is no Employment toggle anywhere and a casual choice passed in is read,
+   * and reported back, as full-time.
    */
   embedded?: boolean
   /** Host copy shown above the shift list. Rendered only when `embedded`. */
@@ -141,7 +145,11 @@ export function Calculator({
   embedded = false,
   embeddedNote,
 }: CalculatorProps) {
-  const [fields, setFields] = useState(() => fieldsFrom(initialChoices))
+  const [fields, setFields] = useState(() =>
+    fieldsFrom(
+      embedded ? { ...initialChoices, employment: 'full-time' } : initialChoices,
+    ),
+  )
   const [inSetup, setInSetup] = useState(startAtSetup)
   // Not part of the persisted choices, and deliberately not per-pathway state
   // either: a number typed on the quick tab survives a look at the fortnight
@@ -363,7 +371,10 @@ export function Calculator({
         }),
       onStepChange: (step: number) => update({ step }),
       employment: fields.employment,
-      onEmploymentChange: (employment: EmploymentType) => update({ employment }),
+      // Leaving the handler out is what hides the toggle (see PayBandFields).
+      onEmploymentChange: embedded
+        ? undefined
+        : (employment: EmploymentType) => update({ employment }),
       baseAnnual: band?.annualBase ?? 0,
       // A casual has no fortnightly salary to show; the figure every one of
       // their shifts is priced from is the base hourly rate.

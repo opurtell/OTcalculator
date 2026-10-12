@@ -107,19 +107,26 @@ describe('embedded mode', () => {
   })
 })
 
-describe('embedded mode with the casual toggle', () => {
+describe('embedded mode is full-time only', () => {
   const casual = { ...DEFAULT_CHOICES, employment: 'casual' as const, pathway: 'fortnight' as const }
   const shift = { id: 'a', date: '2026-10-15', startMin: 420, endMin: 660, endsNextDay: false, kind: 'separate' as const }
 
-  it('keeps the employment toggle on the embedded setup screen, without the device wording', () => {
+  it('offers no employment toggle on the embedded setup screen', () => {
     render(<Calculator embedded startAtSetup payDate="2026-10-22" />)
-    expect(screen.getByRole('radio', { name: 'Casual' })).not.toBeNull()
-    fireEvent.click(screen.getByRole('radio', { name: 'Casual' }))
+    expect(screen.queryByRole('radio', { name: 'Casual' })).toBeNull()
+    expect(screen.queryByRole('radio', { name: 'Full-time' })).toBeNull()
     expect(screen.queryByText(/remember it on this device/i)).toBeNull()
     expect(screen.queryByText(/leaves this device/i)).toBeNull()
   })
 
-  it('shows the host note above the casual shift list and no storage note', () => {
+  it('offers no employment toggle in the embedded settings panel', () => {
+    render(<Calculator embedded initialChoices={casual} startAtSetup={false} payDate="2026-10-22" />)
+    // The settings disclosure starts closed, so look inside hidden content too.
+    expect(screen.queryByRole('radio', { name: 'Casual', hidden: true })).toBeNull()
+    expect(screen.queryByRole('radio', { name: 'Full-time', hidden: true })).toBeNull()
+  })
+
+  it('treats a casual choice from the host as full-time', () => {
     render(
       <Calculator
         embedded
@@ -131,14 +138,32 @@ describe('embedded mode with the casual toggle', () => {
       />,
     )
     expect(screen.getByText('2 other work events')).not.toBeNull()
-    expect(screen.getByRole('heading', { name: /^shifts/i })).not.toBeNull()
-    expect(screen.queryByText(/overtime shifts/i)).toBeNull()
+    expect(screen.getByText(/overtime shifts/i)).not.toBeNull()
+    expect(screen.queryByText(/casual/i)).toBeNull()
     expect(screen.queryByText(/saved on this device/i)).toBeNull()
   })
 
-  it('emits a casual choice to the host', () => {
+  it('emits full-time to the host, even when the host passed casual', () => {
     const onChoicesChange = vi.fn()
-    render(<Calculator embedded startAtSetup onChoicesChange={onChoicesChange} payDate="2026-10-22" />)
+    render(
+      <Calculator embedded initialChoices={casual} startAtSetup onChoicesChange={onChoicesChange} payDate="2026-10-22" />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    const last = onChoicesChange.mock.calls.at(-1)?.[0] as { employment: string } | undefined
+    expect(last?.employment).toBe('full-time')
+  })
+
+  it('standalone still offers the employment toggle on setup and in settings', () => {
+    render(<Calculator startAtSetup payDate="2026-10-22" />)
+    expect(screen.getByRole('radio', { name: 'Casual' })).not.toBeNull()
+    cleanup()
+    render(<Calculator startAtSetup={false} payDate="2026-10-22" />)
+    expect(screen.getByRole('radio', { name: 'Casual', hidden: true })).not.toBeNull()
+  })
+
+  it('standalone still emits a casual choice', () => {
+    const onChoicesChange = vi.fn()
+    render(<Calculator startAtSetup onChoicesChange={onChoicesChange} payDate="2026-10-22" />)
     fireEvent.click(screen.getByRole('radio', { name: 'Casual' }))
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
     const last = onChoicesChange.mock.calls.at(-1)?.[0] as { employment: string } | undefined
