@@ -10,6 +10,7 @@ import { App } from './App'
 // which looks identical to the base-path failure and is not what it is.
 import './ui/styles.css'
 import './styles/app.css'
+import './styles/calculator.css'
 
 const container = document.getElementById('root')
 if (!container) throw new Error('index.html is missing #root')

@@ -45,6 +45,11 @@ sub-rows confirm the N36 rule and settle whether 12-hour shifts earn one at all
 (see §3.11). **Until it passes, this is
 a well-tested hypothesis and should not be shared with colleagues.**
 
+**Embedded in the ACTAS Pay Tracker.** `npm run build:embed` builds `src/embed.ts` into
+`dist-embed/`, which `~/claudeCode/apps/my-actas-pay` vendors at a pinned commit
+(`vendor/otcalculator/VENDOR.md` there). Changing `Calculator`'s props or `src/embed.ts`'s
+exports breaks that consumer — re-vendor there after any change here.
+
 ## Working on it
 
 ```sh

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import {
   DEFAULT_CHOICES,
   isKnownBand,
@@ -95,6 +96,26 @@ export interface CalculatorProps {
    * the two the user is owed a word about — see `readNotice`.
    */
   readStatus?: ReadStatus
+  /**
+   * Makes the id for a newly added shift. Absent in the standalone app, which
+   * keeps its per-tab `shift-N` counter; a host that syncs shifts across
+   * devices passes a UUID generator, because `shift-N` would collide.
+   */
+  createShiftId?: () => string
+  /**
+   * Running inside another app that owns persistence (the ACTAS Pay Tracker).
+   * Hides what only makes sense for this device's storage: clear-settings,
+   * the carried-over last fortnight, the "saved on this device" and "last
+   * fortnight was cleared" notes, and the setup screen's device-storage and
+   * privacy wording, which would be untrue for a host that syncs.
+   *
+   * It is also full-time only: casual is out of scope for the host, so there
+   * is no Employment toggle anywhere and a casual choice passed in is read,
+   * and reported back, as full-time.
+   */
+  embedded?: boolean
+  /** Host copy shown above the shift list. Rendered only when `embedded`. */
+  embeddedNote?: ReactNode
 }
 
 /**
@@ -120,8 +141,15 @@ export function Calculator({
   onShiftsChange,
   payDate,
   readStatus,
+  createShiftId,
+  embedded = false,
+  embeddedNote,
 }: CalculatorProps) {
-  const [fields, setFields] = useState(() => fieldsFrom(initialChoices))
+  const [fields, setFields] = useState(() =>
+    fieldsFrom(
+      embedded ? { ...initialChoices, employment: 'full-time' } : initialChoices,
+    ),
+  )
   const [inSetup, setInSetup] = useState(startAtSetup)
   // Not part of the persisted choices, and deliberately not per-pathway state
   // either: a number typed on the quick tab survives a look at the fortnight
@@ -224,7 +252,7 @@ export function Calculator({
 
   function commitDraft() {
     if (draft === null) return
-    const shift = toShift(draft)
+    const shift = toShift(draft, createShiftId)
     if (shift === null) return
 
     setShifts((current) => upsertShift(current, shift))
@@ -269,6 +297,7 @@ export function Calculator({
       <SetupScreen
         {...bandFieldProps()}
         canRemember={canRemember}
+        embedded={embedded}
         onContinue={() => setInSetup(false)}
       />
     )
@@ -342,7 +371,10 @@ export function Calculator({
         }),
       onStepChange: (step: number) => update({ step }),
       employment: fields.employment,
-      onEmploymentChange: (employment: EmploymentType) => update({ employment }),
+      // Leaving the handler out is what hides the toggle (see PayBandFields).
+      onEmploymentChange: embedded
+        ? undefined
+        : (employment: EmploymentType) => update({ employment }),
       baseAnnual: band?.annualBase ?? 0,
       // A casual has no fortnightly salary to show; the figure every one of
       // their shifts is priced from is the base hourly rate.
@@ -376,6 +408,7 @@ export function Calculator({
       <SetupScreen
         {...bandFieldProps()}
         canRemember={canRemember}
+        embedded={embedded}
         onContinue={() => setInSetup(false)}
       />
     )
@@ -387,7 +420,7 @@ export function Calculator({
     <CalculatorShell
       payFortnightLabel={`Pay fortnight ${formatPayFortnight(fortnight)}`}
       banner={
-        carried === null ? null : (
+        embedded || carried === null ? null : (
           <LastFortnightBanner
             fortnight={carried.fortnight}
             result={carried.result}
@@ -447,6 +480,7 @@ export function Calculator({
           gross={result.withOt.gross}
         />
       }
+      showClearSettings={!embedded}
       onClearSettings={() => {
         setFields(fieldsFrom(DEFAULT_CHOICES))
         setInSetup(true)
@@ -490,12 +524,19 @@ export function Calculator({
             mealOccasions={result.mealAllowance.occasions}
             shifts={shifts}
             warnings={warnings}
-            storageNote={shiftStorageNote({
-              hasShifts: shifts.length > 0,
-              canRemember,
-              expired: shiftsExpired && !listTouched,
-              fortnight,
-            })}
+            storageNote={
+              // The host owns persistence, so what this device holds is not
+              // the app's to describe.
+              embedded
+                ? undefined
+                : shiftStorageNote({
+                    hasShifts: shifts.length > 0,
+                    canRemember,
+                    expired: shiftsExpired && !listTouched,
+                    fortnight,
+                  })
+            }
+            embeddedNote={embedded ? embeddedNote : undefined}
             onAdd={() => openDraft(emptyDraft())}
             onClearAll={clearAllShifts}
             onEdit={(shiftId) => openDraftFor(shiftId, false)}

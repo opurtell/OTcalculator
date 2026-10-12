@@ -6,7 +6,7 @@
 .sl-root {
   background: var(--paper);
   color: var(--ink);
-  font-family: var(--font-sans);
+  font-family: var(--sl-font-sans);
   font-size: var(--text-body);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -29,7 +29,7 @@
 /* Every money figure is mono and tabular so digits don't shift as the result
    updates live (§4.2). This is the single most load-bearing type rule here. */
 .sl-figure {
-  font-family: var(--font-mono);
+  font-family: var(--sl-font-mono);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
 }

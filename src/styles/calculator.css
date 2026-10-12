@@ -1,0 +1,250 @@
+/*
+ * The calculator's own component rules: the column, the sheet, the warnings,
+ * the setup screen, print. Imported by the standalone app (src/main.tsx) and
+ * by the embed bundle (src/embed.ts), so nothing here may style <html>,
+ * <body> or #root — those are app.css's, and an embedding host's own.
+ */
+
+/* Breathing room at the top and bottom of the column, and the page's own
+   vertical rhythm: the panels want more air between them than the fields
+   inside one do, which is what `--stack-gap` is for.
+ *
+ * The safe-area insets matter on a notched phone in landscape, where the
+ * column would otherwise start under the notch. `viewport-fit=cover` in
+ * index.html is the other half — without it the insets are always zero. */
+.sl-app {
+  --stack-gap: var(--space-5);
+  padding-block: var(--space-6) max(var(--space-7), env(safe-area-inset-bottom));
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* The privacy line on the setup screen. Body size, not caption: it is a
+   feature of the app, not fine print, and styling it small would say the
+   opposite of what it says. */
+.sl-setup__privacy {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-body);
+  line-height: 1.5;
+}
+
+/* The take-home figure on the empty fortnight. Bigger than body text but
+   deliberately not the display size — that is reserved for what the overtime
+   adds, and the two must not compete. */
+.sl-summary__figure {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: 24px;
+}
+
+.sl-summary__unit {
+  font-size: var(--text-caption);
+  color: var(--muted);
+}
+
+/* Start and End sit side by side — they are one question, and putting them on
+   two rows makes the sheet scroll on a phone for no reason. */
+.sl-sheet__times {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+/* The live preview inside the add/edit sheet: what this shift pays, before
+   committing it. Teal wash rather than a panel, so it reads as an answer to
+   the fields above rather than as another field. */
+.sl-preview {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-panel);
+  background: var(--teal-wash);
+}
+
+.sl-preview__breakdown {
+  font-size: var(--text-caption);
+  color: var(--muted);
+}
+
+/* Clear saved settings, mid-confirmation. Ruled off rather than boxed — it is
+   the last thing on the page and does not need a panel competing with the
+   result. */
+.sl-clear {
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sl-clear__question {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-body);
+}
+
+.sl-clear__actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* Add, and — once there is something to clear — Clear, on one row.
+   `.sl-btn--block` is `width: 100%`, which as a flex item would take the whole
+   line on its own and push Clear onto a second one at every width. Overriding
+   it to grow from a 12rem floor keeps Add the wide action next to a Clear that
+   is only as wide as its label, and still lets the pair wrap on a phone too
+   narrow for both rather than squeezing them onto a line neither fits. */
+.sl-shift-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.sl-shift-actions > .sl-btn--block {
+  width: auto;
+  flex: 1 1 12rem;
+}
+
+/* The non-blocking warnings under the shift list (§5.2). Its own class rather
+   than `.sl-stack` because it is a live region that must stay rendered even
+   with nothing in it — see FortnightPathway — and a stack that collapsed when
+   empty would take the announcement with it. */
+.sl-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Last pay fortnight, carried over so it can be read once more before the new
+ * one starts. The teal wash rather than the panel's own surface: it is the
+ * same "this is an answer, not a field" signal the shift-sheet preview uses,
+ * turned down — a history panel must not read as the live result, which is why
+ * there is no elevation and no display-size figure in it.
+ *
+ * The left rule is what carries the distinction at a glance on a phone, where
+ * the banner and the result panel are stacked one above the other. */
+.sl-carryover {
+  background: var(--teal-wash);
+  border-left: 3px solid var(--teal);
+}
+
+/* The line that says how the banner leaves, and the control that does it now.
+ * They wrap together rather than the button dropping alone, because the
+ * sentence is what makes "Dismiss" mean something. */
+.sl-carryover__footer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.sl-carryover__footer > .sl-caption {
+  flex: 1 1 16rem;
+}
+
+/* Share and print, under the result. Ghost buttons on the panel's own ground —
+   they are ways to take the figure elsewhere, not part of the calculation. */
+.sl-share {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+}
+
+.sl-share__status {
+  font-size: var(--text-caption);
+  color: var(--muted);
+}
+
+/* --------------------------------------------------------------- Printing */
+
+/*
+ * What prints is the answer and its working: the headline, the comparison, the
+ * shifts and the disclaimer. Everything that only makes sense on a screen —
+ * tabs, buttons, the row menus, the undo row, the settings — comes off.
+ *
+ * This is a page someone hands to a partner or sets beside a payslip, which is
+ * also why the disclosures are opened: a printed "▸ How this was worked out"
+ * is a dead end.
+ *
+ * The carried fortnight comes off too. It is last fortnight's figures sitting
+ * above this fortnight's, which is legible on a screen where it can be
+ * dismissed and is two contradictory take-home figures on a sheet of paper.
+ */
+@media print {
+  /* Printers are not dark-mode aware and a dark page wastes a cartridge. The
+     light palette is restated here rather than relying on the OS preference. */
+  :root,
+  .sl-root {
+    --paper: #ffffff;
+    --surface: #ffffff;
+    --surface-raised: #ffffff;
+    --ink: #000000;
+    --muted: #333333;
+    --line: #999999;
+    --teal: #0f4a4a;
+    --green: #14532d;
+    --red: #7f1d1d;
+    --amber-wash: #ffffff;
+    --teal-wash: #ffffff;
+    --shadow-result: none;
+  }
+
+  @page {
+    margin: 15mm;
+  }
+
+  /*
+   * The tabs themselves are chrome and go; the pay fortnight beside them is
+   * content — a printed estimate should say which period it is for — so
+   * `.sl-tabs__list` is hidden rather than the whole strip.
+   */
+  .sl-tabs__list,
+  .sl-btn,
+  .sl-carryover,
+  .sl-shift-actions,
+  .sl-shift-storage,
+  .sl-share,
+  .sl-clear,
+  .sl-undo,
+  .sl-shift__menu,
+  .sl-shift-wrap__delete,
+  .sl-disclosure__marker {
+    display: none !important;
+  }
+
+  /* Sticky positioning on paper pins the panel to the top of every page. The
+     result is only sticky in the two-column layout, but a wide print stylesheet
+     is cheaper than one that depends on the print width matching. */
+  .sl-layout__result {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+
+  /* The disclosures print open. `hidden` is an attribute, not a class, so this
+     is the one place the app overrides it deliberately. */
+  .sl-disclosure__content[hidden] {
+    display: block !important;
+  }
+
+  /* Keep a figure and its explanation on the same sheet. */
+  .sl-result,
+  .sl-panel,
+  .sl-shift,
+  .sl-figures tr {
+    break-inside: avoid;
+  }
+
+  .sl-disclaimer {
+    break-before: avoid;
+  }
+}

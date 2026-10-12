@@ -38,6 +38,8 @@ export interface CalculatorShellProps {
   deductionsSummary: string
   deductionsTax: ReactNode
   onClearSettings: () => void
+  /** False when a host owns persistence and there is nothing here to clear. */
+  showClearSettings?: boolean
   /** The pathway's own body — the hours field, or the shift list. */
   children: ReactNode
 }
@@ -64,6 +66,7 @@ export function CalculatorShell({
   deductionsSummary,
   deductionsTax,
   onClearSettings,
+  showClearSettings = true,
   children,
 }: CalculatorShellProps) {
   // The tabs sit above the layout and the body they control sits inside it, so
@@ -114,7 +117,7 @@ export function CalculatorShell({
             </Disclosure>
           </Panel>
 
-          <ClearSettings onClear={onClearSettings} />
+          {showClearSettings ? <ClearSettings onClear={onClearSettings} /> : null}
         </div>
       </CalculatorLayout>
 
