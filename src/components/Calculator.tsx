@@ -94,6 +94,12 @@ export interface CalculatorProps {
    * the two the user is owed a word about — see `readNotice`.
    */
   readStatus?: ReadStatus
+  /**
+   * Makes the id for a newly added shift. Absent in the standalone app, which
+   * keeps its per-tab `shift-N` counter; a host that syncs shifts across
+   * devices passes a UUID generator, because `shift-N` would collide.
+   */
+  createShiftId?: () => string
 }
 
 /**
@@ -119,6 +125,7 @@ export function Calculator({
   onShiftsChange,
   payDate,
   readStatus,
+  createShiftId,
 }: CalculatorProps) {
   const [fields, setFields] = useState(() => fieldsFrom(initialChoices))
   const [inSetup, setInSetup] = useState(startAtSetup)
@@ -223,7 +230,7 @@ export function Calculator({
 
   function commitDraft() {
     if (draft === null) return
-    const shift = toShift(draft)
+    const shift = toShift(draft, createShiftId)
     if (shift === null) return
 
     setShifts((current) => upsertShift(current, shift))

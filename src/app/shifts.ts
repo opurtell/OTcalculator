@@ -178,7 +178,10 @@ export function withInferredKind(draft: ShiftDraft): ShiftDraft {
 }
 
 /** The finished shift, or `null` while the draft is still missing something. */
-export function toShift(draft: ShiftDraft): OtShift | null {
+export function toShift(
+  draft: ShiftDraft,
+  createId: () => string = newShiftId,
+): OtShift | null {
   const startMin = parseClockTime(draft.start)
   const endMin = parseClockTime(draft.end)
   if (!isIsoDate(draft.date) || startMin === null || endMin === null) return null
@@ -188,7 +191,7 @@ export function toShift(draft: ShiftDraft): OtShift | null {
   if (startMin === endMin) return null
 
   return {
-    id: draft.id ?? newShiftId(),
+    id: draft.id ?? createId(),
     date: draft.date as IsoDate,
     startMin,
     endMin,

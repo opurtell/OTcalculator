@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { calculateOvertime } from '../../engine/attendance'
 import { AP1_STEP_2, HOLIDAYS_2026 } from '../../engine/__tests__/fixtures'
 import type { OtShift } from '../../engine/types'
@@ -329,5 +329,22 @@ describe('reserving restored ids', () => {
     const before = idNumber(newShiftId())
     reserveShiftIds([])
     expect(idNumber(newShiftId())).toBe(before + 1)
+  })
+})
+
+describe('toShift with an injected id generator', () => {
+  it('uses the generator for a new shift', () => {
+    const draft = { id: null, date: '2026-10-15', start: '07:00', end: '11:00', kind: 'separate' as const, kindTouched: true }
+    expect(toShift(draft, () => 'uuid-1')?.id).toBe('uuid-1')
+  })
+  it('keeps an existing id and never calls the generator', () => {
+    const draft = { id: 'keep-me', date: '2026-10-15', start: '07:00', end: '11:00', kind: 'separate' as const, kindTouched: true }
+    const gen = vi.fn(() => 'unused')
+    expect(toShift(draft, gen)?.id).toBe('keep-me')
+    expect(gen).not.toHaveBeenCalled()
+  })
+  it('falls back to shift-N when no generator is given', () => {
+    const draft = { id: null, date: '2026-10-15', start: '07:00', end: '11:00', kind: 'separate' as const, kindTouched: true }
+    expect(toShift(draft)?.id).toMatch(/^shift-\d+$/)
   })
 })
