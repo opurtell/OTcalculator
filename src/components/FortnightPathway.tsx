@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { Attendance } from '../engine/attendance'
 import type { MealOccasion } from '../engine/meals'
 import type { OtShift } from '../engine/types'
@@ -35,6 +36,8 @@ export interface FortnightPathwayProps {
    * just typed.
    */
   storageNote?: string
+  /** A host app's note, shown just above the shift list. See `Calculator`'s `embedded`. */
+  embeddedNote?: ReactNode
   onAdd: () => void
   onEdit: (shiftId: string) => void
   onDuplicate: (shiftId: string) => void
@@ -74,6 +77,7 @@ export function FortnightPathway({
   shifts,
   warnings,
   storageNote,
+  embeddedNote,
   onAdd,
   onEdit,
   onDuplicate,
@@ -87,6 +91,7 @@ export function FortnightPathway({
 
   return (
     <div className="sl-stack">
+      {embeddedNote ?? null}
       <ShiftList title="Overtime shifts" count={attendances.length}>
         {hasShifts ? (
           attendances.map((attendance) => (

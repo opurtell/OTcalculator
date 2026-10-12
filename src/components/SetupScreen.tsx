@@ -11,6 +11,12 @@ export interface SetupScreenProps extends PayBandFieldsProps {
    * every shift deserves to know why.
    */
   canRemember?: boolean
+  /**
+   * Inside a host app that owns persistence and syncs (see `Calculator`'s
+   * `embedded`). Neither "on this device" promise holds there, so the screen
+   * makes none.
+   */
+  embedded?: boolean
 }
 
 /**
@@ -27,6 +33,7 @@ export interface SetupScreenProps extends PayBandFieldsProps {
 export function SetupScreen({
   onContinue,
   canRemember = true,
+  embedded = false,
   ...bandFields
 }: SetupScreenProps) {
   return (
@@ -36,16 +43,18 @@ export function SetupScreen({
         <div className="sl-stack">
           <div>
             <h2 className="sl-heading">Set your pay band</h2>
-            <p className="sl-caption">
-              {canRemember
-                ? "We'll remember it on this device."
-                : "This browser won't let us save it, so you'll set it each visit."}
-            </p>
+            {embedded ? null : (
+              <p className="sl-caption">
+                {canRemember
+                  ? "We'll remember it on this device."
+                  : "This browser won't let us save it, so you'll set it each visit."}
+              </p>
+            )}
           </div>
           <PayBandFields {...bandFields} />
         </div>
       </Panel>
-      {canRemember ? null : (
+      {embedded || canRemember ? null : (
         <AssumptionNote>
           <p>
             Settings can't be saved in this browser. Everything still works —
@@ -56,9 +65,11 @@ export function SetupScreen({
       <Button block onClick={onContinue}>
         Continue
       </Button>
-      <p className="sl-setup__privacy">
-        Nothing you enter leaves this device. There's no account.
-      </p>
+      {embedded ? null : (
+        <p className="sl-setup__privacy">
+          Nothing you enter leaves this device. There's no account.
+        </p>
+      )}
       <Disclaimer />
     </main>
   )

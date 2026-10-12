@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import {
   DEFAULT_CHOICES,
   isKnownBand,
@@ -100,6 +101,16 @@ export interface CalculatorProps {
    * devices passes a UUID generator, because `shift-N` would collide.
    */
   createShiftId?: () => string
+  /**
+   * Running inside another app that owns persistence (the ACTAS Pay Tracker).
+   * Hides what only makes sense for this device's storage: clear-settings,
+   * the carried-over last fortnight, the "saved on this device" and "last
+   * fortnight was cleared" notes, and the setup screen's device-storage and
+   * privacy wording, which would be untrue for a host that syncs.
+   */
+  embedded?: boolean
+  /** Host copy shown above the shift list. Rendered only when `embedded`. */
+  embeddedNote?: ReactNode
 }
 
 /**
@@ -126,6 +137,8 @@ export function Calculator({
   payDate,
   readStatus,
   createShiftId,
+  embedded = false,
+  embeddedNote,
 }: CalculatorProps) {
   const [fields, setFields] = useState(() => fieldsFrom(initialChoices))
   const [inSetup, setInSetup] = useState(startAtSetup)
@@ -275,6 +288,7 @@ export function Calculator({
       <SetupScreen
         {...bandFieldProps()}
         canRemember={canRemember}
+        embedded={embedded}
         onContinue={() => setInSetup(false)}
       />
     )
@@ -357,6 +371,7 @@ export function Calculator({
       <SetupScreen
         {...bandFieldProps()}
         canRemember={canRemember}
+        embedded={embedded}
         onContinue={() => setInSetup(false)}
       />
     )
@@ -368,7 +383,7 @@ export function Calculator({
     <CalculatorShell
       payFortnightLabel={`Pay fortnight ${formatPayFortnight(fortnight)}`}
       banner={
-        carried === null ? null : (
+        embedded || carried === null ? null : (
           <LastFortnightBanner
             fortnight={carried.fortnight}
             result={carried.result}
@@ -424,6 +439,7 @@ export function Calculator({
           gross={result.withOt.gross}
         />
       }
+      showClearSettings={!embedded}
       onClearSettings={() => {
         setFields(fieldsFrom(DEFAULT_CHOICES))
         setInSetup(true)
@@ -464,12 +480,19 @@ export function Calculator({
             mealOccasions={result.mealAllowance.occasions}
             shifts={shifts}
             warnings={warnings}
-            storageNote={shiftStorageNote({
-              hasShifts: shifts.length > 0,
-              canRemember,
-              expired: shiftsExpired && !listTouched,
-              fortnight,
-            })}
+            storageNote={
+              // The host owns persistence, so what this device holds is not
+              // the app's to describe.
+              embedded
+                ? undefined
+                : shiftStorageNote({
+                    hasShifts: shifts.length > 0,
+                    canRemember,
+                    expired: shiftsExpired && !listTouched,
+                    fortnight,
+                  })
+            }
+            embeddedNote={embedded ? embeddedNote : undefined}
             onAdd={() => openDraft(emptyDraft())}
             onClearAll={clearAllShifts}
             onEdit={(shiftId) => openDraftFor(shiftId, false)}
