@@ -35,9 +35,9 @@
      bytes on a device that already has it. The mono is shipped (fonts.css)
      because digit alignment is load-bearing here and a fallback would break
      the columns. */
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+  --sl-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo,
+  --sl-font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo,
     Consolas, 'Liberation Mono', monospace;
 
   --text-result: 40px;

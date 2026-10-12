@@ -220,13 +220,13 @@
 /* Money and hour entry uses the mono face so what you type matches what the
    app prints back at you. */
 .sl-field__input--figure {
-  font-family: var(--font-mono);
+  font-family: var(--sl-font-mono);
   font-variant-numeric: tabular-nums;
 }
 
 .sl-field__affix {
   color: var(--muted);
-  font-family: var(--font-mono);
+  font-family: var(--sl-font-mono);
   font-size: var(--text-body);
   flex: none;
 }
@@ -450,7 +450,7 @@
 /* ----------------------------------------------------------------- Money */
 
 .sl-money {
-  font-family: var(--font-mono);
+  font-family: var(--sl-font-mono);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
   white-space: nowrap;
@@ -581,7 +581,7 @@
 }
 
 .sl-shift__time {
-  font-family: var(--font-mono);
+  font-family: var(--sl-font-mono);
   font-variant-numeric: tabular-nums;
   color: var(--muted);
   font-weight: 400;
@@ -625,7 +625,7 @@
 }
 
 .sl-shift-list__count {
-  font-family: var(--font-mono);
+  font-family: var(--sl-font-mono);
   font-variant-numeric: tabular-nums;
   color: var(--muted);
   font-size: var(--text-figure);
