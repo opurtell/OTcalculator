@@ -64,7 +64,12 @@ export function FigureTable({ columns, rows, caption }: FigureTableProps) {
       {columns ? (
         <thead>
           <tr>
-            <th scope="col" />
+            {/* Names the row-label column for screen readers; an empty
+                header fails axe `empty-table-header`. Hidden, so the corner
+                still looks blank. */}
+            <th scope="col">
+              <span className="sl-visually-hidden">Item</span>
+            </th>
             {columns.map((column) => (
               <th key={column} scope="col">
                 {column}

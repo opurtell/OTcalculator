@@ -96,6 +96,16 @@ describe('the three-hour minimum (B14.1)', () => {
     expect(cents(a.casual!.pay)).toBe(325.86)
   })
 
+  it('does not apply the C9.5 four-hour top-up, tiered or otherwise', () => {
+    // A casual's short attendance is ordinary time under B14.1, not overtime,
+    // so the C9.5 padding (and its 1.5x → 2x tiering) never reaches it.
+    const a = price(shift('2026-08-19', '07:00', '08:00'))
+    expect(a.casual?.paidMinutes).toBe(180)
+    expect(a.minimumApplied).toBe(false)
+    expect(a.topUp).toEqual([])
+    expect(a.pay).toBe(0)
+  })
+
   it('does not apply at three hours', () => {
     const a = price(shift('2026-08-19', '09:00', '12:00'))
     expect(a.casual?.minimumApplied).toBe(false)

@@ -32,10 +32,12 @@ import type {
 } from './types'
 import {
   ATTENDANCE_GAP_MINUTES,
+  MF_FIRST_TIER_MINUTES,
   GROUPING_UNCERTAIN_MAX_MINUTES,
   GROUPING_UNCERTAIN_MIN_MINUTES,
   MINIMUM_PAYMENT_MINUTES,
   MINUTES_PER_DAY,
+  MULTIPLIER,
 } from './types'
 
 /**
@@ -77,12 +79,81 @@ function intervalEnd(shift: OtShift): number {
   return intervalStart(shift) + shiftDuration(shift)
 }
 
+/** Some C9.5 top-up minutes and the category they are paid at. */
+export interface TopUpPart {
+  category: OtCategory
+  minutes: number
+}
+
+const isWeekdayCategory = (category: OtCategory): boolean =>
+  category === 'mf_1_5x' || category === 'mf_2x'
+
+/**
+ * The category that sets the C9.5 top-up's rate.
+ *
+ * Normally the first worked minute's (§3.6). But when the worked minutes span
+ * two calendar days and the highest category worked is a Saturday, Sunday or
+ * public holiday one, the minimum is paid at that higher rate (C9.8) — the
+ * later category on ties, so Saturday into Sunday pads at Sunday. This matches
+ * the Pay Tracker engine (Oscar's ruling, 13 October 2026).
+ */
+function topUpRateCategory(segments: readonly Segment[]): OtCategory {
+  const first = segments[0].category
+  const spansTwoDays = segments.some((s) => s.date !== segments[0].date)
+  if (!spansTwoDays) return first
+
+  let highest = first
+  for (const segment of segments) {
+    if (MULTIPLIER[segment.category] >= MULTIPLIER[highest]) {
+      highest = segment.category
+    }
+  }
+  return isWeekdayCategory(highest) ? first : highest
+}
+
+/**
+ * Split the C9.5 top-up into the categories it is paid at.
+ *
+ * A Saturday, Sunday or public holiday rate category — including one reached
+ * by crossing midnight into that day — pays the whole top-up flat. A weekday
+ * one carries on the Mon–Fri tiering from where the worked hours left it: the
+ * weekday minutes already worked use up the first two hours at 1.5× before any
+ * padding does, across a weekday-to-weekday midnight too. So a one-hour
+ * call-in pays 1h worked and 1h padded at 1.5×, then 2h padded at 2×.
+ */
+function splitTopUp(
+  segments: readonly Segment[],
+  rateCategory: OtCategory,
+  topUpMinutes: number,
+): TopUpPart[] {
+  if (topUpMinutes <= 0) return []
+
+  if (!isWeekdayCategory(rateCategory)) {
+    return [{ category: rateCategory, minutes: topUpMinutes }]
+  }
+
+  const weekdayWorked = segments
+    .filter((s) => isWeekdayCategory(s.category))
+    .reduce((total, s) => total + s.minutes, 0)
+  const atFirstTier = Math.min(
+    topUpMinutes,
+    Math.max(0, MF_FIRST_TIER_MINUTES - weekdayWorked),
+  )
+
+  const parts: TopUpPart[] = []
+  if (atFirstTier > 0) parts.push({ category: 'mf_1_5x', minutes: atFirstTier })
+  if (topUpMinutes > atFirstTier) {
+    parts.push({ category: 'mf_2x', minutes: topUpMinutes - atFirstTier })
+  }
+  return parts
+}
+
 /**
  * One continuous attendance, priced.
  *
  * `workedMinutes` is what was actually worked; `paidMinutes` is what it pays.
  * They differ only when the C9.5 minimum applies, and the difference is always
- * explained by `topUpMinutes` and `topUpCategory`.
+ * explained by `topUpMinutes` and `topUp`.
  */
 export interface Attendance {
   shiftIds: string[]
@@ -97,8 +168,24 @@ export interface Attendance {
   paidMinutes: number
   /** Minutes added by the C9.5 minimum. Zero unless `minimumApplied`. */
   topUpMinutes: number
-  /** Rate the top-up is paid at: the first hour of the attendance (§3.6). */
+  /**
+   * The category that sets the top-up's rate: the first worked minute's
+   * (§3.6), unless a midnight crossover reaches a higher Saturday, Sunday or
+   * public holiday category, which then sets it (C9.8). For a weekday category
+   * that is only where the tiering begins — see `topUp` for what the top-up
+   * actually pays.
+   */
   topUpCategory: OtCategory | null
+  /**
+   * The top-up minutes by the category each is paid at, in order. Empty unless
+   * `minimumApplied`. A weekday top-up tiers like worked overtime — whatever is
+   * left of the first two hours at 1.5×, the rest at 2×, including across a
+   * weekday-to-weekday midnight (Oscar's ruling, 13 October 2026) — while a
+   * Saturday, Sunday or public holiday top-up is one flat-rate entry. A
+   * crossover into a Saturday, Sunday or public holiday pads flat at the
+   * highest category worked, the later one on ties (C9.8).
+   */
+  topUp: TopUpPart[]
   minimumApplied: boolean
   crossesMidnight: boolean
   flags: AttendanceFlag[]
@@ -238,13 +325,16 @@ export function priceAttendance(
   const minimumApplied =
     kind === 'separate' && workedMinutes < MINIMUM_PAYMENT_MINUTES
   const topUpMinutes = minimumApplied ? MINIMUM_PAYMENT_MINUTES - workedMinutes : 0
-  const topUpCategory = topUpMinutes > 0 ? segments[0].category : null
+  const topUpCategory = topUpMinutes > 0 ? topUpRateCategory(segments) : null
+  const topUp =
+    topUpCategory === null ? [] : splitTopUp(segments, topUpCategory, topUpMinutes)
 
   const workedPay = segmentsPay(segments, band.annualBase)
-  const topUpPay =
-    topUpCategory === null
-      ? 0
-      : (topUpMinutes / 60) * categoryHourlyRate(band.annualBase, topUpCategory)
+  const topUpPay = topUp.reduce(
+    (total, part) =>
+      total + (part.minutes / 60) * categoryHourlyRate(band.annualBase, part.category),
+    0,
+  )
 
   return {
     shiftIds: shifts.map((shift) => shift.id),
@@ -259,6 +349,7 @@ export function priceAttendance(
     paidMinutes: workedMinutes + topUpMinutes,
     topUpMinutes,
     topUpCategory,
+    topUp,
     minimumApplied,
     crossesMidnight: span.crossesMidnight,
     flags: flagsFor(shifts, span.dates, holidays),
