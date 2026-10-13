@@ -180,17 +180,66 @@ describe('the C9.5 four-hour minimum', () => {
     ])
   })
 
-  it('tiers a Friday-into-Saturday top-up from the first hour, which is weekday', () => {
-    // The top-up still takes its rate from the first worked minute (§3.6), so
-    // a Friday start tiers on the 30 weekday minutes worked. Pinned so a C9.8
-    // "higher rate" reading is a deliberate change, not a drift.
-    const attendance = price([shift('2026-08-21', '23:30', '00:30', 'separate')])
+  describe('midnight crossovers at AP2 step 2 (C9.8, Oscar\'s ruling 13 October 2026)', () => {
+    // Figures cross-checked against the Pay Tracker engine. A crossover into a
+    // Saturday, Sunday or public holiday pads flat at the highest category
+    // worked (the later one on ties); a weekday-to-weekday crossover tiers.
+    const ap2Step2 = payBandFor('AP2', 2)!
+    const priceAp2 = (shifts: Parameters<typeof priceAttendance>[0]) =>
+      priceAttendance(shifts, ap2Step2, HOLIDAYS_2026)
 
-    expect(attendance.categories).toEqual(['mf_1_5x', 'sat_2x'])
-    expect(attendance.topUp).toEqual([
-      { category: 'mf_1_5x', minutes: 90 },
-      { category: 'mf_2x', minutes: 90 },
-    ])
+    it('pads Friday 23:30 → Saturday 00:30 flat at the Saturday rate → $448.63', () => {
+      const attendance = priceAp2([shift('2026-08-21', '23:30', '00:30', 'separate')])
+
+      expect(attendance.categories).toEqual(['mf_1_5x', 'sat_2x'])
+      expect(attendance.topUp).toEqual([{ category: 'sat_2x', minutes: 180 }])
+      expect(cents(attendance.pay)).toBe(448.63)
+    })
+
+    it('pads Friday 23:00 → Saturday 01:00 flat at the Saturday rate → $434.16', () => {
+      const attendance = priceAp2([shift('2026-08-21', '23:00', '01:00', 'separate')])
+
+      expect(attendance.topUp).toEqual([{ category: 'sat_2x', minutes: 120 }])
+      expect(cents(attendance.pay)).toBe(434.16)
+    })
+
+    it('pads Saturday 23:30 → Sunday 00:30 at the later tied category, Sunday → $463.10', () => {
+      const attendance = priceAp2([shift('2026-08-15', '23:30', '00:30', 'separate')])
+
+      expect(attendance.topUp).toEqual([{ category: 'sun_2x', minutes: 180 }])
+      expect(cents(attendance.pay)).toBe(463.1)
+    })
+
+    it('pads Thursday 23:30 → Christmas Day 00:30 at the holiday rate → $549.93', () => {
+      const attendance = priceAp2([shift('2026-12-24', '23:30', '00:30', 'separate')])
+
+      expect(attendance.topUp).toEqual([{ category: 'ph_2_5x', minutes: 180 }])
+      expect(cents(attendance.pay)).toBe(549.93)
+    })
+
+    it('pads Sunday 23:30 → Labour Day 00:30 at the holiday rate → $564.41', () => {
+      const attendance = priceAp2([shift('2026-10-04', '23:30', '00:30', 'separate')])
+
+      expect(attendance.topUp).toEqual([{ category: 'ph_2_5x', minutes: 180 }])
+      expect(cents(attendance.pay)).toBe(564.41)
+    })
+
+    it('tiers Monday 23:30 → Tuesday 00:30: 60 min at 1.5x, 120 min at 2x → $405.21', () => {
+      const attendance = priceAp2([shift('2026-08-17', '23:30', '00:30', 'separate')])
+
+      expect(attendance.topUp).toEqual([
+        { category: 'mf_1_5x', minutes: 60 },
+        { category: 'mf_2x', minutes: 120 },
+      ])
+      expect(cents(attendance.pay)).toBe(405.21)
+    })
+
+    it('tiers Monday 23:00 → Tuesday 01:00: the 120-minute top-up all at 2x → $405.21', () => {
+      const attendance = priceAp2([shift('2026-08-17', '23:00', '01:00', 'separate')])
+
+      expect(attendance.topUp).toEqual([{ category: 'mf_2x', minutes: 120 }])
+      expect(cents(attendance.pay)).toBe(405.21)
+    })
   })
 
   it('has no top-up for a shift of four hours or more', () => {

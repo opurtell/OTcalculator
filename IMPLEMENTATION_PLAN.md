@@ -136,7 +136,7 @@ Default: infer from duration — under 4 hours defaults to *continuous* (most sh
 
 When the minimum bites, show it explicitly: `2h 15m worked → 4h paid (C9.5 minimum)`. Users should never see an unexplained number that's larger than their hours.
 
-Top-up hours are paid at the rate of the first hour of the attendance. On a weekday that rate is tiered: the top-up carries on the Mon–Fri count from the hours worked, so whatever is left of the first two hours is 1.5× and the rest 2× — a one-hour call-in pays 2h at 1.5× and 2h at 2× (Oscar's ruling, 13 October 2026). Saturday, Sunday and public holiday top-ups are flat.
+Top-up hours are paid at the rate of the first hour of the attendance. On a weekday that rate is tiered: the top-up carries on the Mon–Fri count from the hours worked, worked and padded time together, so whatever is left of the first two hours is 1.5× and the rest 2× — a one-hour call-in pays 2h at 1.5× and 2h at 2×, and a weekday-to-weekday midnight crossover tiers the same way (Oscar's ruling, 13 October 2026). Saturday, Sunday and public holiday top-ups are flat. A crossover into a Saturday, Sunday or public holiday pads flat at the highest category worked, the later one on ties — "the minimum is paid at the higher rate" (C9.8), matching the Pay Tracker engine (Oscar's ruling, 13 October 2026): Friday 23:30 → Saturday 00:30 pads 3h at Saturday 2×, Saturday into Sunday pads at Sunday 2×.
 
 The quick calculator does not model this — it states its assumption instead (§5.1).
 
