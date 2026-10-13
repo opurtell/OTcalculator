@@ -136,7 +136,7 @@ Default: infer from duration — under 4 hours defaults to *continuous* (most sh
 
 When the minimum bites, show it explicitly: `2h 15m worked → 4h paid (C9.5 minimum)`. Users should never see an unexplained number that's larger than their hours.
 
-Top-up hours are paid at the rate of the first hour of the attendance.
+Top-up hours are paid at the rate of the first hour of the attendance. On a weekday that rate is tiered: the top-up carries on the Mon–Fri count from the hours worked, so whatever is left of the first two hours is 1.5× and the rest 2× — a one-hour call-in pays 2h at 1.5× and 2h at 2× (Oscar's ruling, 13 October 2026). Saturday, Sunday and public holiday top-ups are flat.
 
 The quick calculator does not model this — it states its assumption instead (§5.1).
 

@@ -284,6 +284,7 @@ export function priceCasualAttendance(
     paidMinutes: overtimeMinutes,
     topUpMinutes: 0,
     topUpCategory: null,
+    topUp: [],
     minimumApplied: false,
     crossesMidnight: span.crossesMidnight,
     flags: flagsFor(shifts, span.dates, holidays),

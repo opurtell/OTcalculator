@@ -32,6 +32,7 @@ import type {
 } from './types'
 import {
   ATTENDANCE_GAP_MINUTES,
+  MF_FIRST_TIER_MINUTES,
   GROUPING_UNCERTAIN_MAX_MINUTES,
   GROUPING_UNCERTAIN_MIN_MINUTES,
   MINIMUM_PAYMENT_MINUTES,
@@ -77,6 +78,48 @@ function intervalEnd(shift: OtShift): number {
   return intervalStart(shift) + shiftDuration(shift)
 }
 
+/** Some C9.5 top-up minutes and the category they are paid at. */
+export interface TopUpPart {
+  category: OtCategory
+  minutes: number
+}
+
+/**
+ * Split the C9.5 top-up into the categories it is paid at.
+ *
+ * The rate comes from the first worked minute (§3.6). If that is a weekday
+ * rate, the padded hours carry on the Mon–Fri tiering from where the worked
+ * hours left it: the weekday minutes already worked use up the first two
+ * hours at 1.5× before any padding does. So a one-hour call-in pays 1h worked
+ * and 1h padded at 1.5×, then 2h padded at 2×. Other categories are flat.
+ */
+function splitTopUp(
+  segments: readonly Segment[],
+  topUpMinutes: number,
+): TopUpPart[] {
+  if (topUpMinutes <= 0) return []
+
+  const first = segments[0].category
+  if (first !== 'mf_1_5x' && first !== 'mf_2x') {
+    return [{ category: first, minutes: topUpMinutes }]
+  }
+
+  const weekdayWorked = segments
+    .filter((s) => s.category === 'mf_1_5x' || s.category === 'mf_2x')
+    .reduce((total, s) => total + s.minutes, 0)
+  const atFirstTier = Math.min(
+    topUpMinutes,
+    Math.max(0, MF_FIRST_TIER_MINUTES - weekdayWorked),
+  )
+
+  const parts: TopUpPart[] = []
+  if (atFirstTier > 0) parts.push({ category: 'mf_1_5x', minutes: atFirstTier })
+  if (topUpMinutes > atFirstTier) {
+    parts.push({ category: 'mf_2x', minutes: topUpMinutes - atFirstTier })
+  }
+  return parts
+}
+
 /**
  * One continuous attendance, priced.
  *
@@ -97,8 +140,20 @@ export interface Attendance {
   paidMinutes: number
   /** Minutes added by the C9.5 minimum. Zero unless `minimumApplied`. */
   topUpMinutes: number
-  /** Rate the top-up is paid at: the first hour of the attendance (§3.6). */
+  /**
+   * The category of the first worked minute, which sets the top-up's rate
+   * (§3.6). For a weekday start that is only where the tiering begins — see
+   * `topUp` for what the top-up actually pays.
+   */
   topUpCategory: OtCategory | null
+  /**
+   * The top-up minutes by the category each is paid at, in order. Empty unless
+   * `minimumApplied`. A weekday top-up tiers like worked overtime — whatever is
+   * left of the first two hours at 1.5×, the rest at 2× (Oscar's ruling,
+   * 13 October 2026) — while a Saturday, Sunday or public holiday top-up is one
+   * flat-rate entry.
+   */
+  topUp: TopUpPart[]
   minimumApplied: boolean
   crossesMidnight: boolean
   flags: AttendanceFlag[]
@@ -239,12 +294,14 @@ export function priceAttendance(
     kind === 'separate' && workedMinutes < MINIMUM_PAYMENT_MINUTES
   const topUpMinutes = minimumApplied ? MINIMUM_PAYMENT_MINUTES - workedMinutes : 0
   const topUpCategory = topUpMinutes > 0 ? segments[0].category : null
+  const topUp = splitTopUp(segments, topUpMinutes)
 
   const workedPay = segmentsPay(segments, band.annualBase)
-  const topUpPay =
-    topUpCategory === null
-      ? 0
-      : (topUpMinutes / 60) * categoryHourlyRate(band.annualBase, topUpCategory)
+  const topUpPay = topUp.reduce(
+    (total, part) =>
+      total + (part.minutes / 60) * categoryHourlyRate(band.annualBase, part.category),
+    0,
+  )
 
   return {
     shiftIds: shifts.map((shift) => shift.id),
@@ -259,6 +316,7 @@ export function priceAttendance(
     paidMinutes: workedMinutes + topUpMinutes,
     topUpMinutes,
     topUpCategory,
+    topUp,
     minimumApplied,
     crossesMidnight: span.crossesMidnight,
     flags: flagsFor(shifts, span.dates, holidays),

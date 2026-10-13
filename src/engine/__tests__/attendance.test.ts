@@ -5,6 +5,7 @@ import {
   priceAttendance,
   shiftDuration,
 } from '../attendance'
+import { payBandFor } from '../../data/pay-rates'
 import { AP1_STEP_2, HOLIDAYS_2026, cents, shift } from './fixtures'
 
 const price = (shifts: Parameters<typeof priceAttendance>[0]) =>
@@ -109,20 +110,94 @@ describe('the C9.5 four-hour minimum', () => {
     expect(longer.minimumApplied).toBe(false)
   })
 
-  it('pays the top-up at the rate of the first hour', () => {
-    // A two-hour Wednesday call-in sits entirely in the 1.5× tier, so the two
-    // top-up hours are 1.5× too — not the 2× the clock would have reached.
+  it('tiers weekday top-up hours like worked overtime: 1.5x, then 2x', () => {
+    // Oscar's ruling, 13 October 2026: padded hours tier exactly as worked
+    // overtime would. A two-hour Wednesday call-in fills the 1.5x tier with
+    // the hours worked, so both top-up hours are paid at 2x.
     const attendance = price([shift('2026-08-19', '09:00', '11:00', 'separate')])
 
     expect(attendance.topUpCategory).toBe('mf_1_5x')
-    expect(cents(attendance.pay)).toBe(cents(4 * 72.41314987))
+    expect(attendance.topUp).toEqual([{ category: 'mf_2x', minutes: 120 }])
+    expect(cents(attendance.pay)).toBe(cents(2 * 72.41314987 + 2 * 96.55086598))
   })
 
-  it('pays a Sunday top-up at the Sunday rate', () => {
+  it('pays the reference case: AP2 step 2, weekday 07:00-08:00 → $405.21', () => {
+    // hourly = 114,753 × 12/313 ÷ 76 ≈ $57.888; 1.5x × 2h + 2x × 2h.
+    const ap2Step2 = payBandFor('AP2', 2)!
+    const attendance = priceAttendance(
+      [shift('2026-08-19', '07:00', '08:00', 'separate')],
+      ap2Step2,
+      HOLIDAYS_2026,
+    )
+
+    expect(attendance.paidMinutes).toBe(240)
+    expect(attendance.topUp).toEqual([
+      { category: 'mf_1_5x', minutes: 60 },
+      { category: 'mf_2x', minutes: 120 },
+    ])
+    expect(cents(attendance.pay)).toBe(405.21)
+  })
+
+  it('pays the one remaining top-up hour of a three-hour weekday shift at 2x', () => {
+    const attendance = price([shift('2026-08-19', '09:00', '12:00', 'separate')])
+
+    expect(attendance.topUp).toEqual([{ category: 'mf_2x', minutes: 60 }])
+    expect(cents(attendance.pay)).toBe(cents(2 * 72.41314987 + 2 * 96.55086598))
+  })
+
+  it('pays a Sunday top-up at the flat Sunday rate', () => {
     const attendance = price([shift('2026-08-16', '09:00', '11:00', 'separate')])
 
     expect(attendance.topUpCategory).toBe('sun_2x')
+    expect(attendance.topUp).toEqual([{ category: 'sun_2x', minutes: 120 }])
     expect(cents(attendance.pay)).toBe(cents(4 * 96.55086598))
+  })
+
+  it('pays a Saturday top-up at the flat Saturday rate (N34)', () => {
+    const attendance = price([shift('2026-08-15', '09:00', '10:00', 'separate')])
+
+    expect(attendance.topUp).toEqual([{ category: 'sat_2x', minutes: 180 }])
+    expect(cents(attendance.pay)).toBe(cents(4 * 96.55086598))
+  })
+
+  it('pays a public holiday top-up at the flat 2.5x rate', () => {
+    // Labour Day, 5 October 2026 — a Monday, so the calendar alone would tier.
+    const attendance = price([shift('2026-10-05', '09:00', '10:00', 'separate')])
+
+    expect(attendance.topUp).toEqual([{ category: 'ph_2_5x', minutes: 180 }])
+    expect(cents(attendance.pay)).toBe(cents(4 * 2.5 * 48.27543299))
+  })
+
+  it('carries the weekday tier across midnight into the top-up', () => {
+    // Monday 23:30 → Tuesday 00:30: one weekday hour worked at 1.5x, so the
+    // top-up has one 1.5x hour left before 2x — the counter does not reset.
+    const attendance = price([shift('2026-08-17', '23:30', '00:30', 'separate')])
+
+    expect(attendance.crossesMidnight).toBe(true)
+    expect(attendance.topUp).toEqual([
+      { category: 'mf_1_5x', minutes: 60 },
+      { category: 'mf_2x', minutes: 120 },
+    ])
+  })
+
+  it('tiers a Friday-into-Saturday top-up from the first hour, which is weekday', () => {
+    // The top-up still takes its rate from the first worked minute (§3.6), so
+    // a Friday start tiers on the 30 weekday minutes worked. Pinned so a C9.8
+    // "higher rate" reading is a deliberate change, not a drift.
+    const attendance = price([shift('2026-08-21', '23:30', '00:30', 'separate')])
+
+    expect(attendance.categories).toEqual(['mf_1_5x', 'sat_2x'])
+    expect(attendance.topUp).toEqual([
+      { category: 'mf_1_5x', minutes: 90 },
+      { category: 'mf_2x', minutes: 90 },
+    ])
+  })
+
+  it('has no top-up for a shift of four hours or more', () => {
+    const attendance = price([shift('2026-08-19', '09:00', '13:00', 'separate')])
+
+    expect(attendance.topUp).toEqual([])
+    expect(attendance.topUpCategory).toBeNull()
   })
 
   it('does not apply when an overrun is grouped with a separate shift', () => {
