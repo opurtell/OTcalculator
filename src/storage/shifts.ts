@@ -111,7 +111,7 @@ function isShiftKind(value: unknown): value is ShiftKind {
 export function parseStoredShift(value: unknown): OtShift | null {
   if (!isRecord(value)) return null
 
-  const { id, date, startMin, endMin, kind } = value
+  const { id, date, startMin, endMin, kind, level2 } = value
   if (typeof id !== 'string' || id === '') return null
   if (typeof date !== 'string' || !isIsoDate(date)) return null
   if (!isMinuteOfDay(startMin) || !isMinuteOfDay(endMin)) return null
@@ -127,6 +127,9 @@ export function parseStoredShift(value: unknown): OtShift | null {
     endMin,
     endsNextDay: endMin <= startMin,
     kind,
+    // Optional and absent unless set, so a record from before Level 2 shifts
+    // reads back unchanged. Anything but `true` is the user's own band.
+    ...(level2 === true ? { level2: true } : {}),
   }
 }
 
@@ -231,12 +234,13 @@ export function saveShifts(
         payPeriodEnd,
         // `endsNextDay` is derived on read, so it is not written. Storing a
         // field the reader ignores is an invitation to trust it later.
-        shifts: shifts.map(({ id, date, startMin, endMin, kind }) => ({
+        shifts: shifts.map(({ id, date, startMin, endMin, kind, level2 }) => ({
           id,
           date,
           startMin,
           endMin,
           kind,
+          ...(level2 === true ? { level2: true } : {}),
         })),
       }),
     )

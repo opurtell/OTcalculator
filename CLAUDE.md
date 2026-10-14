@@ -155,6 +155,27 @@ on a phone, and `ShiftRow` (`statusLabel`) and `DerivedPayPanel`
 (`secondaryLabel`, `secondaryEditable`) gained optional props the design sync
 has not seen.
 
+## Level 2 shifts
+
+A shift can be marked **Paid at → Level 2** in the shift sheet: a Duty
+Officer, TDO, CSO, Comms Centre Clinician or Station Officer shift, paid at
+Level 2 of the user's own qualification. `OtShift.level2` is optional (absent
+= own band, so no storage bump); `level2BandFor` in `src/data/pay-rates.ts`
+maps AP1 → AP2 and ICP1 → ICP2 at **step 1** (`LEVEL2_STEP`), and someone
+already on Level 2 keeps their own step. `resolveSettings` puts it in
+`FortnightSettings.level2Band`; `attendanceBand` in `attendance.ts` picks the
+band per attendance. Three rules:
+
+- **Only when every shift in the attendance is marked.** A part-marked
+  attendance prices at the own band and raises `level2-partial` (errs low).
+- **Never below the user's own band** (C7.1, C7.6) — an overridden base above
+  the Level 2 table wins.
+- **Step 1 is an assumption**, not clause text: C5.3 lifts it after 12 months
+  of higher duties, which a per-shift mark cannot know. Phase 10 checks it.
+
+The meal allowance is a flat rate and does not move. The sibling app reads
+`level2` through the embed bridge (`payLevel2` on its work events).
+
 ## Advanced deductions, and Spendable
 
 The "Advanced" toggle in the Deductions & tax panel splits the one pre-tax field

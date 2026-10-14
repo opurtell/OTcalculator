@@ -30,6 +30,8 @@ import {
 } from '../ui/index'
 import type { ShiftKind } from '../ui/index'
 
+type PayLevel = 'own' | 'level2'
+
 export interface ShiftSheetProps {
   draft: ShiftDraft
   onDraftChange: (draft: ShiftDraft) => void
@@ -45,6 +47,8 @@ export interface ShiftSheetProps {
    * 7h36 of it.
    */
   employment?: EmploymentType
+  /** The band a shift marked Level 2 is priced at (`FortnightSettings.level2Band`). */
+  level2Band?: PayBand
 }
 
 /**
@@ -75,6 +79,7 @@ export function ShiftSheet({
   holidays,
   meals: mealSettings,
   employment = 'full-time',
+  level2Band,
 }: ShiftSheetProps) {
   const casual = employment === 'casual'
   const editing = draft.id !== null
@@ -85,8 +90,8 @@ export function ShiftSheet({
     shift === null
       ? null
       : (casual
-          ? calculateCasual([shift], band, holidays)
-          : calculateOvertime([shift], band, holidays)
+          ? calculateCasual([shift], band, holidays, level2Band)
+          : calculateOvertime([shift], band, holidays, level2Band)
         ).attendances[0]
   const description = preview === null ? null : describeAttendance(preview)
   // Priced by the same function the fortnight uses, on this shift alone — the
@@ -182,6 +187,25 @@ export function ShiftSheet({
               draft.kind === 'separate'
                 ? 'Separate shifts have a 4-hour minimum payment.'
                 : 'A shift overrun is paid its actual hours, however short.'
+            }
+          />
+        )}
+
+        {level2Band === undefined ? null : (
+          <SegmentedControl<PayLevel>
+            label="Paid at"
+            value={draft.level2 ? 'level2' : 'own'}
+            onChange={(level) =>
+              onDraftChange({ ...draft, level2: level === 'level2' })
+            }
+            options={[
+              { value: 'own', label: 'My level' },
+              { value: 'level2', label: 'Level 2', note: level2Band.classification },
+            ]}
+            hint={
+              draft.level2
+                ? `Priced at ${level2Band.classification} Step ${level2Band.step} — a Duty Officer, TDO, CSO, Comms or Station Officer shift. Never less than your own rate.`
+                : 'Choose Level 2 if this shift was paid at Level 2 of your qualification.'
             }
           />
         )}

@@ -142,6 +142,15 @@ function flagWarnings(
         })
         break
 
+      case 'level2-partial':
+        warnings.push({
+          id: `level2-${flag.date}-${index}`,
+          text: `${formatShortDate(
+            flag.date,
+          )}: only some of the shifts joined into this attendance are marked Level 2, so it is priced at your own band. Mark all of them if the whole attendance was at Level 2.`,
+        })
+        break
+
       // Packaging flags are shown beside the deductions they belong to rather
       // than in the fortnight's warning list, where they would be adrift from
       // the fields that caused them.

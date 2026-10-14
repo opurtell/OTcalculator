@@ -24,8 +24,10 @@
  */
 
 import {
+  attendanceBand,
   flagsFor,
   groupIntoAttendances,
+  level2Flags,
   intervalsFor,
 } from './attendance'
 import type { Attendance, OvertimeResult } from './attendance'
@@ -209,12 +211,16 @@ const PENALTY_ORDER: readonly ShiftPenaltyCategory[] = [
 /** Price one already-grouped attendance as a casual engagement. */
 export function priceCasualAttendance(
   shifts: readonly OtShift[],
-  band: PayBand,
+  ownBand: PayBand,
   holidays: HolidayCalendar,
+  level2Band?: PayBand,
 ): Attendance {
   if (shifts.length === 0) {
     throw new RangeError('An attendance needs at least one shift')
   }
+  // A casual engagement at Level 2 is priced from the Level 2 base throughout:
+  // the ordinary hours, the loading and penalties on them, and the overtime.
+  const { band, level2, partial } = attendanceBand(shifts, ownBand, level2Band)
 
   const intervals = intervalsFor(shifts)
   const span = attendanceSpan(intervals)
@@ -287,10 +293,11 @@ export function priceCasualAttendance(
     topUp: [],
     minimumApplied: false,
     crossesMidnight: span.crossesMidnight,
-    flags: flagsFor(shifts, span.dates, holidays),
+    flags: [...flagsFor(shifts, span.dates, holidays), ...level2Flags(partial, span.startDate)],
     pay: segmentsPay(segments, band.annualBase),
     intervals,
     casual,
+    level2,
   }
 }
 
@@ -306,9 +313,10 @@ export function calculateCasual(
   shifts: readonly OtShift[],
   band: PayBand,
   holidays: HolidayCalendar,
+  level2Band?: PayBand,
 ): CasualResult {
   const attendances = groupIntoAttendances(shifts).map((group) =>
-    priceCasualAttendance(group, band, holidays),
+    priceCasualAttendance(group, band, holidays, level2Band),
   )
 
   return {

@@ -212,7 +212,7 @@ function AttendanceRow({
       timeRange={formatTimeRange(attendance.startMin, attendance.endMin)}
       breakdown={parts.join(' · ')}
       kind={attendance.kind}
-      statusLabel={attendance.casual === undefined ? undefined : 'Casual shift'}
+      statusLabel={statusLabelFor(attendance)}
       amount={attendanceTotalPay(attendance)}
       assumption={assumption || joined}
       // Editing a joined row opens the first entry: it is the one whose start
@@ -222,4 +222,13 @@ function AttendanceRow({
       onDelete={() => onDelete(attendance.shiftIds)}
     />
   )
+}
+
+/** The row's tag: casual, Level 2, both, or nothing. */
+function statusLabelFor(attendance: Attendance): string | undefined {
+  const labels = [
+    attendance.casual === undefined ? null : 'Casual shift',
+    attendance.level2 ? 'Level 2' : null,
+  ].filter((label): label is string => label !== null)
+  return labels.length === 0 ? undefined : labels.join(' · ')
 }
