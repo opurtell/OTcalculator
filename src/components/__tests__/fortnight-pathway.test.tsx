@@ -268,9 +268,20 @@ describe('the add/edit sheet', () => {
         band={settings.band}
         holidays={settings.holidays}
         meals={settings.meals}
+        level2Band={settings.level2Band}
       />,
     )
   }
+
+  it('offers Level 2 and prices the preview at it when chosen', () => {
+    const own = renderSheet({ date: '2026-08-15', start: '09:00', end: '19:00' })
+    expect(own).toContain('Paid at')
+    expect(own).toContain('Level 2')
+    const level2 = renderSheet({ date: '2026-08-15', start: '09:00', end: '19:00', level2: true })
+    expect(level2).toContain('10h · all at 2× (Saturday) · Level 2 rate')
+    expect(level2).toContain('$1,094.24')
+    expect(level2).toContain('Priced at AP2 Step 1')
+  })
 
   it('previews what the shift pays before it is committed', () => {
     const html = renderSheet({ date: '2026-08-15', start: '09:00', end: '19:00' })

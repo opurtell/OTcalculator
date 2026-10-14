@@ -22,6 +22,7 @@ import {
   fallbackCaption,
   helpFallbackCaption,
   helpScheduleFor,
+  level2BandFor,
   otMealAllowanceFor,
   payBandFor,
   taxScaleFor,
@@ -300,6 +301,9 @@ export function resolveSettings(
           ? undefined
           : (choices.band.fortnightlyGross ?? undefined),
       employment: choices.employment,
+      // Level 2 of the user's qualification, from the table rather than any
+      // override: an overridden base above it simply wins (`attendanceBand`).
+      level2Band: level2BandFor(choices.band.classification, choices.band.step),
     },
   }
 }

@@ -199,6 +199,39 @@ export interface Attendance {
   intervals: Interval[]
   /** The casual ordinary hours in front of the overtime. Absent for full-time. */
   casual?: CasualOrdinary
+  /** Priced at the Level 2 band rather than the user's own. */
+  level2: boolean
+}
+
+/**
+ * The band an attendance is priced at, and whether that is Level 2.
+ *
+ * Level 2 only when **every** shift in the attendance is marked: a holdover
+ * marked Level 2 that joins an unmarked shift is a contradiction the app
+ * cannot settle, so it prices the lower rate and says so (`level2-partial`).
+ * And never below the user's own band (EBA C7.1, C7.6): a hand-entered base
+ * above the Level 2 table, or someone already on Level 2, keeps their own.
+ */
+export function attendanceBand(
+  shifts: readonly OtShift[],
+  band: PayBand,
+  level2Band: PayBand | undefined,
+): { band: PayBand; level2: boolean; partial: boolean } {
+  const marked = shifts.filter((shift) => shift.level2 === true).length
+  const all = marked > 0 && marked === shifts.length
+  const partial = marked > 0 && !all
+  if (!all || level2Band === undefined || level2Band.annualBase <= band.annualBase) {
+    return { band, level2: false, partial }
+  }
+  return { band: level2Band, level2: true, partial }
+}
+
+/** The `level2-partial` flag for an attendance, when it applies. */
+export function level2Flags(
+  partial: boolean,
+  startDate: IsoDate,
+): AttendanceFlag[] {
+  return partial ? [{ kind: 'level2-partial', date: startDate }] : []
 }
 
 /**
@@ -309,12 +342,14 @@ export function flagsFor(
 /** Price one already-grouped attendance. */
 export function priceAttendance(
   shifts: readonly OtShift[],
-  band: PayBand,
+  ownBand: PayBand,
   holidays: HolidayCalendar,
+  level2Band?: PayBand,
 ): Attendance {
   if (shifts.length === 0) {
     throw new RangeError('An attendance needs at least one shift')
   }
+  const { band, level2, partial } = attendanceBand(shifts, ownBand, level2Band)
 
   const intervals = intervalsFor(shifts)
   const span = attendanceSpan(intervals)
@@ -352,9 +387,10 @@ export function priceAttendance(
     topUp,
     minimumApplied,
     crossesMidnight: span.crossesMidnight,
-    flags: flagsFor(shifts, span.dates, holidays),
+    flags: [...flagsFor(shifts, span.dates, holidays), ...level2Flags(partial, span.startDate)],
     pay: workedPay + topUpPay,
     intervals,
+    level2,
   }
 }
 
@@ -378,9 +414,11 @@ export function calculateOvertime(
   shifts: readonly OtShift[],
   band: PayBand,
   holidays: HolidayCalendar,
+  /** The Level 2 band, for shifts marked `level2`. Absent: they price at `band`. */
+  level2Band?: PayBand,
 ): OvertimeResult {
   const attendances = groupIntoAttendances(shifts).map((group) =>
-    priceAttendance(group, band, holidays),
+    priceAttendance(group, band, holidays, level2Band),
   )
 
   return {

@@ -82,12 +82,13 @@ export function saveLastFortnight(
         // `endsNextDay` is derived on read here too, for the same reason
         // `shifts.ts` gives: a field the reader ignores is one a later reader
         // will trust.
-        shifts: shifts.map(({ id, date, startMin, endMin, kind }) => ({
+        shifts: shifts.map(({ id, date, startMin, endMin, kind, level2 }) => ({
           id,
           date,
           startMin,
           endMin,
           kind,
+          ...(level2 === true ? { level2: true } : {}),
         })),
       }),
     )

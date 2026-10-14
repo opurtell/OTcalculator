@@ -38,6 +38,8 @@ export interface ShiftDraft {
    * overruling a person about their own shift is how a calculator loses trust.
    */
   kindTouched: boolean
+  /** Paid at Level 2 of the user's qualification (`OtShift.level2`). */
+  level2: boolean
 }
 
 /**
@@ -73,7 +75,15 @@ export function reserveShiftIds(shifts: readonly OtShift[]): void {
 }
 
 export function emptyDraft(): ShiftDraft {
-  return { id: null, date: '', start: '', end: '', kind: 'overrun', kindTouched: false }
+  return {
+    id: null,
+    date: '',
+    start: '',
+    end: '',
+    kind: 'overrun',
+    kindTouched: false,
+    level2: false,
+  }
 }
 
 export function draftFrom(shift: OtShift): ShiftDraft {
@@ -86,6 +96,7 @@ export function draftFrom(shift: OtShift): ShiftDraft {
     // An existing shift's kind is settled, whether it was chosen or inferred.
     // Re-running the heuristic on an edit would silently undo a correction.
     kindTouched: true,
+    level2: shift.level2 === true,
   }
 }
 
@@ -199,6 +210,9 @@ export function toShift(
     endMin,
     endsNextDay: endMin <= startMin,
     kind: draft.kind,
+    // Absent rather than `false`, so an unmarked shift has the same shape as
+    // one stored before the field existed.
+    ...(draft.level2 ? { level2: true } : {}),
   }
 }
 
@@ -268,6 +282,15 @@ export interface AttendanceDescription {
  * the difference between a user trusting the app and reconciling it by hand.
  */
 export function describeAttendance(attendance: Attendance): AttendanceDescription {
+  const described = describeAtOwnLevel(attendance)
+  // Said on the line, because a Level 2 rate is a figure the hours alone
+  // never explain.
+  return attendance.level2
+    ? { ...described, breakdown: `${described.breakdown} · Level 2 rate` }
+    : described
+}
+
+function describeAtOwnLevel(attendance: Attendance): AttendanceDescription {
   if (attendance.casual !== undefined) {
     return describeCasual(attendance, attendance.casual)
   }

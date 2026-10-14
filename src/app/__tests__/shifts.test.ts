@@ -67,7 +67,7 @@ describe('the C9.5 default', () => {
   it('stops deciding once the user has picked', () => {
     // Overruling someone about their own shift is how a calculator loses
     // trust, so a touched kind survives any later change to the times.
-    const chosen = { ...draft({ end: '11:00' }), kind: 'separate' as const, kindTouched: true }
+    const chosen = { ...draft({ end: '11:00' }), kind: 'separate' as const, kindTouched: true, level2: false }
     expect(withInferredKind(chosen).kind).toBe('separate')
   })
 
@@ -334,17 +334,17 @@ describe('reserving restored ids', () => {
 
 describe('toShift with an injected id generator', () => {
   it('uses the generator for a new shift', () => {
-    const draft = { id: null, date: '2026-10-15', start: '07:00', end: '11:00', kind: 'separate' as const, kindTouched: true }
+    const draft = { id: null, date: '2026-10-15', start: '07:00', end: '11:00', kind: 'separate' as const, kindTouched: true, level2: false }
     expect(toShift(draft, () => 'uuid-1')?.id).toBe('uuid-1')
   })
   it('keeps an existing id and never calls the generator', () => {
-    const draft = { id: 'keep-me', date: '2026-10-15', start: '07:00', end: '11:00', kind: 'separate' as const, kindTouched: true }
+    const draft = { id: 'keep-me', date: '2026-10-15', start: '07:00', end: '11:00', kind: 'separate' as const, kindTouched: true, level2: false }
     const gen = vi.fn(() => 'unused')
     expect(toShift(draft, gen)?.id).toBe('keep-me')
     expect(gen).not.toHaveBeenCalled()
   })
   it('falls back to shift-N when no generator is given', () => {
-    const draft = { id: null, date: '2026-10-15', start: '07:00', end: '11:00', kind: 'separate' as const, kindTouched: true }
+    const draft = { id: null, date: '2026-10-15', start: '07:00', end: '11:00', kind: 'separate' as const, kindTouched: true, level2: false }
     expect(toShift(draft)?.id).toMatch(/^shift-\d+$/)
   })
 })

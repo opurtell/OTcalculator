@@ -102,6 +102,13 @@ export interface OtShift {
   /** True when `endMin` falls on the day after `date`. */
   endsNextDay: boolean
   kind: ShiftKind
+  /**
+   * Paid at Level 2 of the user's qualification — a Duty Officer, TDO, CSO,
+   * Comms Centre Clinician or Station Officer shift. Absent means the user's
+   * own band, so a record written before the field existed reads unchanged.
+   * See `FortnightSettings.level2Band` for the rate it is priced at.
+   */
+  level2?: boolean
 }
 
 /** A worked stretch of wall-clock time. Gaps between shifts are not intervals. */
@@ -229,6 +236,11 @@ export type AttendanceFlag =
   | { kind: 'beyond-holiday-data'; date: IsoDate }
   /** A date is a daylight-saving transition, so wall-clock hours mislead (§3.14). */
   | { kind: 'dst-transition'; date: IsoDate }
+  /**
+   * Only some of the shifts in one attendance are marked Level 2, so the
+   * attendance is priced at the user's own band — the lower rate, erring low.
+   */
+  | { kind: 'level2-partial'; date: IsoDate }
 
 // ---------------------------------------------------------------------------
 // Structural constants — formula, not table

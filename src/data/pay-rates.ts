@@ -87,3 +87,38 @@ export function payBandFor(
     (band) => band.classification === classification && band.step === step,
   )
 }
+
+/**
+ * Which scale is Level 2 of each qualification. Pattern B in the sibling
+ * repo's `reference-sources/actas_roles_and_qualifications.md`: a TDO, CSO,
+ * Duty Officer, Comms Centre Clinician or Station Officer shift is paid at
+ * Level 2 of the person's own qualification.
+ */
+const LEVEL2_OF: Readonly<Record<Classification, Classification>> = {
+  AP1: 'AP2',
+  AP2: 'AP2',
+  ICP1: 'ICP2',
+  ICP2: 'ICP2',
+}
+
+/**
+ * The step a one-off Level 2 shift is paid at: the bottom of the scale.
+ * Assumed rather than sourced — C5.3 lifts it after 12 months of higher
+ * duties, which a per-shift tick cannot know. Phase 10 checks it.
+ */
+export const LEVEL2_STEP = 1
+
+/**
+ * The band a Level 2 shift is priced at, or `undefined` for a classification
+ * the table does not know. Someone already on Level 2 keeps their own step.
+ */
+export function level2BandFor(
+  classification: string,
+  step: number,
+): PayBand | undefined {
+  if (!(classification in LEVEL2_OF)) return undefined
+  const level2 = LEVEL2_OF[classification as Classification]
+  return level2 === classification
+    ? payBandFor(classification, step)
+    : payBandFor(level2, LEVEL2_STEP)
+}

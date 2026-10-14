@@ -51,6 +51,11 @@ export interface FortnightSettings {
    * total are not read for one.
    */
   employment?: EmploymentType
+  /**
+   * The band a shift marked `level2` is priced at — Level 2 of the user's
+   * qualification. Absent: marked shifts price at `band` like any other.
+   */
+  level2Band?: PayBand
 }
 
 /** One pass of the money calculation, at a given gross. */
@@ -180,10 +185,10 @@ export function calculateFortnight(
   const employment = settings.employment ?? 'full-time'
   const casual =
     employment === 'casual'
-      ? calculateCasual(shifts, settings.band, settings.holidays)
+      ? calculateCasual(shifts, settings.band, settings.holidays, settings.level2Band)
       : null
   const overtime =
-    casual ?? calculateOvertime(shifts, settings.band, settings.holidays)
+    casual ?? calculateOvertime(shifts, settings.band, settings.holidays, settings.level2Band)
   const comparison = comparePay(overtime.gross, settings, casual?.ordinaryGross)
 
   const deductions = computeDeductions(comparison.withOt.gross, settings.deductions)

@@ -516,6 +516,7 @@ export function Calculator({
               holidays={settings.holidays}
               meals={settings.meals}
               employment={fields.employment}
+              level2Band={settings.level2Band}
             />
           ) : null}
           <FortnightPathway
