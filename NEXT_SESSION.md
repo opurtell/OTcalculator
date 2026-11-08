@@ -100,7 +100,7 @@ Tests, `tsc`, the build assertions and the deployed URLs all pass, which covers
 less than it sounds like.
 
 The list is in `CLAUDE.md` under "What Phase 9 still owes you". It is maybe
-twenty minutes with the live site at https://opurtell.github.io/OTcalculator/
+twenty minutes with the live site at https://otcalc.paramedtools.com/
 or a local `npm run preview`, and it should happen *alongside* Phase 10 rather
 than after it: a keyboard trap or a broken offline reload found now is cheaper
 than one found by the first colleague who opens it.

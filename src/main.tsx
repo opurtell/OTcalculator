@@ -24,9 +24,9 @@ createRoot(container).render(
 // Offline support (§4.7). Production only: in dev the worker would cache the
 // module graph and fight HMR, which is why vite-pwa.ts emits it on build.
 //
-// BASE_URL, not '/' — the worker's scope is the directory it is served from,
-// and a worker registered at the domain root could not control a page served
-// from /OTcalculator/. Same subpath trap as `base` in vite.config.ts.
+// BASE_URL, not '/' — the worker's scope is the directory it is served from.
+// With the relative base it is './', so the worker sits beside the page on
+// the custom domain's root and on the old /OTcalculator/ subpath alike.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker

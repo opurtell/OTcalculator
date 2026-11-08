@@ -6,12 +6,15 @@ import { pwa } from './vite-pwa'
 // The app build. The component library has its own config in
 // vite.config.lib.ts — see the comment there before moving anything.
 export default defineConfig({
-  // GitHub Pages serves this repo from https://opurtell.github.io/OTcalculator/,
-  // not from the domain root. The Vite default of '/' emits absolute asset URLs
-  // that 404 there and the page renders blank with no console error worth the
-  // name. IMPLEMENTATION_PLAN.md §4.6 calls this the single most common Pages
-  // failure. Do not remove it.
-  base: '/OTcalculator/',
+  // Relative, so one build serves from any path: the custom domain's root
+  // (https://otcalc.paramedtools.com/) and the old Pages subpath
+  // (opurtell.github.io/OTcalculator/, which GitHub redirects to the domain
+  // once it is set). The Vite default of '/' would 404 every asset on the
+  // subpath, and '/OTcalculator/' would 404 every asset on the domain — either
+  // renders a blank page with no console error worth the name.
+  // IMPLEMENTATION_PLAN.md §4.6 calls this the single most common Pages
+  // failure. The app has no routes, so a relative base has no downside here.
+  base: './',
   // The service worker is emitted on build only — see vite-pwa.ts. In dev it
   // would cache the module graph and fight HMR.
   plugins: [react(), pwa()],
