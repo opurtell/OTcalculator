@@ -144,7 +144,7 @@ rather than matching it against this list.
   fixture changes, every authored preview's numbers change with it and the
   cards must be re-captured and re-graded.
 - **The app and the library are two separate Vite configs.** `vite.config.ts`
-  is the app (Phase 0, `base: '/OTcalculator/'`, output `dist/`);
+  is the app (Phase 0, `base: './'`, output `dist/`);
   `vite.config.lib.ts` is this library (output `dist-lib/`). The converter
   reads the library bundle, so nothing about `vite.config.lib.ts`'s entry,
   `fileName` or `outDir` may move without updating `config.json`'s `cssEntry`,

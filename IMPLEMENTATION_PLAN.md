@@ -351,7 +351,7 @@ As built through Phase 9:
 ```
 OTcalculator/
 ├── index.html
-├── vite.config.ts               base: '/OTcalculator/'   ← see §4.6
+├── vite.config.ts               base: './'   ← see §4.6
 ├── vite-pwa.ts                  emits sw.js with the build's asset list (§4.7)
 ├── vite.config.lib.ts           the SEPARATE library build → dist-lib/
 ├── scripts/
@@ -556,7 +556,7 @@ GitHub Actions on push to `main`: install, `vitest run`, `vite build`, publish `
 
 Two gotchas to get right on day one:
 
-1. `vite.config.ts` needs `base: '/OTcalculator/'` — the repo serves from a subpath, and the default `/` produces a blank page with 404s on every asset. This is the single most common GitHub Pages failure.
+1. `vite.config.ts` needs a base that matches where Pages serves the app — the default `/` on a repo subpath produces a blank page with 404s on every asset. This is the single most common GitHub Pages failure. *(2026-11-08: now the relative `base: './'`, since the app moved to the custom domain `otcalc.paramedtools.com` and the old `/OTcalculator/` subpath must keep working through the switch.)*
 2. Repository Settings → Pages → Source must be **GitHub Actions**, not "Deploy from a branch".
 
 Add a `404.html` that redirects to `index.html` if client-side routing is used; simpler to use hash-based tabs and skip it.

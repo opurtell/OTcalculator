@@ -6,7 +6,8 @@ income — plus what the overtime actually added to take-home pay.
 A static single-page app for ACTAS paramedics. No backend, no account, no
 analytics; every figure stays in your browser's `localStorage`.
 
-**Live:** https://opurtell.github.io/OTcalculator/
+**Live:** https://otcalc.paramedtools.com/ (the old
+https://opurtell.github.io/OTcalculator/ redirects there)
 
 > **Estimate only.** Based on the ACTAS Enterprise Agreement 2023–2026 and ATO
 > withholding schedules. Not payroll advice. Check your payslip. The
@@ -54,7 +55,7 @@ exports breaks that consumer — re-vendor there after any change here.
 
 ```sh
 npm install
-npm run dev        # app at http://localhost:5173/OTcalculator/
+npm run dev        # app at http://localhost:5173/
 npm test           # vitest, the engine's test suite lives here
 npm run typecheck
 npm run build      # app → dist/
@@ -85,7 +86,7 @@ offline behaviour has to be checked through `npm run preview`.
 | `src/components/` | The screens themselves |
 | `src/App.tsx` | The app shell — the only place that reaches for `localStorage` |
 | `public/` | PWA manifest and the generated icons |
-| `vite.config.ts` | App build. Carries `base: '/OTcalculator/'` |
+| `vite.config.ts` | App build. Carries the relative `base: './'` |
 | `vite-pwa.ts` | Emits `sw.js` with the build's own asset list baked in |
 | `vite.config.lib.ts` | Library build, output `dist-lib/` |
 
@@ -96,16 +97,22 @@ then publish `dist/` to GitHub Pages. **A failing test blocks the deploy.**
 
 Two things about this that are easy to get wrong:
 
-1. **`base: '/OTcalculator/'` in `vite.config.ts`.** Pages serves from a
-   subpath; the Vite default of `/` gives a blank page with a 404 on every
-   asset. The workflow asserts the built `index.html` carries subpath asset
-   URLs so this cannot regress silently.
+1. **`base: './'` in `vite.config.ts`.** The app is served at the custom
+   domain's root, and the old Pages subpath `/OTcalculator/` still reaches it.
+   A relative base serves both; an absolute one (`/` or `/OTcalculator/`)
+   gives a blank page with a 404 on every asset on the other. The workflow
+   asserts the built `index.html` carries relative asset URLs so this cannot
+   regress silently.
 2. **Repository Settings → Pages → Source must be "GitHub Actions"**, not
    "Deploy from a branch". This is a one-time setting in the GitHub UI and the
    workflow cannot set it for you — the first deploy fails without it.
+3. **The custom domain lives in Settings → Pages → Custom domain**
+   (`otcalc.paramedtools.com`, with "Enforce HTTPS" on), backed by a DNS
+   `CNAME otcalc → opurtell.github.io`. There is no `CNAME` file in `public/`
+   on purpose: Pages ignores it when deploying from Actions.
 
 The workflow also asserts that `dist/sw.js`, the manifest and the icons exist
-and that the worker's precache list carries subpath URLs. Offline support fails
+and that the worker's precache list carries relative URLs. Offline support fails
 the same silent way the base path does: the app still loads over the network,
 so nothing looks wrong until someone opens it with no signal.
 

@@ -44,10 +44,11 @@ jobs:
         # they produce near-identical symptoms — a page that loads but shows
         # nothing usable — so neither is safe to leave to a manual glance.
         run: |
-          # base: '/' slipping out of vite.config.ts gives a blank page and a
-          # 404 on every asset once Pages serves from the subpath.
-          grep -q '/OTcalculator/assets/' dist/index.html \
-            || { echo "dist/index.html has no /OTcalculator/ asset URLs — check base in vite.config.ts"; exit 1; }
+          # The relative base ('./') lets one build serve from the custom
+          # domain's root and the old /OTcalculator/ subpath alike. An absolute
+          # base breaks one of them with a blank page and a 404 on every asset.
+          grep -q '"./assets/' dist/index.html \
+            || { echo "dist/index.html has no relative ./assets/ URLs — check base in vite.config.ts"; exit 1; }
           # The stylesheet is reachable only through an explicit import in
           # src/main.tsx: package.json's sideEffects field lets Rollup drop the
           # barrel's CSS import, which ships the app unstyled.
@@ -57,11 +58,11 @@ jobs:
             || { echo "dist/index.html does not link a stylesheet"; exit 1; }
           # Offline support fails the same silent way: the app still loads over
           # the network, so nothing looks wrong until someone opens it in a
-          # basement. The worker's precache list must carry subpath URLs for
+          # basement. The worker's precache list must carry relative URLs for
           # the same reason index.html must.
           test -f dist/sw.js || { echo "no dist/sw.js — check the pwa() plugin in vite.config.ts"; exit 1; }
-          grep -q '"/OTcalculator/assets/' dist/sw.js \
-            || { echo "dist/sw.js precache list has no /OTcalculator/ URLs — check base handling in vite-pwa.ts"; exit 1; }
+          grep -q '"./assets/' dist/sw.js \
+            || { echo "dist/sw.js precache list has no relative ./assets/ URLs — check base handling in vite-pwa.ts"; exit 1; }
           for asset in manifest.webmanifest icon-192.png icon-512.png apple-touch-icon.png; do
             test -f "dist/$asset" \
               || { echo "dist/$asset missing — run 'node scripts/make-icons.mjs' and commit public/"; exit 1; }

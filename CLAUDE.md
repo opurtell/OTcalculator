@@ -22,7 +22,7 @@ Phases against `IMPLEMENTATION_PLAN.md` §6:
 
 | Phase | State |
 | --- | --- |
-| **0** Scaffold | **Done.** `src/main.tsx`, `src/App.tsx` (a deliberate placeholder — no figures), `.github/workflows/deploy.yml`, live at https://opurtell.github.io/OTcalculator/ |
+| **0** Scaffold | **Done.** `src/main.tsx`, `src/App.tsx` (a deliberate placeholder — no figures), `.github/workflows/deploy.yml`, live at https://otcalc.paramedtools.com/ (custom domain; the old github.io URL redirects) |
 | **1** Reference data | **Done.** `src/data/` — Annex A tables, ACT holidays, NAT 1004, HELP, FBT caps, the 44-hour roster patterns. Tax and HELP are FY2026-27, sourced from the ATO on 21 August 2026; the §3.8 fallback remains for FY2027-28. See "Reference data" below |
 | **2** OT engine | **Done.** `src/engine/` — ratchet, categories, attendance grouping, C9.5 minimum, OT dollars |
 | **3** Money engine | **Done.** `tax.ts`, `packaging.ts`, `fortnight.ts` — PAYG, HELP, pre-tax deductions, the with/without-OT delta. **The §4.5 golden fixture passes end to end** |
@@ -411,7 +411,7 @@ is the first thing to check. It is also a reminder worth keeping: the app was
 built for four phases without anyone opening it in a browser.
 
 **There are two Vite configs and mixing them up wastes a session.**
-`vite.config.ts` is the *app* build (`base: '/OTcalculator/'`, output `dist/`,
+`vite.config.ts` is the *app* build (`base: './'`, output `dist/`,
 and the `pwa()` plugin from `vite-pwa.ts`). `vite.config.lib.ts` is the
 *library* build for the design sync (output `dist-lib/`, `npm run build:lib`,
 `publicDir: false` so the app's icons stay out of it). `package.json` still
@@ -723,9 +723,11 @@ occasion from 4 December 2025.
    **Casuals are the exception**: N34 reaches only the 44-hour roster (N23.1),
    so casual overtime runs on C9.12 — see "Casual employment".
 
-5. **`vite.config.ts` carries `base: '/OTcalculator/'`.** GitHub Pages serves
-   from a subpath; the Vite default of `/` gives a blank page with a 404 on
-   every asset. The deploy workflow asserts the built `index.html` has subpath
+5. **`vite.config.ts` carries the relative `base: './'`.** The app is served
+   at `otcalc.paramedtools.com/`, and the old Pages subpath `/OTcalculator/`
+   still reaches it, so one build has to work at both. An absolute base (`/`
+   or `/OTcalculator/`) gives a blank page with a 404 on every asset on the
+   other path. The deploy workflow asserts the built `index.html` has relative
    asset URLs, so this cannot regress silently — do not "tidy" the base away.
 
 6. **"Pre-tax deductions" is one field over several unrelated things, so it
